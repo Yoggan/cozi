@@ -1,0 +1,43 @@
+{
+  "name": "cozi",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "check-types": "turbo run check-types",
+    "dev:native": "turbo run dev -F native --",
+    "dev:web": "turbo run dev -F web --",
+    "dev:server": "turbo run dev -F @cozi/backend --",
+    "dev:setup": "turbo run dev:setup -F @cozi/backend --",
+    "deploy:setup": "pnpm dlx vercel link",
+    "dev:vercel": "pnpm dlx vercel dev -L",
+    "env:preview": "tsx scripts/sync-vercel-env.ts preview",
+    "env:production": "tsx scripts/sync-vercel-env.ts production",
+    "deploy": "pnpm dlx vercel deploy",
+    "deploy:prod": "pnpm dlx vercel deploy --prod",
+    "deploy:check": "pnpm dlx vercel deploy --dry",
+    "env:generate": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/native/",
+    "postinstall": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/native/",
+    "check": "oxlint && oxfmt --write"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@cozi/config": "workspace:*",
+    "@types/node": "catalog:",
+    "lefthook": "^2.2.2",
+    "oxfmt": "^0.78.0",
+    "oxlint": "^1.93.0",
+    "tsx": "^4.23.15",
+    "turbo": "^2.11.11",
+    "typescript": "^6.0.3",
+    "varlock": "catalog:"
+  },
+  "packageManager": "pnpm@12.6.0"
+}
