@@ -1,0 +1,228 @@
+import type { Id } from "../_generated/dataModel";
+import type { BankAccountStatus, PaymentMethod, PaymentStatus } from "../schema";
+
+/**
+ * Contratos de la API REST de Pey.
+ *
+ * TODO(pey): los nombres de campos de los `*Raw` son placeholders hasta pegar
+ * los payloads oficiales de Bank Account, CoDi, Payment Link y Webhooks.
+ * La capa que cambia es esta + `client.ts`; el resto del backend consume
+ * únicamente los tipos normalizados de abajo.
+ */
+
+export interface PeyRawResponse {
+  id: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
+export interface PeyBankAccountRaw extends PeyRawResponse {
+  institution?: string;
+  clabe?: string;
+  holder_name?: string;
+}
+
+export interface PeyCodiChargeRaw extends PeyRawResponse {
+  qr_image_url?: string;
+  deep_link?: string;
+  expires_at?: string | number;
+  transaction_id?: string;
+}
+
+export interface PeyPaymentLinkRaw extends PeyRawResponse {
+  url?: string;
+  short_url?: string;
+  expires_at?: string | number;
+  transaction_id?: string;
+}
+
+export interface PeyTransactionRaw extends PeyRawResponse {
+  reference?: string;
+  amount?: number;
+  amount_cents?: number;
+  currency?: string;
+  paid_at?: string | number;
+  failure_reason?: string;
+}
+
+/** Payload sin validar que llega a POST /webhooks/pey. */
+export interface PeyWebhookEvent {
+  id?: string;
+  eventId?: string;
+  event_id?: string;
+  type?: string;
+  event_type?: string;
+  data?: Record<string, unknown>;
+  payload?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface NormalizedPeyWebhook {
+  eventId: string;
+  type: string;
+  references: string[];
+  status: PaymentStatus | null;
+  amountCents: number | null;
+  currency: string | null;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Entradas que usa el backend para llamar a Pey                              */
+/* -------------------------------------------------------------------------- */
+
+export interface RegisterBankAccountInput {
+  holderName: string;
+  accountType: "clabe" | "card";
+  accountNumber: string; // solo se usa en tránsito; nunca se persiste
+  businessId?: string;
+}
+
+export interface CreateCodiChargeInput {
+  amountCents: number;
+  currency: "MXN";
+  description: string;
+  reference: string;
+  bankAccountId: string;
+  method: "qr" | "push";
+  payerPhone?: string;
+}
+
+export interface CreatePaymentLinkInput {
+  amountCents: number;
+  currency: "MXN";
+  description: string;
+  reference: string;
+  bankAccountId: string;
+  expiresInMinutes?: number;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Salidas normalizadas                                                       */
+/* -------------------------------------------------------------------------- */
+
+export interface PeyBankAccountResult {
+  id: string;
+  status: BankAccountStatus;
+  institution?: string;
+}
+
+export interface PeyCodiChargeResult {
+  id: string;
+  status: PaymentStatus;
+  qrImageUrl?: string;
+  deepLink?: string;
+  expiresAt?: number;
+  transactionId?: string;
+}
+
+export interface PeyPaymentLinkResult {
+  id: string;
+  status: PaymentStatus;
+  url: string;
+  expiresAt?: number;
+  transactionId?: string;
+}
+
+export interface PeyTransactionResult {
+  id: string;
+  status: PaymentStatus;
+  amountCents?: number;
+  paidAt?: number;
+  failureReason?: string;
+}
+
+export interface PeyPaymentUpdate {
+  status: PaymentStatus;
+  amountCents?: number;
+  paidAt?: number;
+  failureReason?: string;
+}
+
+/** Referencias mínimas para consultar el estado real de un pago. */
+export interface PaymentProviderRefs {
+  method: PaymentMethod;
+  peyReference?: string;
+  peyPaymentId?: string;
+  peyPaymentLinkId?: string;
+  peyCodiId?: string;
+  peyTransactionId?: string;
+}
+
+/** Contrato que implementa `client.ts`. */
+export interface PeyClient {
+  createBankAccount(input: RegisterBankAccountInput): Promise<PeyBankAccountResult>;
+  createCodiCharge(input: CreateCodiChargeInput): Promise<PeyCodiChargeResult>;
+  createPaymentLink(input: CreatePaymentLinkInput): Promise<PeyPaymentLinkResult>;
+  getCodiCharge(id: string): Promise<PeyCodiChargeResult>;
+  getPaymentLink(id: string): Promise<PeyPaymentLinkResult>;
+  getTransaction(id: string): Promise<PeyTransactionResult>;
+}
+
+/** Lo que devuelven las acciones de Convex a Expo y Next.js. */
+export interface PaymentHandle {
+  paymentId: Id<"payments">;
+  method: PaymentMethod;
+  status: PaymentStatus;
+  amountCents: number;
+  qrImageUrl?: string;
+  deepLink?: string;
+  checkoutUrl?: string;
+  expiresAt?: number;
+  reused: boolean;
+}
+
+/**
+ * Normaliza estados de Pey al enum interno. Si Pey usa un estado nuevo,
+ * cae a `null` y el llamador decide (los webhooks lo marcan como ignorado).
+ */
+export function normalizePaymentStatus(raw: string | null | undefined): PaymentStatus | null {
+  if (!raw) return null;
+
+  const status = raw.trim().toLowerCase();
+
+  if (
+    [
+      "succeeded",
+      "success",
+      "completed",
+      "paid",
+      "approved",
+      "settled",
+      "pagado",
+      "aprobado",
+    ].includes(status)
+  ) {
+    return "succeeded";
+  }
+  if (["processing", "in_progress", "in-progress", "pending_confirmation"].includes(status)) {
+    return "processing";
+  }
+  if (
+    ["pending", "created", "requires_action", "awaiting_payment", "open", "not_started"].includes(
+      status,
+    )
+  ) {
+    return "pending";
+  }
+  if (
+    [
+      "failed",
+      "failure",
+      "declined",
+      "rejected",
+      "error",
+      "canceled",
+      "cancelled",
+      "fallido",
+    ].includes(status)
+  ) {
+    return "failed";
+  }
+  if (["expired", "timeout", "timed_out", "expirado"].includes(status)) {
+    return "expired";
+  }
+  if (["refunded", "refund", "reembolsado"].includes(status)) {
+    return "refunded";
+  }
+  return null;
+}
