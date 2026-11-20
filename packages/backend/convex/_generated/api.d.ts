@@ -9,6 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as contacts from "../contacts.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
 import type * as lib_identifiers from "../lib/identifiers.js";
@@ -26,6 +27,7 @@ import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  contacts: typeof contacts;
   healthCheck: typeof healthCheck;
   http: typeof http;
   "lib/identifiers": typeof lib_identifiers;

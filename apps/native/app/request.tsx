@@ -1,45 +1,65 @@
 import { api } from "@cozi/backend/convex/_generated/api";
-import { useAction, useMutation } from "convex/react";
-import { useRouter } from "expo-router";
-import { useState } from "react";
-import {
-  Button,
-  Input,
-  Label,
-  Spinner,
-  Text,
-  TextArea,
-  TextField,
-  useThemeColor,
-  useToast,
-} from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, TextInput, View } from "react-native";
+import { useAction, useMutation, useQuery } from "convex/react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useToast } from "heroui-native";
+import { useState } from "react";
+import { Pressable, Text, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Container } from "@/components/container";
+import { ContactSuggestions } from "@/components/contact-suggestions";
+import {
+  GlassField,
+  HeroAmount,
+  PaymentHeader,
+  PrimaryPillButton,
+  QuickAmountPicker,
+  usePaymentTheme,
+} from "@/components/payment-controls";
+import { ThemeBackdrop } from "@/components/theme-backdrop";
 import { useProfile } from "@/contexts/profile-context";
-import { formatMxn, parseAmountToCents } from "@/lib/money";
-
-const QUICK_AMOUNTS = [100, 200, 500, 1000];
+import { CONTACTS_BACKEND_READY } from "@/lib/features";
+import { parseAmountToCents } from "@/lib/money";
+import { firstParam } from "@/lib/search-params";
 
 export default function RequestScreen() {
   const profile = useProfile();
   const router = useRouter();
+  const params = useLocalSearchParams<{ handle?: string }>();
+  const initialHandle = firstParam(params.handle);
   const { toast } = useToast();
-  const muted = useThemeColor("muted");
-  const warning = useThemeColor("warning");
+  const insets = useSafeAreaInsets();
+  const theme = usePaymentTheme();
   const createRequest = useMutation(api.p2p.createRequest);
   const createPaymentLink = useAction(api.pey.actions.createPaymentLink);
+  const contactData = useQuery(api.contacts.suggestions, CONTACTS_BACKEND_READY ? {} : "skip");
+  const contacts = contactData ? [...contactData.saved, ...contactData.recent] : [];
 
-  const [payer, setPayer] = useState("");
+  const [payer, setPayer] = useState(initialHandle?.replace(/^@/, "") ?? "");
   const [amountText, setAmountText] = useState("");
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [handleFocused, setHandleFocused] = useState(false);
+  const [suppressSuggestions, setSuppressSuggestions] = useState(false);
 
   const amountCents = parseAmountToCents(amountText);
   const cleanPayer = payer.replace(/^@/, "").replaceAll(/\s/g, "").toLowerCase();
+  const showSuggestions =
+    CONTACTS_BACKEND_READY && handleFocused && !suppressSuggestions && contacts.length > 0;
   const canSubmit =
     profile.hasReceivingAccount && amountCents !== null && amountCents >= 1000 && !isSubmitting;
+
+  function handlePayerChange(value: string) {
+    setPayer(value);
+    setSuppressSuggestions(false);
+  }
+
+  function selectSuggestion(contact: { handle: string }) {
+    setPayer(contact.handle);
+    setSuppressSuggestions(true);
+  }
 
   async function handleSubmit() {
     if (amountCents === null) {
@@ -78,100 +98,127 @@ export default function RequestScreen() {
   }
 
   return (
-    <Container className="px-5">
-      {!profile.hasReceivingAccount ? (
-        <Pressable
-          onPress={() => router.replace("/profile")}
-          className="mt-4 flex-row items-center gap-3 rounded-2xl bg-surface p-4"
-        >
-          <Ionicons name="alert-circle" size={22} color={warning} />
-          <View className="flex-1">
-            <Text className="text-sm font-medium text-foreground">Primero vincula tu cuenta</Text>
-            <Text className="mt-0.5 text-xs text-muted">
-              Necesitas una CLABE verificada para recibir pagos.
+    <View
+      style={{ flex: 1, backgroundColor: theme.isImmersive ? theme.baseColor : theme.background }}
+    >
+      <StatusBar style={theme.dark ? "light" : "dark"} />
+      {theme.isImmersive && theme.backdrop ? (
+        <ThemeBackdrop backdrop={theme.backdrop} height={420} />
+      ) : null}
+
+      <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 20 }}>
+        <View style={{ width: "100%", maxWidth: 460, alignSelf: "center" }}>
+          <PaymentHeader title="Cobrar" onBack={() => router.back()} />
+        </View>
+      </View>
+
+      <KeyboardAwareScrollView
+        bottomOffset={24}
+        contentInsetAdjustmentBehavior="never"
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: 20,
+          paddingTop: 20,
+          paddingBottom: Math.max(insets.bottom, 20) + 8,
+        }}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={{ flexGrow: 1, width: "100%", maxWidth: 460, alignSelf: "center" }}>
+          <View style={{ gap: 22 }}>
+            {!profile.hasReceivingAccount ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.replace("/profile")}
+                style={({ pressed }) => ({
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                  paddingHorizontal: 14,
+                  paddingVertical: 13,
+                  borderRadius: 18,
+                  borderWidth: 1,
+                  backgroundColor: theme.warningFill,
+                  borderColor: theme.warningBorder,
+                  opacity: pressed ? 0.82 : 1,
+                })}
+              >
+                <Ionicons name="alert-circle" size={20} color={theme.warningText} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: "600" }}>
+                    Primero vincula tu cuenta
+                  </Text>
+                  <Text
+                    style={{
+                      marginTop: 2,
+                      color: theme.textMuted,
+                      fontSize: 12,
+                      lineHeight: 17,
+                    }}
+                  >
+                    Necesitas una CLABE verificada para recibir pagos.
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={theme.icon} />
+              </Pressable>
+            ) : null}
+
+            <GlassField
+              autoCapitalize="none"
+              autoCorrect={false}
+              icon="at"
+              label="Para (opcional)"
+              hint={showSuggestions ? undefined : "Déjalo vacío para compartir el link"}
+              onChangeText={handlePayerChange}
+              onFocusChange={setHandleFocused}
+              placeholder="ej. sergio"
+              value={payer}
+            />
+            {showSuggestions ? (
+              <ContactSuggestions
+                contacts={contacts}
+                onSelect={selectSuggestion}
+                query={cleanPayer}
+              />
+            ) : null}
+
+            <HeroAmount value={amountText} onChangeText={setAmountText} />
+            <QuickAmountPicker
+              amountCents={amountCents}
+              onSelect={(amount) => setAmountText(amount.toLocaleString("es-MX"))}
+            />
+            <GlassField
+              icon="chatbubble-outline"
+              label="Nota (opcional)"
+              multiline
+              onChangeText={setNote}
+              placeholder="Renta, comida, regalo..."
+              value={note}
+            />
+          </View>
+
+          <View style={{ marginTop: "auto", paddingTop: 28 }}>
+            <PrimaryPillButton
+              isDisabled={!canSubmit}
+              isSubmitting={isSubmitting}
+              label="Crear cobro"
+              onPress={handleSubmit}
+            />
+            <Text
+              style={{
+                marginTop: 14,
+                textAlign: "center",
+                color: theme.caption,
+                fontSize: 12,
+                lineHeight: 18,
+              }}
+            >
+              Comparte el link por WhatsApp o Instagram. El dinero llega directo a tu cuenta.
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={muted} />
-        </Pressable>
-      ) : null}
-
-      <View className="pb-2 pt-4">
-        <Text className="text-sm text-muted">¿A quién le quieres cobrar?</Text>
-        <TextField className="mt-2">
-          <Label>@handle (opcional)</Label>
-          <Input
-            value={payer}
-            onChangeText={setPayer}
-            placeholder="Déjalo vacío para compartir el link"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </TextField>
-      </View>
-
-      <View className="items-center py-8">
-        <View className="flex-row items-center">
-          <Text className="text-3xl font-semibold text-muted">$</Text>
-          <TextInput
-            value={amountText}
-            onChangeText={setAmountText}
-            placeholder="0.00"
-            placeholderTextColor={muted}
-            keyboardType="decimal-pad"
-            className="min-w-[120px] text-center text-5xl font-semibold tracking-tight text-foreground"
-          />
         </View>
-        <Text className="mt-2 text-sm text-muted">MXN</Text>
-      </View>
-
-      <View className="flex-row justify-center gap-2">
-        {QUICK_AMOUNTS.map((amount) => (
-          <Pressable
-            key={amount}
-            onPress={() => setAmountText(String(amount))}
-            className="rounded-full bg-surface-secondary px-4 py-2"
-          >
-            <Text className="text-sm font-medium text-foreground">${amount}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <View className="mt-6">
-        <TextField>
-          <Label>Nota (opcional)</Label>
-          <TextArea
-            value={note}
-            onChangeText={setNote}
-            placeholder="Renta, comida, regalo..."
-            numberOfLines={2}
-          />
-        </TextField>
-      </View>
-
-      {amountCents !== null && amountCents >= 1000 ? (
-        <View className="mt-6 gap-2 rounded-2xl bg-surface p-4">
-          <View className="flex-row justify-between">
-            <Text className="text-sm text-muted">Cobras</Text>
-            <Text className="text-sm font-medium text-foreground">{formatMxn(amountCents)}</Text>
-          </View>
-          <View className="flex-row justify-between">
-            <Text className="text-sm text-muted">Comisión</Text>
-            <Text className="text-sm font-medium text-success-soft-foreground">Gratis</Text>
-          </View>
-        </View>
-      ) : null}
-
-      <Button onPress={handleSubmit} isDisabled={!canSubmit} className="mt-6">
-        {isSubmitting ? (
-          <Spinner size="sm" color="default" />
-        ) : (
-          <Button.Label>Crear cobro</Button.Label>
-        )}
-      </Button>
-
-      <Text className="mt-4 pb-6 text-center text-xs text-muted">
-        Comparte el link por WhatsApp o Instagram. El dinero llega directo a tu cuenta.
-      </Text>
-    </Container>
+      </KeyboardAwareScrollView>
+    </View>
   );
 }

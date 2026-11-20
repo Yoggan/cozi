@@ -13,7 +13,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { AppLockScreen } from "@/components/app-lock-screen";
 import { Splash } from "@/components/splash";
 import { AppLockProvider, useAppLock } from "@/contexts/app-lock-context";
-import { AppThemeProvider } from "@/contexts/app-theme-context";
+import { AppThemeProvider, useAppTheme } from "@/contexts/app-theme-context";
 import { ProfileProvider } from "@/contexts/profile-context";
 import { authClient } from "@/lib/auth-client";
 import { consumeEphemeralSessionFlag } from "@/lib/remember-me";
@@ -44,6 +44,7 @@ function RootNavigator() {
   const [hasCheckedEphemeralSession, setHasCheckedEphemeralSession] = useState(false);
   const background = useThemeColor("background");
   const foreground = useThemeColor("foreground");
+  const { isImmersive, baseColor } = useAppTheme();
 
   useEffect(() => {
     let active = true;
@@ -73,10 +74,13 @@ function RootNavigator() {
 
   const screenOptions = {
     headerShown: false,
-    headerStyle: { backgroundColor: background },
-    headerTintColor: foreground,
-    headerTitleStyle: { color: foreground, fontWeight: "600" as const },
-    contentStyle: { backgroundColor: background },
+    headerStyle: { backgroundColor: isImmersive ? baseColor : background },
+    headerTintColor: isImmersive ? "#FFFFFF" : foreground,
+    headerTitleStyle: {
+      color: isImmersive ? "#FFFFFF" : foreground,
+      fontWeight: "600" as const,
+    },
+    contentStyle: { backgroundColor: isImmersive ? baseColor : background },
   };
 
   const navigator = (
@@ -102,11 +106,15 @@ function RootNavigator() {
         />
         <Stack.Screen
           name="send"
-          options={{ headerShown: true, title: "Enviar dinero", presentation: "modal" }}
+          options={{ headerShown: false, presentation: "fullScreenModal" }}
         />
         <Stack.Screen
           name="request"
-          options={{ headerShown: true, title: "Cobrar", presentation: "modal" }}
+          options={{ headerShown: false, presentation: "fullScreenModal" }}
+        />
+        <Stack.Screen
+          name="contacts"
+          options={{ headerShown: false, presentation: "fullScreenModal" }}
         />
         <Stack.Screen name="order/[publicId]" options={{ headerShown: true, title: "Pago" }} />
       </Stack.Protected>

@@ -5,6 +5,12 @@ import { useToast } from "heroui-native";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { TextInput } from "react-native";
+import Animated, {
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import z from "zod";
 
 import { AuthErrorBanner, AuthField, AuthSubmitButton } from "@/components/auth-controls";
@@ -15,6 +21,8 @@ const signInSchema = z.object({
   email: z.string().trim().min(1, "Escribe tu correo").email("Escribe un correo válido"),
   password: z.string().min(1, "Escribe tu contraseña").min(8, "Usa al menos 8 caracteres"),
 });
+
+const REMEMBER_SPRING = { damping: 20, stiffness: 240, mass: 0.7 };
 
 function getErrorMessage(error: unknown): string | null {
   if (!error) {
@@ -48,7 +56,34 @@ function getErrorMessage(error: unknown): string | null {
 export function SignIn() {
   const passwordInputRef = useRef<TextInput>(null);
   const [rememberMe, setRememberMe] = useState(true);
+  const rememberProgress = useSharedValue(rememberMe ? 1 : 0);
   const { toast } = useToast();
+
+  useEffect(() => {
+    rememberProgress.value = withSpring(rememberMe ? 1 : 0, REMEMBER_SPRING);
+  }, [rememberMe, rememberProgress]);
+
+  const rememberTrackStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      rememberProgress.value,
+      [0, 1],
+      ["rgba(255,255,255,0.08)", "rgba(255,255,255,0.28)"],
+    ),
+    borderColor: interpolateColor(
+      rememberProgress.value,
+      [0, 1],
+      ["rgba(255,255,255,0.16)", "rgba(255,255,255,0.36)"],
+    ),
+  }));
+
+  const rememberThumbStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      rememberProgress.value,
+      [0, 1],
+      ["rgba(255,255,255,0.55)", "#FFFFFF"],
+    ),
+    transform: [{ translateX: rememberProgress.value * 18 }],
+  }));
 
   const form = useForm({
     defaultValues: {
@@ -75,10 +110,6 @@ export function SignIn() {
           async onSuccess() {
             await saveRememberMeOnSignIn(rememberMe, value.email.trim());
             formApi.reset();
-            toast.show({
-              variant: "success",
-              label: "Sesión iniciada",
-            });
           },
         },
       );
@@ -167,24 +198,22 @@ export function SignIn() {
 
               <Pressable
                 accessibilityLabel="Recordarme"
-                accessibilityRole="checkbox"
+                accessibilityRole="switch"
                 accessibilityState={{ checked: rememberMe }}
-                hitSlop={8}
                 onPress={() => {
                   void selectionAsync();
                   setRememberMe((current) => !current);
                 }}
-                style={styles.rememberRow}
+                style={({ pressed }) => [styles.rememberRow, pressed && styles.rememberRowPressed]}
               >
-                <View
-                  style={[
-                    styles.checkbox,
-                    rememberMe ? styles.checkboxChecked : styles.checkboxUnchecked,
-                  ]}
-                >
-                  {rememberMe ? <Ionicons color="#09090B" name="checkmark" size={14} /> : null}
+                <Ionicons color="rgba(255,255,255,0.65)" name="time-outline" size={16} />
+                <View style={styles.rememberCopy}>
+                  <Text style={styles.rememberTitle}>Recordarme</Text>
+                  <Text style={styles.rememberCaption}>Mantener sesión iniciada</Text>
                 </View>
-                <Text style={styles.rememberLabel}>Recordarme</Text>
+                <Animated.View style={[styles.rememberTrack, rememberTrackStyle]}>
+                  <Animated.View style={[styles.rememberThumb, rememberThumbStyle]} />
+                </Animated.View>
               </Pressable>
 
               <AuthSubmitButton
@@ -218,32 +247,50 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   rememberRow: {
-    alignSelf: "flex-start",
+    minHeight: 56,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    paddingVertical: 2,
-    paddingRight: 6,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
     borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
-  checkboxChecked: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#FFFFFF",
+  rememberRowPressed: {
+    borderColor: "rgba(255, 255, 255, 0.22)",
+    backgroundColor: "rgba(255, 255, 255, 0.11)",
   },
-  checkboxUnchecked: {
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderColor: "rgba(255,255,255,0.28)",
+  rememberCopy: {
+    flex: 1,
+    gap: 1,
   },
-  rememberLabel: {
-    color: "rgba(255,255,255,0.82)",
+  rememberTitle: {
+    color: "rgba(255,255,255,0.88)",
     fontSize: 13,
     fontWeight: "500",
+  },
+  rememberCaption: {
+    color: "rgba(255,255,255,0.46)",
+    fontSize: 11,
+  },
+  rememberTrack: {
+    width: 44,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1,
+    // border + padding = 3px inset, so the 20px thumb and 18px travel stay symmetric
+    padding: 2,
+    justifyContent: "center",
+  },
+  rememberThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    shadowColor: "#000000",
+    shadowOpacity: 0.22,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
 });

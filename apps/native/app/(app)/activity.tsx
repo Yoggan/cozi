@@ -9,21 +9,42 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ActivityRow } from "@/components/activity-row";
 import { Container } from "@/components/container";
+import { useAppTheme } from "@/contexts/app-theme-context";
+
+const IMMERSIVE_DIVIDER = { borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.08)" };
 
 export default function ActivityScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const activity = useQuery(api.p2p.listActivity, { limit: 50 });
   const foreground = useThemeColor("foreground");
+  const { isImmersive, cardColor, cardBorder } = useAppTheme();
 
   return (
     <Container className="px-5" style={{ paddingTop: insets.top }}>
       <View className="pb-4 pt-4">
-        <Text className="text-2xl font-semibold tracking-tight text-foreground">Actividad</Text>
-        <Text className="mt-1 text-sm text-muted">Todos tus pagos y cobros en un solo lugar.</Text>
+        <Text
+          className="text-2xl font-semibold tracking-tight text-foreground"
+          style={isImmersive ? { color: "#FFFFFF" } : undefined}
+        >
+          Actividad
+        </Text>
+        <Text
+          className="mt-1 text-sm text-muted"
+          style={isImmersive ? { color: "rgba(255,255,255,0.72)" } : undefined}
+        >
+          Todos tus pagos y cobros en un solo lugar.
+        </Text>
       </View>
 
-      <View className="rounded-2xl bg-surface px-4">
+      <View
+        className={isImmersive ? "rounded-2xl px-4" : "rounded-2xl bg-surface px-4"}
+        style={
+          isImmersive
+            ? { backgroundColor: cardColor, borderColor: cardBorder, borderWidth: 1 }
+            : undefined
+        }
+      >
         {activity === undefined ? (
           <View className="py-10">
             <Text className="text-center text-sm text-muted">Cargando movimientos...</Text>
@@ -45,7 +66,8 @@ export default function ActivityScreen() {
             <Animated.View
               key={item.publicId}
               entering={FadeInDown.duration(280).delay(Math.min(index * 40, 240))}
-              className={index > 0 ? "border-t border-border" : undefined}
+              className={!isImmersive && index > 0 ? "border-t border-border" : undefined}
+              style={isImmersive && index > 0 ? IMMERSIVE_DIVIDER : undefined}
             >
               <ActivityRow
                 item={item}

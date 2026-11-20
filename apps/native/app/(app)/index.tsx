@@ -14,6 +14,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ActivityRow } from "@/components/activity-row";
+import { ContactsStrip } from "@/components/contacts-strip";
 import { Container } from "@/components/container";
 import { ThemeBackdrop } from "@/components/theme-backdrop";
 import { useAppTheme } from "@/contexts/app-theme-context";
@@ -247,6 +248,8 @@ export default function HomeScreen() {
             </Animated.View>
           </View>
 
+          <ContactsStrip />
+
           {/* Translucent Tinted Cards */}
           <View className="gap-4 px-4">
             {!profile.hasReceivingAccount ? (
@@ -440,6 +443,8 @@ export default function HomeScreen() {
           </Pressable>
         </View>
       </View>
+
+      <ContactsStrip />
 
       {!profile.hasReceivingAccount ? (
         <Pressable

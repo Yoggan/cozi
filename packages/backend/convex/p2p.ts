@@ -85,7 +85,7 @@ async function resolveUserHandle(ctx: QueryCtx | MutationCtx, rawHandle: string)
     throw new ConvexError("No encontramos ese @handle");
   }
 
-  return { user, handle: handleDocument.handle };
+  return { user, handle: handleDocument.handle, handleId: handleDocument._id };
 }
 
 async function resolveCounterpart(
@@ -166,6 +166,16 @@ export const createTransfer = mutation({
       updatedAt: now,
     });
 
+    const savedContact = await ctx.db
+      .query("contacts")
+      .withIndex("by_owner_handle", (q) =>
+        q.eq("ownerId", viewer.user._id).eq("handleId", recipient.handleId),
+      )
+      .unique();
+    if (savedContact) {
+      await ctx.db.patch(savedContact._id, { lastUsedAt: now, updatedAt: now });
+    }
+
     return { orderId, publicId, amountCents };
   },
 });
@@ -225,6 +235,18 @@ export const createRequest = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    if (payer) {
+      const savedContact = await ctx.db
+        .query("contacts")
+        .withIndex("by_owner_handle", (q) =>
+          q.eq("ownerId", viewer.user._id).eq("handleId", payer.handleId),
+        )
+        .unique();
+      if (savedContact) {
+        await ctx.db.patch(savedContact._id, { lastUsedAt: now, updatedAt: now });
+      }
+    }
 
     return { orderId, publicId, amountCents };
   },

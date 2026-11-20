@@ -4,7 +4,7 @@ import { useEffect, useId, useState } from "react";
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
-import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
+import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from "react-native-svg";
 
 import { useAppTheme } from "@/contexts/app-theme-context";
 
@@ -38,23 +38,24 @@ export function GlassTabBar({
   const { isLight, isImmersive } = useAppTheme();
   const dark = isImmersive || !isLight;
   const gradientId = `glass-tab-${useId().replaceAll(":", "")}`;
+  const bloomId = `glass-bloom-${useId().replaceAll(":", "")}`;
 
   const palette = dark
     ? {
-        base: "rgba(16, 20, 18, 0.62)",
-        border: "rgba(255, 255, 255, 0.24)",
-        activeFill: "rgba(255, 255, 255, 0.16)",
-        activeBorder: "rgba(255, 255, 255, 0.22)",
+        base: "rgba(26, 32, 29, 0.78)",
+        border: "rgba(255, 255, 255, 0.28)",
+        activeFill: "rgba(255, 255, 255, 0.22)",
+        activeBorder: "rgba(255, 255, 255, 0.34)",
         activeIcon: "#FFFFFF",
         activeLabel: "#FFFFFF",
         inactive: "rgba(255, 255, 255, 0.60)",
-        specular: "rgba(255, 255, 255, 0.45)",
+        specular: "rgba(255, 255, 255, 0.42)",
       }
     : {
-        base: "rgba(255, 255, 255, 0.78)",
-        border: "rgba(0, 0, 0, 0.08)",
-        activeFill: "rgba(0, 0, 0, 0.08)",
-        activeBorder: "rgba(0, 0, 0, 0.08)",
+        base: "rgba(255, 255, 255, 0.88)",
+        border: "rgba(0, 0, 0, 0.10)",
+        activeFill: "rgba(0, 0, 0, 0.09)",
+        activeBorder: "rgba(0, 0, 0, 0.11)",
         activeIcon: "#09090B",
         activeLabel: "#09090B",
         inactive: "rgba(9, 9, 11, 0.50)",
@@ -63,10 +64,10 @@ export function GlassTabBar({
 
   const sheen = dark
     ? [
-        { offset: "0%", opacity: 0.16 },
-        { offset: "24%", opacity: 0.04 },
-        { offset: "55%", opacity: 0 },
-        { offset: "100%", opacity: 0.05 },
+        { offset: "0%", opacity: 0.22 },
+        { offset: "28%", opacity: 0.1 },
+        { offset: "65%", opacity: 0.06 },
+        { offset: "100%", opacity: 0.11 },
       ]
     : [
         { offset: "0%", opacity: 0.85 },
@@ -125,8 +126,15 @@ export function GlassTabBar({
                     />
                   ))}
                 </LinearGradient>
+                {dark ? (
+                  <RadialGradient id={bloomId} cx="50%" cy="6%" r="72%">
+                    <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.1} />
+                    <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+                  </RadialGradient>
+                ) : null}
               </Defs>
               <Rect width="100%" height="100%" fill={`url(#${gradientId})`} />
+              {dark ? <Rect width="100%" height="100%" fill={`url(#${bloomId})`} /> : null}
             </Svg>
           </View>
 

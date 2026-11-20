@@ -16,6 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { Container } from "@/components/container";
+import { useAppTheme } from "@/contexts/app-theme-context";
 import { firstParam } from "@/lib/search-params";
 
 const STATUS_LABELS: Record<BankAccountStatus, string> = {
@@ -137,17 +138,25 @@ export default function BankAccountStatusScreen() {
   const refreshBankAccount = useAction(api.pey.actions.refreshBankAccount);
   const router = useRouter();
   const { toast } = useToast();
+  const { isImmersive, baseColor, cardColor, cardBorder } = useAppTheme();
 
   const muted = useThemeColor("muted");
   const success = useThemeColor("success");
   const warning = useThemeColor("warning");
   const danger = useThemeColor("danger");
 
+  const immersiveCard = isImmersive
+    ? { backgroundColor: cardColor, borderColor: cardBorder, borderWidth: 1 }
+    : undefined;
+
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   if (accounts === undefined) {
     return (
-      <View className="flex-1 items-center justify-center bg-background">
+      <View
+        className="flex-1 items-center justify-center bg-background"
+        style={isImmersive ? { backgroundColor: baseColor } : undefined}
+      >
         <Spinner />
       </View>
     );
@@ -160,7 +169,10 @@ export default function BankAccountStatusScreen() {
 
   if (!account) {
     return (
-      <View className="flex-1 items-center justify-center gap-3 bg-background px-8">
+      <View
+        className="flex-1 items-center justify-center gap-3 bg-background px-8"
+        style={isImmersive ? { backgroundColor: baseColor } : undefined}
+      >
         <Ionicons name="business-outline" size={32} color={muted} />
         <Text className="text-center text-lg font-semibold text-foreground">
           Sin cuentas todavía
@@ -237,6 +249,7 @@ export default function BankAccountStatusScreen() {
       <Animated.View
         entering={FadeInDown.duration(220)}
         className="mt-5 flex-row items-center gap-3 rounded-3xl bg-surface p-5"
+        style={immersiveCard}
       >
         <View className="h-12 w-12 items-center justify-center rounded-full bg-surface-secondary">
           <Ionicons name="card-outline" size={22} color={muted} />
@@ -299,6 +312,7 @@ export default function BankAccountStatusScreen() {
       <Animated.View
         entering={FadeInDown.duration(240).delay(140)}
         className="mt-3 rounded-2xl bg-surface p-4"
+        style={immersiveCard}
       >
         <TimelineStep
           title="CLABE enviada a Pey"

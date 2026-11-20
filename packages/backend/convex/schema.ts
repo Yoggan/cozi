@@ -119,6 +119,21 @@ export default defineSchema({
     .index("by_business", ["businessId"]),
 
   /**
+   * Agenda personal de @handles. `nickname` es solo para el dueño; el perfil
+   * real sigue viviendo en `users` y puede cambiar sin romper el contacto.
+   */
+  contacts: defineTable({
+    ownerId: v.id("users"),
+    handleId: v.id("handles"),
+    nickname: v.optional(v.string()),
+    lastUsedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_handle", ["ownerId", "handleId"]),
+
+  /**
    * Cuenta receptora en Pey. Nunca guardamos CLABE/tarjeta completa:
    * Pey es la fuente de verdad y aquí solo queda la referencia y la máscara.
    */

@@ -6,6 +6,7 @@ import {
   Avatar,
   Button,
   Chip,
+  cn,
   Input,
   Label,
   Spinner,
@@ -26,6 +27,7 @@ import { useAppLock } from "@/contexts/app-lock-context";
 import { useAppTheme } from "@/contexts/app-theme-context";
 import { useProfile } from "@/contexts/profile-context";
 import { authClient } from "@/lib/auth-client";
+import { CONTACTS_BACKEND_READY } from "@/lib/features";
 import { initials } from "@/lib/money";
 
 type AccountType = "clabe" | "card";
@@ -69,11 +71,18 @@ export default function ProfileScreen() {
   const updateProfile = useMutation(api.users.updateProfile);
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { preset, backdrop, accent } = useAppTheme();
+  const { preset, backdrop, accent, isImmersive, cardColor, cardBorder } = useAppTheme();
   const { isEnabled: isLockEnabled } = useAppLock();
   const { toast } = useToast();
   const muted = useThemeColor("muted");
   const warning = useThemeColor("warning");
+
+  const glass = isImmersive
+    ? { backgroundColor: cardColor, borderColor: cardBorder, borderWidth: 1 }
+    : undefined;
+  const textPrimary = isImmersive ? { color: "#FFFFFF" } : undefined;
+  const textSecondary = isImmersive ? { color: "rgba(255,255,255,0.70)" } : undefined;
+  const iconMuted = isImmersive ? "rgba(255,255,255,0.70)" : muted;
 
   const [showEdit, setShowEdit] = useState(false);
   const [displayName, setDisplayName] = useState(profile.displayName);
@@ -150,22 +159,36 @@ export default function ProfileScreen() {
           >
             <Ionicons name="arrow-back" size={20} color={muted} />
           </Pressable>
-          <Text className="text-2xl font-semibold tracking-tight text-foreground">Perfil</Text>
+          <Text
+            className="text-2xl font-semibold tracking-tight text-foreground"
+            style={textPrimary}
+          >
+            Perfil
+          </Text>
         </View>
         <ThemeToggle />
       </View>
 
       <Animated.View
         entering={FadeInDown.duration(220)}
-        className="flex-row items-center gap-4 rounded-3xl bg-surface p-5"
+        className={cn("flex-row items-center gap-4 rounded-3xl p-5", !isImmersive && "bg-surface")}
+        style={glass}
       >
         <Avatar size="lg" color="success">
           <Avatar.Fallback>{initials(profile.displayName)}</Avatar.Fallback>
         </Avatar>
         <View className="flex-1">
-          <Text className="text-lg font-semibold text-foreground">{profile.displayName}</Text>
-          <Text className="mt-0.5 text-sm text-muted">@{profile.handle ?? "cozi"}</Text>
-          {profile.phone ? <Text className="mt-1 text-xs text-muted">{profile.phone}</Text> : null}
+          <Text className="text-lg font-semibold text-foreground" style={textPrimary}>
+            {profile.displayName}
+          </Text>
+          <Text className="mt-0.5 text-sm text-muted" style={textSecondary}>
+            @{profile.handle ?? "cozi"}
+          </Text>
+          {profile.phone ? (
+            <Text className="mt-1 text-xs text-muted" style={textSecondary}>
+              {profile.phone}
+            </Text>
+          ) : null}
         </View>
         <Button size="sm" variant="secondary" onPress={() => setShowEdit((value) => !value)}>
           <Button.Label>Editar</Button.Label>
@@ -175,7 +198,11 @@ export default function ProfileScreen() {
       <Animated.View entering={FadeInDown.duration(220).delay(40)}>
         <Pressable
           onPress={() => router.push("/theme-preview")}
-          className="mt-4 flex-row items-center gap-3 rounded-2xl bg-surface p-4"
+          className={cn(
+            "mt-4 flex-row items-center gap-3 rounded-2xl p-4",
+            !isImmersive && "bg-surface",
+          )}
+          style={glass}
         >
           <View
             style={{
@@ -190,8 +217,10 @@ export default function ProfileScreen() {
             <Ionicons name="color-palette" size={19} color={accent.hex} />
           </View>
           <View className="flex-1">
-            <Text className="text-sm font-semibold text-foreground">Apariencia y temas</Text>
-            <Text className="mt-0.5 text-xs text-muted">
+            <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
+              Apariencia y temas
+            </Text>
+            <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
               {backdrop ? `${preset.name} · ${backdrop.name}` : preset.name}
             </Text>
           </View>
@@ -203,14 +232,18 @@ export default function ProfileScreen() {
               backgroundColor: accent.hex,
             }}
           />
-          <Ionicons name="chevron-forward" size={18} color={muted} />
+          <Ionicons name="chevron-forward" size={18} color={iconMuted} />
         </Pressable>
       </Animated.View>
 
       <Animated.View entering={FadeInDown.duration(220).delay(60)}>
         <Pressable
           onPress={() => router.push("/security")}
-          className="mt-3 flex-row items-center gap-3 rounded-2xl bg-surface p-4"
+          className={cn(
+            "mt-3 flex-row items-center gap-3 rounded-2xl p-4",
+            !isImmersive && "bg-surface",
+          )}
+          style={glass}
         >
           <View
             style={{
@@ -225,21 +258,59 @@ export default function ProfileScreen() {
             <Ionicons name="shield-checkmark" size={19} color={accent.hex} />
           </View>
           <View className="flex-1">
-            <Text className="text-sm font-semibold text-foreground">Seguridad</Text>
-            <Text className="mt-0.5 text-xs text-muted">
+            <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
+              Seguridad
+            </Text>
+            <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
               {isLockEnabled ? "PIN activo" : "PIN y biometría"}
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={muted} />
+          <Ionicons name="chevron-forward" size={18} color={iconMuted} />
         </Pressable>
       </Animated.View>
+
+      {CONTACTS_BACKEND_READY ? (
+        <Animated.View entering={FadeInDown.duration(220).delay(70)}>
+          <Pressable
+            onPress={() => router.push("/contacts")}
+            className={cn(
+              "mt-3 flex-row items-center gap-3 rounded-2xl p-4",
+              !isImmersive && "bg-surface",
+            )}
+            style={glass}
+          >
+            <View
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                backgroundColor: accent.softHex,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="people" size={19} color={accent.hex} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
+                Contactos
+              </Text>
+              <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
+                Envía o cobra en un toque
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={iconMuted} />
+          </Pressable>
+        </Animated.View>
+      ) : null}
 
       {showEdit ? (
         <Animated.View
           entering={FadeInDown.duration(220)}
           exiting={FadeOutUp.duration(160)}
           layout={LinearTransition.springify().damping(20).stiffness(200)}
-          className="mt-3 gap-3 rounded-2xl bg-surface p-4"
+          className={cn("mt-3 gap-3 rounded-2xl p-4", !isImmersive && "bg-surface")}
+          style={glass}
         >
           <TextField>
             <Label>Nombre</Label>
@@ -270,8 +341,12 @@ export default function ProfileScreen() {
         className="mt-6 flex-row items-center justify-between"
       >
         <View>
-          <Text className="text-lg font-semibold text-foreground">Cuentas para recibir</Text>
-          <Text className="mt-0.5 text-xs text-muted">Tu CLABE solo se comparte con Pey.</Text>
+          <Text className="text-lg font-semibold text-foreground" style={textPrimary}>
+            Cuentas para recibir
+          </Text>
+          <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
+            Tu CLABE solo se comparte con Pey.
+          </Text>
         </View>
         <Button size="sm" variant="secondary" onPress={() => setShowForm((value) => !value)}>
           <Button.Label>{showForm ? "Cerrar" : "Agregar"}</Button.Label>
@@ -283,7 +358,8 @@ export default function ProfileScreen() {
           entering={FadeInDown.duration(220)}
           exiting={FadeOutUp.duration(160)}
           layout={LinearTransition.springify().damping(20).stiffness(200)}
-          className="mt-3 gap-3 rounded-2xl bg-surface p-4"
+          className={cn("mt-3 gap-3 rounded-2xl p-4", !isImmersive && "bg-surface")}
+          style={glass}
         >
           <View className="flex-row rounded-xl bg-surface-secondary p-1">
             <TypeButton
@@ -327,17 +403,22 @@ export default function ProfileScreen() {
       <Animated.View
         layout={LinearTransition.springify().damping(20).stiffness(200)}
         entering={FadeInDown.duration(220).delay(120)}
-        className="mt-3 rounded-2xl bg-surface px-4"
+        className={cn("mt-3 rounded-2xl px-4", !isImmersive && "bg-surface")}
+        style={glass}
       >
         {accounts === undefined ? (
           <View className="py-6">
-            <Text className="text-center text-sm text-muted">Cargando cuentas...</Text>
+            <Text className="text-center text-sm text-muted" style={textSecondary}>
+              Cargando cuentas...
+            </Text>
           </View>
         ) : accounts.length === 0 ? (
           <View className="items-center py-8">
-            <Ionicons name="business-outline" size={24} color={muted} />
-            <Text className="mt-2 text-sm font-medium text-foreground">Sin cuentas todavía</Text>
-            <Text className="mt-1 text-center text-xs text-muted">
+            <Ionicons name="business-outline" size={24} color={iconMuted} />
+            <Text className="mt-2 text-sm font-medium text-foreground" style={textPrimary}>
+              Sin cuentas todavía
+            </Text>
+            <Text className="mt-1 text-center text-xs text-muted" style={textSecondary}>
               Agrega una CLABE para recibir pagos.
             </Text>
           </View>
@@ -354,14 +435,16 @@ export default function ProfileScreen() {
                 className="flex-row items-center gap-3 py-3"
               >
                 <View className="h-9 w-9 items-center justify-center rounded-full bg-surface-secondary">
-                  <Ionicons name="card-outline" size={18} color={muted} />
+                  <Ionicons name="card-outline" size={18} color={iconMuted} />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-sm font-medium text-foreground">
+                  <Text className="text-sm font-medium text-foreground" style={textPrimary}>
                     {account.institution ?? (account.accountType === "clabe" ? "CLABE" : "Tarjeta")}{" "}
                     · {account.accountNumberMasked}
                   </Text>
-                  <Text className="mt-0.5 text-xs text-muted">{account.holderName}</Text>
+                  <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
+                    {account.holderName}
+                  </Text>
                 </View>
                 <Chip
                   size="sm"
@@ -378,7 +461,7 @@ export default function ProfileScreen() {
                 >
                   <Chip.Label>{STATUS_LABELS[account.status] ?? account.status}</Chip.Label>
                 </Chip>
-                <Ionicons name="chevron-forward" size={16} color={muted} />
+                <Ionicons name="chevron-forward" size={16} color={iconMuted} />
               </Pressable>
 
               {account.status === "pending" ? (
@@ -404,13 +487,21 @@ export default function ProfileScreen() {
 
       <Pressable
         onPress={handleSignOut}
-        className="mt-6 flex-row items-center justify-center gap-2 rounded-2xl bg-surface py-3"
+        className={cn(
+          "mt-6 flex-row items-center justify-center gap-2 rounded-2xl py-3",
+          !isImmersive && "bg-surface",
+        )}
+        style={glass}
       >
-        <Ionicons name="log-out-outline" size={18} color={muted} />
-        <Text className="text-sm font-medium text-foreground">Cerrar sesión</Text>
+        <Ionicons name="log-out-outline" size={18} color={iconMuted} />
+        <Text className="text-sm font-medium text-foreground" style={textPrimary}>
+          Cerrar sesión
+        </Text>
       </Pressable>
 
-      <Text className="mt-6 text-center text-xs text-muted">cozi · MXN · Hecho en México</Text>
+      <Text className="mt-6 text-center text-xs text-muted" style={textSecondary}>
+        cozi · MXN · Hecho en México
+      </Text>
 
       <View className="h-8" />
     </Container>

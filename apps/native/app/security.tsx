@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 
 import { PinEntryDots, PinKeypad } from "@/components/app-lock-screen";
+import { ThemeBackdrop } from "@/components/theme-backdrop";
 import { useAppLock } from "@/contexts/app-lock-context";
 import { useAppTheme } from "@/contexts/app-theme-context";
 
@@ -75,7 +76,8 @@ export default function SecurityScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { toast } = useToast();
-  const { accent, baseColor, cardColor, cardBorder, isLight } = useAppTheme();
+  const { accent, baseColor, cardColor, cardBorder, isImmersive, backdrop, isLight } =
+    useAppTheme();
   const foreground = useThemeColor("foreground");
   const muted = useThemeColor("muted");
   const warning = useThemeColor("warning");
@@ -212,6 +214,8 @@ export default function SecurityScreen() {
   return (
     <View style={[styles.root, { backgroundColor: baseColor }]}>
       <StatusBar style={isLight ? "dark" : "light"} />
+
+      {isImmersive && backdrop ? <ThemeBackdrop backdrop={backdrop} height={300} /> : null}
 
       <View pointerEvents="none" style={styles.glow}>
         <Svg height="100%" width="100%">
