@@ -82,7 +82,10 @@ export const getOrderForCharge = internalQuery({
 
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new ConvexError("Orden no encontrada");
-    if (order.sellerId !== viewer._id) throw new ConvexError("No tienes acceso a esta orden");
+    // P2P: el pagador también puede iniciar el cobro a la cuenta del receptor.
+    const isSeller = order.sellerId === viewer._id;
+    const isPayer = order.channel === "p2p" && order.buyerId === viewer._id;
+    if (!isSeller && !isPayer) throw new ConvexError("No tienes acceso a esta orden");
     if (order.status === "paid" || order.status === "fulfilled") {
       throw new ConvexError("La orden ya está pagada");
     }
@@ -98,12 +101,16 @@ export const getOrderForCharge = internalQuery({
 
     const bankAccount = await getReceivingBankAccount(ctx, order, business);
     if (!bankAccount) {
-      throw new ConvexError("Configura una cuenta bancaria verificada para recibir pagos");
+      throw new ConvexError(
+        isSeller
+          ? "Configura una cuenta bancaria verificada para recibir pagos"
+          : "Esa persona aún no puede recibir pagos",
+      );
     }
 
     const activePayment = await findActivePayment(ctx.db, order._id);
 
-    return { viewer, order, business, bankAccount, activePayment };
+    return { viewer, order, business, bankAccount, activePayment, isSeller };
   },
 });
 
@@ -127,6 +134,26 @@ export const getPaymentForRefresh = internalQuery({
     }
 
     return { payment, order };
+  },
+});
+
+/** Contexto para refrescar una cuenta bancaria: solo su dueño. */
+export const getBankAccountForRefresh = internalQuery({
+  args: {
+    bankAccountId: v.id("bankAccounts"),
+    authUserId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const viewer = await getViewerByAuthId(ctx, args.authUserId);
+    if (!viewer) throw new ConvexError("Completa tu perfil");
+
+    const account = await ctx.db.get(args.bankAccountId);
+    if (!account) throw new ConvexError("Cuenta bancaria no encontrada");
+    if (account.userId !== viewer._id) {
+      throw new ConvexError("No tienes acceso a esta cuenta");
+    }
+
+    return { account };
   },
 });
 

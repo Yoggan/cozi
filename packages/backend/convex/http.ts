@@ -16,6 +16,66 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function firstText(records: Record<string, unknown>[], keys: string[]): string | undefined {
+  for (const record of records) {
+    for (const key of keys) {
+      const value = record[key];
+      if (typeof value === "string" && value.trim().length > 0) return value.trim();
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Detecta eventos de estatus de cuenta bancaria. Pey los manda sin un campo
+ * de pago; a veces solo trae `codiStatus` con el id de la cuenta.
+ */
+function parseBankAccountUpdate(payload: unknown) {
+  const root = isRecord(payload) ? payload : {};
+  const data = isRecord(root.data) ? root.data : isRecord(root.payload) ? root.payload : root;
+  const records = [data, root];
+
+  const type = firstText(records, ["type", "event_type", "eventType"]) ?? "";
+  const codiStatus = firstText(records, ["codiStatus", "codi_status"]);
+  const id = firstText(records, ["bankAccountId", "bank_account_id", "id"]);
+  const hasPaymentRef = Boolean(
+    firstText(records, [
+      "transactionId",
+      "transaction_id",
+      "payment_id",
+      "paymentId",
+      "paymentLinkId",
+      "payment_link_id",
+      "codiId",
+      "codiQrId",
+    ]),
+  );
+
+  const looksLikeBankAccount =
+    /bank[._-]?account/i.test(type) ||
+    (codiStatus !== undefined && id !== undefined && !hasPaymentRef);
+
+  if (!looksLikeBankAccount) return null;
+
+  const status =
+    codiStatus?.toUpperCase() === "ACTIVE"
+      ? "verified"
+      : codiStatus?.toUpperCase() === "ERROR"
+        ? "rejected"
+        : "pending";
+
+  return {
+    peyBankAccountId: id,
+    status,
+    providerStatus: codiStatus,
+    errorMessage: firstText(records, ["errorMessage", "error_message"]),
+  } as const;
+}
+
 /**
  * Webhook de Pey.
  *
@@ -37,11 +97,7 @@ http.route({
 
     const rawBody = await request.text();
 
-    // TODO(pey): confirmar el nombre exacto del header de firma.
-    const signature =
-      request.headers.get("x-pey-signature") ?? request.headers.get("pey-signature");
-
-    if (!(await verifyPeySignature(rawBody, signature))) {
+    if (!(await verifyPeySignature(rawBody, request.headers))) {
       return new Response("Firma inválida", { status: 401 });
     }
 
@@ -52,8 +108,24 @@ http.route({
       return new Response("JSON inválido", { status: 400 });
     }
 
+    const bankUpdate = parseBankAccountUpdate(payload);
+    if (bankUpdate) {
+      try {
+        await ctx.runMutation(internal.pey.mutations.updateBankAccountStatus, {
+          peyBankAccountId: bankUpdate.peyBankAccountId,
+          status: bankUpdate.status,
+          providerStatus: bankUpdate.providerStatus,
+          errorMessage: bankUpdate.errorMessage,
+        });
+        return jsonResponse({ ok: true, outcome: "bank_account_updated" }, 200);
+      } catch (error) {
+        console.error("Error procesando webhook de cuenta bancaria", error);
+        return new Response("Error interno", { status: 500 });
+      }
+    }
+
     const payloadHash = await sha256Hex(rawBody);
-    const event = parsePeyWebhook(payload, payloadHash);
+    const event = parsePeyWebhook(payload, payloadHash, request.headers.get("webhook-id"));
 
     try {
       const result = await ctx.runMutation(internal.pey.mutations.ingestWebhookEvent, {

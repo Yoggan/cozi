@@ -17,9 +17,9 @@ import z from "zod";
 import { authClient } from "@/lib/auth-client";
 
 const signUpSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").min(2, "Name must be at least 2 characters"),
-  email: z.string().trim().min(1, "Email is required").email("Enter a valid email address"),
-  password: z.string().min(1, "Password is required").min(8, "Use at least 8 characters"),
+  name: z.string().trim().min(1, "Escribe tu nombre").min(2, "Usa al menos 2 caracteres"),
+  email: z.string().trim().min(1, "Escribe tu correo").email("Escribe un correo válido"),
+  password: z.string().min(1, "Escribe tu contraseña").min(8, "Usa al menos 8 caracteres"),
 });
 
 function getErrorMessage(error: unknown): string | null {
@@ -74,14 +74,14 @@ export function SignUp() {
           onError(error) {
             toast.show({
               variant: "danger",
-              label: error.error?.message || "Failed to sign up",
+              label: error.error?.message || "No pudimos crear tu cuenta",
             });
           },
           onSuccess() {
             formApi.reset();
             toast.show({
               variant: "success",
-              label: "Account created successfully",
+              label: "Cuenta creada",
             });
           },
         },
@@ -90,8 +90,8 @@ export function SignUp() {
   });
 
   return (
-    <Surface variant="secondary" className="p-4 rounded-lg">
-      <Text className="text-foreground font-medium mb-4">Create Account</Text>
+    <Surface variant="secondary" className="rounded-lg p-4">
+      <Text className="mb-4 font-medium text-foreground">Crear cuenta</Text>
 
       <form.Subscribe
         selector={(state) => ({
@@ -112,12 +112,12 @@ export function SignUp() {
                 <form.Field name="name">
                   {(field) => (
                     <TextField>
-                      <Label>Name</Label>
+                      <Label>Nombre</Label>
                       <Input
                         value={field.state.value}
                         onBlur={field.handleBlur}
                         onChangeText={field.handleChange}
-                        placeholder="John Doe"
+                        placeholder="Sergio Castro"
                         autoComplete="name"
                         textContentType="name"
                         returnKeyType="next"
@@ -133,13 +133,13 @@ export function SignUp() {
                 <form.Field name="email">
                   {(field) => (
                     <TextField>
-                      <Label>Email</Label>
+                      <Label>Correo</Label>
                       <Input
                         ref={emailInputRef}
                         value={field.state.value}
                         onBlur={field.handleBlur}
                         onChangeText={field.handleChange}
-                        placeholder="email@example.com"
+                        placeholder="tu@correo.com"
                         keyboardType="email-address"
                         autoCapitalize="none"
                         autoComplete="email"
@@ -157,13 +157,13 @@ export function SignUp() {
                 <form.Field name="password">
                   {(field) => (
                     <TextField>
-                      <Label>Password</Label>
+                      <Label>Contraseña</Label>
                       <Input
                         ref={passwordInputRef}
                         value={field.state.value}
                         onBlur={field.handleBlur}
                         onChangeText={field.handleChange}
-                        placeholder="••••••••"
+                        placeholder="Mínimo 8 caracteres"
                         secureTextEntry
                         autoComplete="new-password"
                         textContentType="newPassword"
@@ -178,7 +178,7 @@ export function SignUp() {
                   {isSubmitting ? (
                     <Spinner size="sm" color="default" />
                   ) : (
-                    <Button.Label>Create Account</Button.Label>
+                    <Button.Label>Crear cuenta</Button.Label>
                   )}
                 </Button>
               </View>
