@@ -1,28 +1,33 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useForm } from "@tanstack/react-form";
-import {
-  Button,
-  FieldError,
-  Input,
-  type InputRef,
-  Label,
-  Spinner,
-  Surface,
-  TextField,
-  useToast,
-} from "heroui-native";
-import { useRef } from "react";
-import { Text, View } from "react-native";
+import { selectionAsync } from "expo-haptics";
+import { useToast } from "heroui-native";
+import { useEffect, useRef, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import type { TextInput } from "react-native";
+import Animated, {
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import z from "zod";
 
+import { AuthErrorBanner, AuthField, AuthSubmitButton } from "@/components/auth-controls";
 import { authClient } from "@/lib/auth-client";
+import { loadRememberMe, saveRememberMeOnSignIn } from "@/lib/remember-me";
 
 const signInSchema = z.object({
   email: z.string().trim().min(1, "Escribe tu correo").email("Escribe un correo válido"),
   password: z.string().min(1, "Escribe tu contraseña").min(8, "Usa al menos 8 caracteres"),
 });
 
+const REMEMBER_SPRING = { damping: 20, stiffness: 240, mass: 0.7 };
+
 function getErrorMessage(error: unknown): string | null {
-  if (!error) return null;
+  if (!error) {
+    return null;
+  }
 
   if (typeof error === "string") {
     return error;
@@ -49,8 +54,36 @@ function getErrorMessage(error: unknown): string | null {
 }
 
 export function SignIn() {
-  const passwordInputRef = useRef<InputRef>(null);
+  const passwordInputRef = useRef<TextInput>(null);
+  const [rememberMe, setRememberMe] = useState(true);
+  const rememberProgress = useSharedValue(rememberMe ? 1 : 0);
   const { toast } = useToast();
+
+  useEffect(() => {
+    rememberProgress.value = withSpring(rememberMe ? 1 : 0, REMEMBER_SPRING);
+  }, [rememberMe, rememberProgress]);
+
+  const rememberTrackStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      rememberProgress.value,
+      [0, 1],
+      ["rgba(255,255,255,0.08)", "rgba(255,255,255,0.28)"],
+    ),
+    borderColor: interpolateColor(
+      rememberProgress.value,
+      [0, 1],
+      ["rgba(255,255,255,0.16)", "rgba(255,255,255,0.36)"],
+    ),
+  }));
+
+  const rememberThumbStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      rememberProgress.value,
+      [0, 1],
+      ["rgba(255,255,255,0.55)", "#FFFFFF"],
+    ),
+    transform: [{ translateX: rememberProgress.value * 18 }],
+  }));
 
   const form = useForm({
     defaultValues: {
@@ -65,6 +98,7 @@ export function SignIn() {
         {
           email: value.email.trim(),
           password: value.password,
+          rememberMe,
         },
         {
           onError(error) {
@@ -73,21 +107,37 @@ export function SignIn() {
               label: error.error?.message || "No pudimos iniciar sesión",
             });
           },
-          onSuccess() {
+          async onSuccess() {
+            await saveRememberMeOnSignIn(rememberMe, value.email.trim());
             formApi.reset();
-            toast.show({
-              variant: "success",
-              label: "Sesión iniciada",
-            });
           },
         },
       );
     },
   });
 
+  useEffect(() => {
+    let active = true;
+
+    void loadRememberMe().then((saved) => {
+      if (!active) {
+        return;
+      }
+
+      setRememberMe(saved.rememberMe);
+      if (saved.email) {
+        form.setFieldValue("email", saved.email);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [form]);
+
   return (
-    <Surface variant="secondary" className="rounded-lg p-4">
-      <Text className="mb-4 font-medium text-foreground">Entrar</Text>
+    <View style={styles.wrapper}>
+      <Text style={styles.hint}>Entra con tu correo y contraseña.</Text>
 
       <form.Subscribe
         selector={(state) => ({
@@ -96,70 +146,151 @@ export function SignIn() {
         })}
       >
         {({ isSubmitting, validationError }) => {
-          const formError = validationError;
-
           return (
-            <>
-              <FieldError isInvalid={!!formError} className="mb-3">
-                {formError}
-              </FieldError>
-
-              <View className="gap-3">
+            <View style={styles.form}>
+              <View style={styles.fields}>
                 <form.Field name="email">
                   {(field) => (
-                    <TextField>
-                      <Label>Correo</Label>
-                      <Input
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChangeText={field.handleChange}
-                        placeholder="tu@correo.com"
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        autoComplete="email"
-                        textContentType="emailAddress"
-                        returnKeyType="next"
-                        blurOnSubmit={false}
-                        onSubmitEditing={() => {
-                          passwordInputRef.current?.focus();
-                        }}
-                      />
-                    </TextField>
+                    <AuthField
+                      autoCapitalize="none"
+                      autoComplete="email"
+                      autoCorrect={false}
+                      blurOnSubmit={false}
+                      icon="mail-outline"
+                      keyboardType="email-address"
+                      label="Correo"
+                      onBlur={field.handleBlur}
+                      onChangeText={field.handleChange}
+                      onSubmitEditing={() => {
+                        passwordInputRef.current?.focus();
+                      }}
+                      placeholder="tu@correo.com"
+                      returnKeyType="next"
+                      textContentType="emailAddress"
+                      value={field.state.value}
+                    />
                   )}
                 </form.Field>
 
                 <form.Field name="password">
                   {(field) => (
-                    <TextField>
-                      <Label>Contraseña</Label>
-                      <Input
-                        ref={passwordInputRef}
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChangeText={field.handleChange}
-                        placeholder="Mínimo 8 caracteres"
-                        secureTextEntry
-                        autoComplete="password"
-                        textContentType="password"
-                        returnKeyType="go"
-                        onSubmitEditing={form.handleSubmit}
-                      />
-                    </TextField>
+                    <AuthField
+                      autoComplete="password"
+                      icon="lock-closed-outline"
+                      inputRef={passwordInputRef}
+                      label="Contraseña"
+                      onBlur={field.handleBlur}
+                      onChangeText={field.handleChange}
+                      onSubmitEditing={() => {
+                        void form.handleSubmit();
+                      }}
+                      placeholder="Mínimo 8 caracteres"
+                      returnKeyType="go"
+                      secure
+                      textContentType="password"
+                      value={field.state.value}
+                    />
                   )}
                 </form.Field>
-
-                <Button onPress={form.handleSubmit} isDisabled={isSubmitting} className="mt-1">
-                  {isSubmitting ? (
-                    <Spinner size="sm" color="default" />
-                  ) : (
-                    <Button.Label>Entrar</Button.Label>
-                  )}
-                </Button>
               </View>
-            </>
+
+              <AuthErrorBanner message={validationError} />
+
+              <Pressable
+                accessibilityLabel="Recordarme"
+                accessibilityRole="switch"
+                accessibilityState={{ checked: rememberMe }}
+                onPress={() => {
+                  void selectionAsync();
+                  setRememberMe((current) => !current);
+                }}
+                style={({ pressed }) => [styles.rememberRow, pressed && styles.rememberRowPressed]}
+              >
+                <Ionicons color="rgba(255,255,255,0.65)" name="time-outline" size={16} />
+                <View style={styles.rememberCopy}>
+                  <Text style={styles.rememberTitle}>Recordarme</Text>
+                  <Text style={styles.rememberCaption}>Mantener sesión iniciada</Text>
+                </View>
+                <Animated.View style={[styles.rememberTrack, rememberTrackStyle]}>
+                  <Animated.View style={[styles.rememberThumb, rememberThumbStyle]} />
+                </Animated.View>
+              </Pressable>
+
+              <AuthSubmitButton
+                isSubmitting={isSubmitting}
+                label="Entrar"
+                onPress={() => {
+                  void form.handleSubmit();
+                }}
+              />
+            </View>
           );
         }}
       </form.Subscribe>
-    </Surface>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  wrapper: {
+    gap: 16,
+  },
+  hint: {
+    color: "rgba(255,255,255,0.62)",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  form: {
+    gap: 14,
+  },
+  fields: {
+    gap: 14,
+  },
+  rememberRow: {
+    minHeight: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  },
+  rememberRowPressed: {
+    borderColor: "rgba(255, 255, 255, 0.22)",
+    backgroundColor: "rgba(255, 255, 255, 0.11)",
+  },
+  rememberCopy: {
+    flex: 1,
+    gap: 1,
+  },
+  rememberTitle: {
+    color: "rgba(255,255,255,0.88)",
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  rememberCaption: {
+    color: "rgba(255,255,255,0.46)",
+    fontSize: 11,
+  },
+  rememberTrack: {
+    width: 44,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1,
+    // border + padding = 3px inset, so the 20px thumb and 18px travel stay symmetric
+    padding: 2,
+    justifyContent: "center",
+  },
+  rememberThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    shadowColor: "#000000",
+    shadowOpacity: 0.22,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+});

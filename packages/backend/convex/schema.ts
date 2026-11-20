@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
-import { v, type Infer } from "convex/values";
+import { v } from "convex/values";
+import type { Infer } from "convex/values";
 
 /** Canales desde los que nace una orden. */
 export const orderChannelValidator = v.union(
@@ -116,6 +117,21 @@ export default defineSchema({
     .index("by_handle", ["handle"])
     .index("by_user", ["userId"])
     .index("by_business", ["businessId"]),
+
+  /**
+   * Agenda personal de @handles. `nickname` es solo para el dueño; el perfil
+   * real sigue viviendo en `users` y puede cambiar sin romper el contacto.
+   */
+  contacts: defineTable({
+    ownerId: v.id("users"),
+    handleId: v.id("handles"),
+    nickname: v.optional(v.string()),
+    lastUsedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_handle", ["ownerId", "handleId"]),
 
   /**
    * Cuenta receptora en Pey. Nunca guardamos CLABE/tarjeta completa:

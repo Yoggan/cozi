@@ -38,6 +38,7 @@ export interface PeyCodiChargeRaw extends PeyRawResponse {
   expires_at?: string | number;
   transactionId?: string;
   transaction_id?: string;
+  transactions?: Array<PeyTransactionRaw>;
 }
 
 export interface PeyPaymentLinkRaw extends PeyRawResponse {
@@ -80,7 +81,7 @@ export interface PeyWebhookEvent {
 export interface NormalizedPeyWebhook {
   eventId: string;
   type: string;
-  references: string[];
+  references: Array<string>;
   status: PaymentStatus | null;
   amountCents: number | null;
   currency: string | null;
@@ -199,7 +200,9 @@ export interface PaymentHandle {
  * cae a `null` y el llamador decide (los webhooks lo marcan como ignorado).
  */
 export function normalizePaymentStatus(raw: string | null | undefined): PaymentStatus | null {
-  if (!raw) return null;
+  if (!raw) {
+    return null;
+  }
 
   const status = raw.trim().toLowerCase();
 

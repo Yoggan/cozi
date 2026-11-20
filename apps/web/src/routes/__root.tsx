@@ -32,7 +32,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
       {
-        charSet: "utf-8",
+        charSet: "utf8",
       },
       {
         name: "viewport",

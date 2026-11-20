@@ -1,8 +1,9 @@
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { cn } from "@cozi/ui/lib/utils";
-import { cva, type VariantProps } from "class-variance-authority";
-import * as React from "react";
+import { cva } from "class-variance-authority";
+import type { VariantProps } from "class-variance-authority";
+import type { ComponentProps } from "react";
 
 const markerVariants = cva(
   "group/marker relative flex min-h-4 w-full items-center gap-2 text-left text-xs text-muted-foreground [&_svg:not([class*='size-'])]:size-3.5 [a]:underline [a]:underline-offset-3 [a]:hover:text-foreground",
@@ -40,7 +41,7 @@ function Marker({
   });
 }
 
-function MarkerIcon({ className, ...props }: React.ComponentProps<"span">) {
+function MarkerIcon({ className, ...props }: ComponentProps<"span">) {
   return (
     <span
       data-slot="marker-icon"
@@ -51,7 +52,7 @@ function MarkerIcon({ className, ...props }: React.ComponentProps<"span">) {
   );
 }
 
-function MarkerContent({ className, ...props }: React.ComponentProps<"span">) {
+function MarkerContent({ className, ...props }: ComponentProps<"span">) {
   return (
     <span
       data-slot="marker-content"

@@ -36,7 +36,7 @@ export type ThemePreset = {
   defaultMode: "dark" | "light";
 };
 
-export const BACKDROP_CATEGORIES: { id: BackdropCategory; label: string; icon?: string }[] = [
+export const BACKDROP_CATEGORIES: Array<{ id: BackdropCategory; label: string; icon?: string }> = [
   { id: "todos", label: "Todos" },
   { id: "naturaleza", label: "Naturaleza" },
   { id: "abstracto", label: "Abstracto" },
@@ -44,7 +44,7 @@ export const BACKDROP_CATEGORIES: { id: BackdropCategory; label: string; icon?: 
   { id: "metal", label: "Metal" },
 ];
 
-export const ACCENT_OPTIONS: AccentOption[] = [
+export const ACCENT_OPTIONS: Array<AccentOption> = [
   {
     id: "emerald",
     label: "Esmeralda",
@@ -89,7 +89,7 @@ export const ACCENT_OPTIONS: AccentOption[] = [
   },
 ];
 
-export const BACKDROP_OPTIONS: BackdropOption[] = [
+export const BACKDROP_OPTIONS: Array<BackdropOption> = [
   {
     id: "forest",
     name: "Bosque",
@@ -191,7 +191,7 @@ export const BACKDROP_OPTIONS: BackdropOption[] = [
   },
 ];
 
-export const THEME_PRESETS: ThemePreset[] = [
+export const THEME_PRESETS: Array<ThemePreset> = [
   {
     id: "bosque",
     name: "Bosque",
@@ -269,14 +269,16 @@ export const THEME_PRESETS: ThemePreset[] = [
 export const DEFAULT_PRESET_ID = "bosque";
 
 export function getPresetById(id: string | null | undefined): ThemePreset {
-  return THEME_PRESETS.find((preset) => preset.id === id) ?? THEME_PRESETS[0]!;
+  return THEME_PRESETS.find((preset) => preset.id === id) ?? THEME_PRESETS[0];
 }
 
 export function getBackdropById(id: string | null | undefined): BackdropOption | null {
-  if (!id) return null;
+  if (!id) {
+    return null;
+  }
   return BACKDROP_OPTIONS.find((backdrop) => backdrop.id === id) ?? null;
 }
 
 export function getAccentById(id: string | null | undefined): AccentOption {
-  return ACCENT_OPTIONS.find((accent) => accent.id === id) ?? ACCENT_OPTIONS[0]!;
+  return ACCENT_OPTIONS.find((accent) => accent.id === id) ?? ACCENT_OPTIONS[0];
 }

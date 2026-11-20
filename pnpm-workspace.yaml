@@ -19,3 +19,5 @@ catalog:
   "@tanstack/react-form": ^1.33.5
   "@types/react-dom": ^19.3.0
   "@better-auth/expo": 1.7.22
+minimumReleaseAgeExclude:
+  - "@cloudflare/oxlint-config@0.1.0"

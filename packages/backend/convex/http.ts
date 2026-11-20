@@ -20,11 +20,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function firstText(records: Record<string, unknown>[], keys: string[]): string | undefined {
+function firstText(
+  records: Array<Record<string, unknown>>,
+  keys: Array<string>,
+): string | undefined {
   for (const record of records) {
     for (const key of keys) {
       const value = record[key];
-      if (typeof value === "string" && value.trim().length > 0) return value.trim();
+      if (typeof value === "string" && value.trim().length > 0) {
+        return value.trim();
+      }
     }
   }
   return undefined;
@@ -59,7 +64,9 @@ function parseBankAccountUpdate(payload: unknown) {
     /bank[._-]?account/i.test(type) ||
     (codiStatus !== undefined && id !== undefined && !hasPaymentRef);
 
-  if (!looksLikeBankAccount) return null;
+  if (!looksLikeBankAccount) {
+    return null;
+  }
 
   const status =
     codiStatus?.toUpperCase() === "ACTIVE"

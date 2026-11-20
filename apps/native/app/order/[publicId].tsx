@@ -1,16 +1,20 @@
 import { api } from "@cozi/backend/convex/_generated/api";
-import { useAction, useQuery } from "convex/react";
+import type { OrderStatus, PaymentMethod } from "@cozi/backend/convex/schema";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { useLocalSearchParams } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
+import { openBrowserAsync } from "expo-web-browser";
 import { useState } from "react";
 import { Button, Chip, Spinner, Text, useThemeColor, useToast } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Share, View } from "react-native";
 
 import { Container } from "@/components/container";
+import { useAppTheme } from "@/contexts/app-theme-context";
+import { CONTACTS_BACKEND_READY } from "@/lib/features";
 import { formatMxn } from "@/lib/money";
+import { firstParam } from "@/lib/search-params";
 
-const STATUS_LABELS: Record<string, string> = {
+const STATUS_LABELS: Record<OrderStatus, string> = {
   draft: "Pendiente",
   awaiting_payment: "Esperando pago",
   paid: "Pagado",
@@ -19,7 +23,7 @@ const STATUS_LABELS: Record<string, string> = {
   expired: "Expirado",
 };
 
-const METHOD_LABELS: Record<string, string> = {
+const METHOD_LABELS: Record<PaymentMethod, string> = {
   codi_qr: "CoDi QR",
   codi_push: "CoDi push",
   payment_link: "Link de pago",
@@ -36,19 +40,30 @@ function formatDate(timestamp: number): string {
 
 export default function OrderScreen() {
   const params = useLocalSearchParams<{ publicId: string }>();
-  const publicId = Array.isArray(params.publicId) ? params.publicId[0] : params.publicId;
+  const publicId = firstParam(params.publicId);
   const order = useQuery(api.p2p.getOrder, publicId ? { publicId } : "skip");
   const createPaymentLink = useAction(api.pey.actions.createPaymentLink);
   const refreshPayment = useAction(api.pey.actions.refreshPayment);
+  const saveContact = useMutation(api.contacts.save);
+  const contacts = useQuery(api.contacts.list, CONTACTS_BACKEND_READY ? {} : "skip");
   const { toast } = useToast();
+  const { isImmersive, baseColor, cardColor, cardBorder } = useAppTheme();
   const success = useThemeColor("success");
   const muted = useThemeColor("muted");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSavingContact, setIsSavingContact] = useState(false);
+
+  const immersiveCard = isImmersive
+    ? { backgroundColor: cardColor, borderColor: cardBorder, borderWidth: 1 }
+    : undefined;
 
   if (order === undefined) {
     return (
-      <View className="flex-1 items-center justify-center bg-background">
+      <View
+        className="flex-1 items-center justify-center bg-background"
+        style={isImmersive ? { backgroundColor: baseColor } : undefined}
+      >
         <Spinner />
       </View>
     );
@@ -56,7 +71,10 @@ export default function OrderScreen() {
 
   if (order === null) {
     return (
-      <View className="flex-1 items-center justify-center gap-3 bg-background px-8">
+      <View
+        className="flex-1 items-center justify-center gap-3 bg-background px-8"
+        style={isImmersive ? { backgroundColor: baseColor } : undefined}
+      >
         <Ionicons name="receipt-outline" size={32} color={muted} />
         <Text className="text-center text-lg font-semibold text-foreground">
           Pago no encontrado
@@ -76,6 +94,9 @@ export default function OrderScreen() {
   const counterpart = current.counterpartHandle
     ? `@${current.counterpartHandle}`
     : current.counterpartName;
+  const savedContact = current.counterpartHandle
+    ? contacts?.find((contact) => contact.handle === current.counterpartHandle)
+    : null;
   const relationship = isRequest
     ? isIncoming
       ? "Cobro de"
@@ -91,10 +112,10 @@ export default function OrderScreen() {
     try {
       await createPaymentLink({ orderId: current.orderId, expiresInMinutes: 1440 });
       toast.show({ variant: "success", label: "Link de pago listo" });
-    } catch (cause) {
+    } catch (error) {
       toast.show({
         variant: "danger",
-        label: cause instanceof Error ? cause.message : "No pudimos generar el link",
+        label: error instanceof Error ? error.message : "No pudimos generar el link",
       });
     } finally {
       setIsGenerating(false);
@@ -102,29 +123,54 @@ export default function OrderScreen() {
   }
 
   async function handleShare() {
-    if (!checkoutUrl) return;
+    if (!checkoutUrl) {
+      return;
+    }
     await Share.share({
       message: `Te cobré ${formatMxn(current.amountCents)} en Cozi. Paga aquí: ${checkoutUrl}`,
     });
   }
 
   async function handlePay() {
-    if (!checkoutUrl) return;
-    await WebBrowser.openBrowserAsync(checkoutUrl);
+    if (!checkoutUrl) {
+      return;
+    }
+    await openBrowserAsync(checkoutUrl);
   }
 
   async function handleRefresh() {
-    if (!current.payment) return;
+    if (!current.payment) {
+      return;
+    }
     setIsRefreshing(true);
     try {
       await refreshPayment({ paymentId: current.payment.paymentId });
-    } catch (cause) {
+    } catch (error) {
       toast.show({
         variant: "danger",
-        label: cause instanceof Error ? cause.message : "No pudimos revisar el pago",
+        label: error instanceof Error ? error.message : "No pudimos revisar el pago",
       });
     } finally {
       setIsRefreshing(false);
+    }
+  }
+
+  async function handleSaveCounterpart() {
+    if (!current.counterpartHandle || savedContact || isSavingContact || !CONTACTS_BACKEND_READY) {
+      return;
+    }
+
+    setIsSavingContact(true);
+    try {
+      await saveContact({ handle: current.counterpartHandle });
+      toast.show({ variant: "success", label: "Contacto guardado" });
+    } catch (error) {
+      toast.show({
+        variant: "danger",
+        label: error instanceof Error ? error.message : "No pudimos guardar el contacto",
+      });
+    } finally {
+      setIsSavingContact(false);
     }
   }
 
@@ -153,7 +199,7 @@ export default function OrderScreen() {
         </Chip>
       </View>
 
-      <View className="gap-3 rounded-2xl bg-surface p-4">
+      <View className="gap-3 rounded-2xl bg-surface p-4" style={immersiveCard}>
         <View className="flex-row justify-between">
           <Text className="text-sm text-muted">Concepto</Text>
           <Text className="max-w-[60%] text-right text-sm font-medium text-foreground">
@@ -194,7 +240,7 @@ export default function OrderScreen() {
                 <Button.Label>Compartir link</Button.Label>
               </Button>
             ) : isIncoming ? (
-              <View className="rounded-2xl bg-surface p-4">
+              <View className="rounded-2xl bg-surface p-4" style={immersiveCard}>
                 <Text className="text-center text-sm text-muted">
                   Te están enviando dinero. El pago se confirmará automáticamente.
                 </Text>
@@ -222,7 +268,7 @@ export default function OrderScreen() {
               )}
             </Button>
           ) : (
-            <View className="rounded-2xl bg-surface p-4">
+            <View className="rounded-2xl bg-surface p-4" style={immersiveCard}>
               <Text className="text-center text-sm text-muted">
                 Te están enviando dinero. El pago se confirmará automáticamente.
               </Text>
@@ -230,6 +276,27 @@ export default function OrderScreen() {
           )}
         </View>
       )}
+
+      {isPaid && current.counterpartHandle && !savedContact && CONTACTS_BACKEND_READY ? (
+        <View className="mt-3 rounded-2xl bg-surface p-4" style={immersiveCard}>
+          <Text className="text-sm font-semibold text-foreground">¿Guardar a {counterpart}?</Text>
+          <Text className="mt-1 text-xs leading-5 text-muted">
+            Para enviarle o cobrarle más rápido la próxima vez.
+          </Text>
+          <Button
+            className="mt-3"
+            variant="secondary"
+            onPress={handleSaveCounterpart}
+            isDisabled={isSavingContact}
+          >
+            {isSavingContact ? (
+              <Spinner size="sm" color="default" />
+            ) : (
+              <Button.Label>Guardar contacto</Button.Label>
+            )}
+          </Button>
+        </View>
+      ) : null}
 
       <Text className="mt-5 pb-6 text-center text-xs text-muted">
         Los pagos se procesan con CoDi. Cozi nunca guarda tu CLABE completa.

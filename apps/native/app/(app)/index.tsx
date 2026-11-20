@@ -3,15 +3,44 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "convex/react";
 import { useRouter } from "expo-router";
 import { Avatar, Text, useThemeColor } from "heroui-native";
-import { Pressable, ScrollView, Share, View } from "react-native";
+import { Pressable, Share, StyleSheet, View } from "react-native";
+import Animated, {
+  FadeInDown,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ActivityRow } from "@/components/activity-row";
+import { ContactsStrip } from "@/components/contacts-strip";
 import { Container } from "@/components/container";
 import { ThemeBackdrop } from "@/components/theme-backdrop";
 import { useAppTheme } from "@/contexts/app-theme-context";
 import { useProfile } from "@/contexts/profile-context";
 import { initials } from "@/lib/money";
+
+const SPRING = { damping: 20, stiffness: 240, mass: 0.7 };
+const ENTER = FadeInDown.duration(360);
+
+function usePressScale() {
+  const scale = useSharedValue(1);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return {
+    style,
+    onPressIn: () => {
+      scale.value = withSpring(0.92, SPRING);
+    },
+    onPressOut: () => {
+      scale.value = withSpring(1, SPRING);
+    },
+  };
+}
 
 function GlassAction({
   icon,
@@ -22,22 +51,33 @@ function GlassAction({
   label: string;
   onPress: () => void;
 }) {
+  const press = usePressScale();
+
   return (
-    <Pressable onPress={onPress} className="items-center gap-2" style={{ width: 72 }}>
-      <View
-        style={{
-          width: 52,
-          height: 52,
-          borderRadius: 26,
-          backgroundColor: "rgba(255, 255, 255, 0.22)",
-          borderWidth: 1,
-          borderColor: "rgba(255, 255, 255, 0.20)",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
+    <Pressable
+      onPress={onPress}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      className="items-center gap-2"
+      style={{ width: 72 }}
+    >
+      <Animated.View
+        style={[
+          {
+            width: 52,
+            height: 52,
+            borderRadius: 26,
+            backgroundColor: "rgba(255, 255, 255, 0.22)",
+            borderWidth: 1,
+            borderColor: "rgba(255, 255, 255, 0.20)",
+            alignItems: "center",
+            justifyContent: "center",
+          },
+          press.style,
+        ]}
       >
         <Ionicons name={icon} size={22} color="#FFFFFF" />
-      </View>
+      </Animated.View>
       <Text style={{ color: "#FFFFFF" }} className="text-center text-xs font-medium">
         {label}
       </Text>
@@ -56,15 +96,33 @@ export default function HomeScreen() {
   const foreground = useThemeColor("foreground");
   const firstName = profile.displayName.split(/\s+/)[0] ?? profile.displayName;
 
+  const scrollY = useSharedValue(0);
+  const movimientosPress = usePressScale();
+
+  const onScroll = useAnimatedScrollHandler((event) => {
+    scrollY.value = event.contentOffset.y;
+  });
+
+  const backdropStyle = useAnimatedStyle(() => {
+    const y = scrollY.value;
+    // Slow downward drift while scrolling up; gentle zoom while overscrolling.
+    const translateY = y > 0 ? y * 0.35 : y * 0.5;
+    const scale = y < 0 ? 1 + Math.min(-y / 1200, 0.1) : 1;
+    return { transform: [{ translateY }, { scale }] };
+  });
+
   async function shareHandle() {
-    if (!profile.handle) return;
+    if (!profile.handle) {
+      return;
+    }
     await Share.share({ message: `Págame en Cozi: @${profile.handle}` });
   }
 
   if (isImmersive && backdrop) {
     return (
       <View style={{ flex: 1, backgroundColor: baseColor }}>
-        <ScrollView
+        <Animated.ScrollView
+          onScroll={onScroll}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             paddingBottom: Math.max(insets.bottom, 16) + 96,
@@ -72,7 +130,9 @@ export default function HomeScreen() {
         >
           {/* Full-bleed hero with seamless fade into baseColor */}
           <View style={{ paddingTop: insets.top + 10, paddingBottom: 24 }}>
-            <ThemeBackdrop backdrop={backdrop} height={470} />
+            <Animated.View style={[styles.backdrop, backdropStyle]}>
+              <ThemeBackdrop backdrop={backdrop} height={470} />
+            </Animated.View>
 
             {/* Top bar */}
             <View className="flex-row items-center gap-3 px-5">
@@ -104,22 +164,6 @@ export default function HomeScreen() {
               </Pressable>
 
               <Pressable
-                onPress={() => router.push("/theme-preview")}
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 19,
-                  backgroundColor: "rgba(0, 0, 0, 0.34)",
-                  borderWidth: 1,
-                  borderColor: "rgba(255, 255, 255, 0.16)",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Ionicons name="color-palette-outline" size={18} color="#FFFFFF" />
-              </Pressable>
-
-              <Pressable
                 onPress={shareHandle}
                 style={{
                   width: 38,
@@ -137,7 +181,7 @@ export default function HomeScreen() {
             </View>
 
             {/* Centered Hero */}
-            <View className="items-center px-6 pt-12">
+            <Animated.View entering={ENTER} className="items-center px-6 pt-12">
               <Text style={{ color: "rgba(255,255,255,0.85)" }} className="text-sm font-medium">
                 Personal · MXN
               </Text>
@@ -162,24 +206,32 @@ export default function HomeScreen() {
               {/* Center glass pill */}
               <Pressable
                 onPress={() => router.push("/activity")}
-                style={{
-                  marginTop: 22,
-                  paddingHorizontal: 20,
-                  paddingVertical: 8,
-                  borderRadius: 999,
-                  backgroundColor: "rgba(255, 255, 255, 0.22)",
-                  borderWidth: 1,
-                  borderColor: "rgba(255, 255, 255, 0.18)",
-                }}
+                onPressIn={movimientosPress.onPressIn}
+                onPressOut={movimientosPress.onPressOut}
               >
-                <Text style={{ color: "#FFFFFF" }} className="text-xs font-semibold">
-                  Movimientos
-                </Text>
+                <Animated.View
+                  style={[
+                    {
+                      marginTop: 22,
+                      paddingHorizontal: 20,
+                      paddingVertical: 8,
+                      borderRadius: 999,
+                      backgroundColor: "rgba(255, 255, 255, 0.22)",
+                      borderWidth: 1,
+                      borderColor: "rgba(255, 255, 255, 0.18)",
+                    },
+                    movimientosPress.style,
+                  ]}
+                >
+                  <Text style={{ color: "#FFFFFF" }} className="text-xs font-semibold">
+                    Movimientos
+                  </Text>
+                </Animated.View>
               </Pressable>
-            </View>
+            </Animated.View>
 
-            {/* 4 Glassmorphic Circular Actions */}
-            <View className="mt-8 flex-row justify-around px-4">
+            {/* 3 Glassmorphic Circular Actions */}
+            <Animated.View entering={ENTER.delay(40)} className="mt-8 flex-row justify-evenly px-4">
               <GlassAction icon="arrow-up" label="Enviar" onPress={() => router.push("/send")} />
               <GlassAction
                 icon="arrow-down"
@@ -193,18 +245,16 @@ export default function HomeScreen() {
                   router.push(profile.hasPendingBankAccount ? "/bank-account-status" : "/profile")
                 }
               />
-              <GlassAction
-                icon="color-palette-outline"
-                label="Temas"
-                onPress={() => router.push("/theme-preview")}
-              />
-            </View>
+            </Animated.View>
           </View>
+
+          <ContactsStrip />
 
           {/* Translucent Tinted Cards */}
           <View className="gap-4 px-4">
             {!profile.hasReceivingAccount ? (
-              <View
+              <Animated.View
+                entering={ENTER.delay(80)}
                 style={{
                   backgroundColor: cardColor,
                   borderColor: cardBorder,
@@ -263,11 +313,12 @@ export default function HomeScreen() {
                     {profile.hasPendingBankAccount ? "Ver progreso" : "Agregar CLABE"}
                   </Text>
                 </Pressable>
-              </View>
+              </Animated.View>
             ) : null}
 
             {/* Recent activity glass card */}
-            <View
+            <Animated.View
+              entering={ENTER.delay(120)}
               style={{
                 backgroundColor: cardColor,
                 borderColor: cardBorder,
@@ -340,32 +391,24 @@ export default function HomeScreen() {
                   </View>
                 ))
               )}
-            </View>
+            </Animated.View>
           </View>
-        </ScrollView>
+        </Animated.ScrollView>
       </View>
     );
   }
 
   return (
     <Container className="px-5" style={{ paddingTop: insets.top }}>
-      <View className="flex-row items-center justify-between pb-6 pt-4">
+      <View className="flex-row items-center gap-3 pb-6 pt-4">
+        <Pressable onPress={() => router.push("/profile")}>
+          <Avatar size="md" color="success">
+            <Avatar.Fallback>{initials(profile.displayName)}</Avatar.Fallback>
+          </Avatar>
+        </Pressable>
         <View>
           <Text className="text-sm text-muted">Hola</Text>
           <Text className="text-2xl font-semibold tracking-tight text-foreground">{firstName}</Text>
-        </View>
-        <View className="flex-row items-center gap-2.5">
-          <Pressable
-            onPress={() => router.push("/theme-preview")}
-            className="h-10 w-10 items-center justify-center rounded-full bg-surface"
-          >
-            <Ionicons name="color-palette-outline" size={20} color={foreground} />
-          </Pressable>
-          <Pressable onPress={() => router.push("/profile")}>
-            <Avatar size="md" color="success">
-              <Avatar.Fallback>{initials(profile.displayName)}</Avatar.Fallback>
-            </Avatar>
-          </Pressable>
         </View>
       </View>
 
@@ -400,6 +443,8 @@ export default function HomeScreen() {
           </Pressable>
         </View>
       </View>
+
+      <ContactsStrip />
 
       {!profile.hasReceivingAccount ? (
         <Pressable
@@ -465,6 +510,18 @@ export default function HomeScreen() {
           ))
         )}
       </View>
+
+      <View style={{ height: 100 }} />
     </Container>
   );
 }
+
+const styles = StyleSheet.create({
+  backdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 470,
+  },
+});

@@ -1,16 +1,9 @@
-import * as SecureStore from "expo-secure-store";
+import { getItemAsync, setItemAsync } from "expo-secure-store";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Uniwind, useUniwind } from "uniwind";
 
-import {
-  type AccentOption,
-  type BackdropOption,
-  DEFAULT_PRESET_ID,
-  getAccentById,
-  getBackdropById,
-  getPresetById,
-  type ThemePreset,
-} from "@/lib/themes";
+import { DEFAULT_PRESET_ID, getAccentById, getBackdropById, getPresetById } from "@/lib/themes";
+import type { AccentOption, BackdropOption, ThemePreset } from "@/lib/themes";
 
 type ThemeName = "light" | "dark";
 
@@ -45,7 +38,7 @@ type AppThemeContextType = {
 const AppThemeContext = createContext<AppThemeContextType | undefined>(undefined);
 
 function persist(next: PersistedTheme) {
-  void SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+  void setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
 }
 
 export const AppThemeProvider = ({ children }: { children: React.ReactNode }) => {
@@ -58,12 +51,13 @@ export const AppThemeProvider = ({ children }: { children: React.ReactNode }) =>
 
   useEffect(() => {
     let active = true;
-    void SecureStore.getItemAsync(STORAGE_KEY)
+    void getItemAsync(STORAGE_KEY)
       .then((raw) => {
         if (!active || !raw) {
           Uniwind.setTheme(initialPreset.defaultMode);
           return;
         }
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Lo guardado lo escribe esta app; los campos se validan abajo.
         const parsed = JSON.parse(raw) as Partial<PersistedTheme>;
         const loadedPreset = getPresetById(parsed.presetId ?? DEFAULT_PRESET_ID);
         setPresetId(loadedPreset.id);

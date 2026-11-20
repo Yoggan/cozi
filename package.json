@@ -29,11 +29,13 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@cloudflare/oxlint-config": "^0.1.0",
     "@cozi/config": "workspace:*",
     "@types/node": "catalog:",
     "lefthook": "^2.2.2",
     "oxfmt": "^0.78.0",
-    "oxlint": "^1.93.0",
+    "oxlint": "^1.94.0",
+    "tsrs": "0.25.0-ts7.1.0-beta",
     "tsx": "^4.23.15",
     "turbo": "^2.11.11",
     "typescript": "^6.0.3",
