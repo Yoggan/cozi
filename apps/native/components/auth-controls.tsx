@@ -5,13 +5,14 @@ import type { Ref } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { TextInputProps } from "react-native";
 import Animated, {
+  Easing,
   FadeInDown,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 
-const PRESS_SPRING = { damping: 22, stiffness: 320, mass: 0.6 };
+const PRESS_TIMING = { duration: 100, easing: Easing.out(Easing.quad) };
 
 type AuthFieldProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -122,10 +123,10 @@ export function AuthSubmitButton({
         onPress();
       }}
       onPressIn={() => {
-        scale.set(withSpring(0.97, PRESS_SPRING));
+        scale.set(withTiming(0.97, PRESS_TIMING));
       }}
       onPressOut={() => {
-        scale.set(withSpring(1, PRESS_SPRING));
+        scale.set(withTiming(1, PRESS_TIMING));
       }}
     >
       <Animated.View style={[styles.submit, isSubmitting && styles.submitBusy, pressStyle]}>

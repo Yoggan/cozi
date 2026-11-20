@@ -5,11 +5,12 @@ import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import Animated, {
+  Easing,
   FadeIn,
   FadeInDown,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -24,7 +25,7 @@ type Mode = "signin" | "signup";
 const BASE_COLOR = "#0E1B0D";
 const FOREST_BACKDROP = getBackdropById("forest");
 const ENTER = FadeInDown.duration(420);
-const SWITCH_SPRING = { damping: 20, stiffness: 220, mass: 0.7 };
+const SWITCH_TIMING = { duration: 180, easing: Easing.out(Easing.cubic) };
 
 const SEGMENTS: Array<{ value: Mode; label: string }> = [
   { value: "signin", label: "Entrar" },
@@ -37,7 +38,7 @@ function ModeSwitcher({ mode, onChange }: { mode: Mode; onChange: (mode: Mode) =
   const capsuleWidth = trackWidth > 8 ? (trackWidth - 8) / 2 : 0;
 
   useEffect(() => {
-    travel.value = withSpring(mode === "signup" ? 1 : 0, SWITCH_SPRING);
+    travel.value = withTiming(mode === "signup" ? 1 : 0, SWITCH_TIMING);
   }, [mode, travel]);
 
   const capsuleStyle = useAnimatedStyle(() => ({

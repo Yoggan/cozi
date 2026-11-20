@@ -3,7 +3,12 @@ import type { BottomTabBarProps } from "expo-router/js-tabs";
 import { useEffect, useId, useState } from "react";
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from "react-native-svg";
 
 import { useAppTheme } from "@/contexts/app-theme-context";
@@ -12,13 +17,13 @@ const ICON_SIZE = 20;
 const TAB_BAR_HEIGHT = 66;
 const INSET_X = 6;
 const INSET_Y = 5;
-const SPRING = { damping: 20, stiffness: 240, mass: 0.7 };
+const TAB_TIMING = { duration: 180, easing: Easing.out(Easing.cubic) };
 
 function TabIcon({ focused, children }: { focused: boolean; children: ReactNode }) {
   const scale = useSharedValue(1);
 
   useEffect(() => {
-    scale.value = withSpring(focused ? 1.06 : 1, SPRING);
+    scale.value = withTiming(focused ? 1.06 : 1, TAB_TIMING);
   }, [focused, scale]);
 
   const style = useAnimatedStyle(() => ({
@@ -90,7 +95,7 @@ export function GlassTabBar({
   const translateIndex = useSharedValue(0);
 
   useEffect(() => {
-    translateIndex.value = withSpring(activeIndex, SPRING);
+    translateIndex.value = withTiming(activeIndex, TAB_TIMING);
   }, [activeIndex, translateIndex]);
 
   const pillStyle = useAnimatedStyle(() => ({

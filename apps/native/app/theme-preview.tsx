@@ -7,6 +7,7 @@ import type { PropsWithChildren } from "react";
 import type { FlatList } from "react-native";
 import { Dimensions, Pressable, View } from "react-native";
 import Animated, {
+  Easing,
   Extrapolation,
   FadeInDown,
   FadeOutDown,
@@ -14,7 +15,7 @@ import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import type { SharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -30,6 +31,7 @@ const CARD_HEIGHT = Math.round(CARD_WIDTH * 1.72);
 const CARD_SPACING = 18;
 const SNAP_INTERVAL = CARD_WIDTH + CARD_SPACING;
 const SIDE_PADDING = Math.round((SCREEN_WIDTH - CARD_WIDTH) / 2);
+const PRESS_TIMING = { duration: 100, easing: Easing.out(Easing.quad) };
 
 function PressScale({
   children,
@@ -46,10 +48,10 @@ function PressScale({
       <Pressable
         onPress={onPress}
         onPressIn={() => {
-          scale.value = withSpring(0.9, { damping: 16, stiffness: 320 });
+          scale.value = withTiming(0.9, PRESS_TIMING);
         }}
         onPressOut={() => {
-          scale.value = withSpring(1, { damping: 16, stiffness: 320 });
+          scale.value = withTiming(1, PRESS_TIMING);
         }}
         className="items-center gap-2"
       >

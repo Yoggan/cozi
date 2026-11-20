@@ -4,11 +4,16 @@ import { useThemeColor } from "heroui-native";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { TextInputProps } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 import { useAppTheme } from "@/contexts/app-theme-context";
 
-const PRESS_SPRING = { damping: 22, stiffness: 320, mass: 0.6 };
+const PRESS_TIMING = { duration: 100, easing: Easing.out(Easing.quad) };
 const QUICK_AMOUNTS = [100, 200, 500, 1000];
 
 /** Liquid-glass palette that stays readable on backdrops and in Clásico light/dark. */
@@ -169,21 +174,34 @@ export function HeroAmount({
   onChangeText: (value: string) => void;
 }) {
   const theme = usePaymentTheme();
+  const [valueWidth, setValueWidth] = useState(0);
 
   return (
     <View style={styles.hero}>
-      <TextInput
-        accessibilityLabel="Monto en pesos"
-        value={value ? `$ ${value}` : ""}
-        onChangeText={(next) => onChangeText(next.replaceAll(/[^\d.,]/g, ""))}
-        placeholder="$ 0.00"
-        placeholderTextColor={theme.placeholder}
-        keyboardType="decimal-pad"
-        selectionColor={theme.text}
-        cursorColor={theme.text}
-        underlineColorAndroid="transparent"
-        style={[styles.amountInput, { color: theme.text }]}
-      />
+      <View style={styles.amountRow}>
+        <Text style={[styles.amountPrefix, { color: theme.text }]}>$</Text>
+        <TextInput
+          accessibilityLabel="Monto en pesos"
+          value={value}
+          onChangeText={(next) => onChangeText(next.replaceAll(/[^\d.,]/g, ""))}
+          placeholder="0.00"
+          placeholderTextColor={theme.placeholder}
+          keyboardType="decimal-pad"
+          selectionColor={theme.text}
+          cursorColor={theme.text}
+          underlineColorAndroid="transparent"
+          style={[styles.amountInput, { width: Math.max(valueWidth + 8, 48), color: theme.text }]}
+        />
+      </View>
+      <Text
+        accessible={false}
+        numberOfLines={1}
+        onLayout={(event) => setValueWidth(event.nativeEvent.layout.width)}
+        pointerEvents="none"
+        style={styles.amountMeasure}
+      >
+        {value || "0.00"}
+      </Text>
       <View
         style={[styles.mxnPill, { backgroundColor: theme.pillFill, borderColor: theme.pillBorder }]}
       >
@@ -265,10 +283,10 @@ export function PrimaryPillButton({
         onPress();
       }}
       onPressIn={() => {
-        scale.value = withSpring(0.97, PRESS_SPRING);
+        scale.value = withTiming(0.97, PRESS_TIMING);
       }}
       onPressOut={() => {
-        scale.value = withSpring(1, PRESS_SPRING);
+        scale.value = withTiming(1, PRESS_TIMING);
       }}
       style={{ opacity: isDisabled && !isSubmitting ? 0.45 : 1 }}
     >
@@ -354,14 +372,37 @@ const styles = StyleSheet.create({
   hero: {
     alignItems: "center",
   },
+  amountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  amountPrefix: {
+    fontSize: 54,
+    fontWeight: "700",
+    letterSpacing: -1.5,
+    marginRight: 6,
+    includeFontPadding: false,
+  },
   amountInput: {
-    width: "100%",
     fontSize: 54,
     fontWeight: "700",
     letterSpacing: -1.5,
     fontVariant: ["tabular-nums"],
-    textAlign: "center",
+    textAlign: "left",
     paddingVertical: 0,
+    paddingHorizontal: 0,
+    includeFontPadding: false,
+  },
+  amountMeasure: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    opacity: 0,
+    fontSize: 54,
+    fontWeight: "700",
+    letterSpacing: -1.5,
+    fontVariant: ["tabular-nums"],
     includeFontPadding: false,
   },
   mxnPill: {

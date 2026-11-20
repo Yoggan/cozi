@@ -11,10 +11,11 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import { AppLockScreen } from "@/components/app-lock-screen";
+import { BusinessOnboarding } from "@/components/business-onboarding";
 import { Splash } from "@/components/splash";
 import { AppLockProvider, useAppLock } from "@/contexts/app-lock-context";
 import { AppThemeProvider, useAppTheme } from "@/contexts/app-theme-context";
-import { ProfileProvider } from "@/contexts/profile-context";
+import { ProfileProvider, useProfile } from "@/contexts/profile-context";
 import { authClient } from "@/lib/auth-client";
 import { consumeEphemeralSessionFlag } from "@/lib/remember-me";
 
@@ -37,6 +38,16 @@ function AppLockGate({ children }: { children: ReactNode }) {
       {isLocked ? <AppLockScreen /> : null}
     </View>
   );
+}
+
+function BusinessOnboardingGate({ children }: { children: ReactNode }) {
+  const profile = useProfile();
+
+  if (profile.businessPromptState === "pending") {
+    return <BusinessOnboarding />;
+  }
+
+  return <>{children}</>;
 }
 
 function RootNavigator() {
@@ -116,6 +127,7 @@ function RootNavigator() {
           name="contacts"
           options={{ headerShown: false, presentation: "fullScreenModal" }}
         />
+        <Stack.Screen name="business" options={{ headerShown: true, title: "Mi negocio" }} />
         <Stack.Screen name="order/[publicId]" options={{ headerShown: true, title: "Pago" }} />
       </Stack.Protected>
     </Stack>
@@ -125,7 +137,9 @@ function RootNavigator() {
     <ProfileProvider>
       {isAuthenticated ? (
         <AppLockProvider>
-          <AppLockGate>{navigator}</AppLockGate>
+          <AppLockGate>
+            <BusinessOnboardingGate>{navigator}</BusinessOnboardingGate>
+          </AppLockGate>
         </AppLockProvider>
       ) : (
         navigator

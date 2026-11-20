@@ -1,12 +1,17 @@
 import { ImpactFeedbackStyle, impactAsync } from "expo-haptics";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 
 import { authClient } from "@/lib/auth-client";
 
-const PRESS_SPRING = { damping: 22, stiffness: 320, mass: 0.6 };
+const PRESS_TIMING = { duration: 100, easing: Easing.out(Easing.quad) };
 const UNCONFIGURED_MESSAGE = "Google todavía no está disponible. Entra con tu correo y contraseña.";
 const GENERIC_MESSAGE = "No pudimos iniciar sesión con Google. Inténtalo de nuevo.";
 
@@ -102,10 +107,10 @@ export function GoogleSignInButton({ onError }: GoogleSignInButtonProps) {
           void handlePress();
         }}
         onPressIn={() => {
-          scale.set(withSpring(0.97, PRESS_SPRING));
+          scale.set(withTiming(0.97, PRESS_TIMING));
         }}
         onPressOut={() => {
-          scale.set(withSpring(1, PRESS_SPRING));
+          scale.set(withTiming(1, PRESS_TIMING));
         }}
       >
         <Animated.View style={[styles.button, isLoading && styles.buttonBusy, pressStyle]}>

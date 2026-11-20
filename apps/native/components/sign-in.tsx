@@ -6,10 +6,11 @@ import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { TextInput } from "react-native";
 import Animated, {
+  Easing,
   interpolateColor,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import z from "zod";
 
@@ -22,7 +23,7 @@ const signInSchema = z.object({
   password: z.string().min(1, "Escribe tu contraseña").min(8, "Usa al menos 8 caracteres"),
 });
 
-const REMEMBER_SPRING = { damping: 20, stiffness: 240, mass: 0.7 };
+const REMEMBER_TIMING = { duration: 160, easing: Easing.out(Easing.cubic) };
 
 function getErrorMessage(error: unknown): string | null {
   if (!error) {
@@ -60,7 +61,7 @@ export function SignIn() {
   const { toast } = useToast();
 
   useEffect(() => {
-    rememberProgress.value = withSpring(rememberMe ? 1 : 0, REMEMBER_SPRING);
+    rememberProgress.value = withTiming(rememberMe ? 1 : 0, REMEMBER_TIMING);
   }, [rememberMe, rememberProgress]);
 
   const rememberTrackStyle = useAnimatedStyle(() => ({
@@ -207,10 +208,7 @@ export function SignIn() {
                 style={({ pressed }) => [styles.rememberRow, pressed && styles.rememberRowPressed]}
               >
                 <Ionicons color="rgba(255,255,255,0.65)" name="time-outline" size={16} />
-                <View style={styles.rememberCopy}>
-                  <Text style={styles.rememberTitle}>Recordarme</Text>
-                  <Text style={styles.rememberCaption}>Mantener sesión iniciada</Text>
-                </View>
+                <Text style={styles.rememberTitle}>Recordarme</Text>
                 <Animated.View style={[styles.rememberTrack, rememberTrackStyle]}>
                   <Animated.View style={[styles.rememberThumb, rememberThumbStyle]} />
                 </Animated.View>
@@ -247,33 +245,19 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   rememberRow: {
-    minHeight: 56,
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    gap: 8,
   },
   rememberRowPressed: {
-    borderColor: "rgba(255, 255, 255, 0.22)",
-    backgroundColor: "rgba(255, 255, 255, 0.11)",
-  },
-  rememberCopy: {
-    flex: 1,
-    gap: 1,
+    opacity: 0.7,
   },
   rememberTitle: {
+    flex: 1,
     color: "rgba(255,255,255,0.88)",
     fontSize: 13,
     fontWeight: "500",
-  },
-  rememberCaption: {
-    color: "rgba(255,255,255,0.46)",
-    fontSize: 11,
   },
   rememberTrack: {
     width: 44,

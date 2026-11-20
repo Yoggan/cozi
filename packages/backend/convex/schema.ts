@@ -45,6 +45,12 @@ export const bankAccountStatusValidator = v.union(
 
 export const businessStatusValidator = v.union(v.literal("active"), v.literal("paused"));
 
+export const businessPromptStateValidator = v.union(
+  v.literal("pending"),
+  v.literal("dismissed"),
+  v.literal("completed"),
+);
+
 export const handleOwnerTypeValidator = v.union(v.literal("user"), v.literal("business"));
 
 export const chatChannelValidator = v.union(v.literal("whatsapp"), v.literal("instagram"));
@@ -97,6 +103,8 @@ export default defineSchema({
     phoneVerified: v.boolean(),
     avatarStorageId: v.optional(v.id("_storage")),
     bio: v.optional(v.string()),
+    // Solo existe en cuentas creadas después del onboarding de negocios.
+    businessPromptState: v.optional(businessPromptStateValidator),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
