@@ -5,11 +5,12 @@ import { Text } from "heroui-native";
 import { useMemo, useState } from "react";
 import { Dimensions, Pressable, ScrollView, View } from "react-native";
 import Animated, {
+  Easing,
   FadeIn,
   LinearTransition,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -23,6 +24,7 @@ const GRID_PADDING = 16;
 const GRID_GAP = 10;
 const TILE_WIDTH = Math.floor((SCREEN_WIDTH - GRID_PADDING * 2 - GRID_GAP * 2) / 3);
 const TILE_HEIGHT = Math.round(TILE_WIDTH * 1.48);
+const PRESS_TIMING = { duration: 100, easing: Easing.out(Easing.quad) };
 
 export default function ThemeBackdropScreen() {
   const router = useRouter();
@@ -126,7 +128,7 @@ export default function ThemeBackdropScreen() {
         }}
       >
         <Animated.View
-          layout={LinearTransition.springify().damping(18).stiffness(180)}
+          layout={LinearTransition.duration(200)}
           style={{ flexDirection: "row", flexWrap: "wrap", gap: GRID_GAP }}
         >
           {filtered.map((item, index) => {
@@ -185,10 +187,10 @@ function WallpaperTile({
         <Pressable
           onPress={onPress}
           onPressIn={() => {
-            scale.value = withSpring(0.95, { damping: 16, stiffness: 320 });
+            scale.value = withTiming(0.95, PRESS_TIMING);
           }}
           onPressOut={() => {
-            scale.value = withSpring(1, { damping: 16, stiffness: 320 });
+            scale.value = withTiming(1, PRESS_TIMING);
           }}
           style={{ flex: 1 }}
         >

@@ -5,11 +5,12 @@ import { useRouter } from "expo-router";
 import { Avatar, Text, useThemeColor } from "heroui-native";
 import { Pressable, Share, StyleSheet, View } from "react-native";
 import Animated, {
+  Easing,
   FadeInDown,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -21,7 +22,7 @@ import { useAppTheme } from "@/contexts/app-theme-context";
 import { useProfile } from "@/contexts/profile-context";
 import { initials } from "@/lib/money";
 
-const SPRING = { damping: 20, stiffness: 240, mass: 0.7 };
+const PRESS_TIMING = { duration: 100, easing: Easing.out(Easing.quad) };
 const ENTER = FadeInDown.duration(360);
 
 function usePressScale() {
@@ -34,10 +35,10 @@ function usePressScale() {
   return {
     style,
     onPressIn: () => {
-      scale.value = withSpring(0.92, SPRING);
+      scale.value = withTiming(0.92, PRESS_TIMING);
     },
     onPressOut: () => {
-      scale.value = withSpring(1, SPRING);
+      scale.value = withTiming(1, PRESS_TIMING);
     },
   };
 }

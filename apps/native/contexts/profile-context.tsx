@@ -1,4 +1,5 @@
 import { api } from "@cozi/backend/convex/_generated/api";
+import type { Id } from "@cozi/backend/convex/_generated/dataModel";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Button, Text } from "heroui-native";
 import { authClient } from "@/lib/auth-client";
@@ -17,6 +18,15 @@ export type Profile = {
   avatarUrl: string | null;
   hasReceivingAccount: boolean;
   hasPendingBankAccount?: boolean;
+  businessPromptState: "pending" | "dismissed" | "completed" | null;
+  businessPromptDomain: string | null;
+  business: {
+    _id: Id<"businesses">;
+    name: string;
+    category: string | null;
+    status: "active" | "paused";
+    handle: string | null;
+  } | null;
 };
 
 const ProfileContext = createContext<Profile | null>(null);

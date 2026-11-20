@@ -304,11 +304,47 @@ export default function ProfileScreen() {
         </Animated.View>
       ) : null}
 
+      {profile.business ? (
+        <Animated.View entering={FadeInDown.duration(220).delay(75)}>
+          <Pressable
+            onPress={() => router.push("/business")}
+            className={cn(
+              "mt-3 flex-row items-center gap-3 rounded-2xl p-4",
+              !isImmersive && "bg-surface",
+            )}
+            style={glass}
+          >
+            <View
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                backgroundColor: accent.softHex,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="business" size={19} color={accent.hex} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
+                Mi negocio
+              </Text>
+              <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
+                {profile.business.name}
+                {profile.business.handle ? ` · @${profile.business.handle}` : ""}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={iconMuted} />
+          </Pressable>
+        </Animated.View>
+      ) : null}
+
       {showEdit ? (
         <Animated.View
           entering={FadeInDown.duration(220)}
           exiting={FadeOutUp.duration(160)}
-          layout={LinearTransition.springify().damping(20).stiffness(200)}
+          layout={LinearTransition.duration(200)}
           className={cn("mt-3 gap-3 rounded-2xl p-4", !isImmersive && "bg-surface")}
           style={glass}
         >
@@ -336,7 +372,7 @@ export default function ProfileScreen() {
       ) : null}
 
       <Animated.View
-        layout={LinearTransition.springify().damping(20).stiffness(200)}
+        layout={LinearTransition.duration(200)}
         entering={FadeInDown.duration(220).delay(80)}
         className="mt-6 flex-row items-center justify-between"
       >
@@ -357,7 +393,7 @@ export default function ProfileScreen() {
         <Animated.View
           entering={FadeInDown.duration(220)}
           exiting={FadeOutUp.duration(160)}
-          layout={LinearTransition.springify().damping(20).stiffness(200)}
+          layout={LinearTransition.duration(200)}
           className={cn("mt-3 gap-3 rounded-2xl p-4", !isImmersive && "bg-surface")}
           style={glass}
         >
@@ -401,7 +437,7 @@ export default function ProfileScreen() {
       ) : null}
 
       <Animated.View
-        layout={LinearTransition.springify().damping(20).stiffness(200)}
+        layout={LinearTransition.duration(200)}
         entering={FadeInDown.duration(220).delay(120)}
         className={cn("mt-3 rounded-2xl px-4", !isImmersive && "bg-surface")}
         style={glass}

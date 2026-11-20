@@ -9,10 +9,10 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
-  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,7 +26,8 @@ import { getBackdropById } from "@/lib/themes";
 
 const PIN_LENGTH = 4;
 const FOREST = getBackdropById("forest");
-const KEY_SPRING = { damping: 18, stiffness: 320, mass: 0.55 };
+const KEY_TIMING = { duration: 90, easing: Easing.out(Easing.quad) };
+const DOT_TIMING = { duration: 120, easing: Easing.out(Easing.cubic) };
 const DIGIT_ROWS: Array<Array<string>> = [
   ["1", "2", "3"],
   ["4", "5", "6"],
@@ -37,7 +38,7 @@ function PinDot({ filled }: { filled: boolean }) {
   const progress = useSharedValue(filled ? 1 : 0);
 
   useEffect(() => {
-    progress.value = withSpring(filled ? 1 : 0, { damping: 16, stiffness: 260 });
+    progress.value = withTiming(filled ? 1 : 0, DOT_TIMING);
   }, [filled, progress]);
 
   const fillStyle = useAnimatedStyle(() => ({
@@ -120,10 +121,10 @@ function KeyButton({
       accessibilityRole="button"
       onPress={onPress}
       onPressIn={() => {
-        scale.value = withSpring(0.92, KEY_SPRING);
+        scale.value = withTiming(0.92, KEY_TIMING);
       }}
       onPressOut={() => {
-        scale.value = withSpring(1, KEY_SPRING);
+        scale.value = withTiming(1, KEY_TIMING);
       }}
     >
       <Animated.View

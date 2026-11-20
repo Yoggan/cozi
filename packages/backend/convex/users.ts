@@ -3,6 +3,8 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { isBusinessEmail } from "./lib/email";
+import { claimHandle } from "./lib/handles";
 import { HANDLE_PATTERN, handleBase, normalizeHandle } from "./lib/identifiers";
 
 async function requireAuthUserId(ctx: QueryCtx | MutationCtx): Promise<string> {
@@ -32,21 +34,6 @@ async function readHandle(
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .first();
   return handle?.handle ?? null;
-}
-
-async function claimHandle(ctx: MutationCtx, base: string): Promise<string> {
-  for (let attempt = 0; attempt < 12; attempt += 1) {
-    const suffix = 1000 + Math.floor(Math.random() * 9000);
-    const candidate = attempt === 0 ? base : `${base.slice(0, 15)}${suffix}`;
-    const existing = await ctx.db
-      .query("handles")
-      .withIndex("by_handle", (q) => q.eq("handle", candidate))
-      .unique();
-    if (!existing) {
-      return candidate;
-    }
-  }
-  throw new ConvexError("No pudimos asignarte un @handle. Intenta de nuevo.");
 }
 
 function normalizePhone(value: string): string {
@@ -102,6 +89,7 @@ export const ensureProfile = mutation({
       authUserId: identity.subject,
       displayName: identity.name?.trim() || identity.email?.split("@")[0] || handle,
       phoneVerified: false,
+      businessPromptState: isBusinessEmail(identity.email) ? "pending" : undefined,
       createdAt: now,
       updatedAt: now,
     });
@@ -131,7 +119,7 @@ export const getMe = query({
       return null;
     }
 
-    const [handle, receivingAccounts, avatarUrl, bankAccounts] = await Promise.all([
+    const [handle, receivingAccounts, avatarUrl, bankAccounts, business] = await Promise.all([
       readHandle(ctx, user._id),
       getReceivingAccounts(ctx, user._id),
       user.avatarStorageId ? ctx.storage.getUrl(user.avatarStorageId) : Promise.resolve(null),
@@ -139,7 +127,20 @@ export const getMe = query({
         .query("bankAccounts")
         .withIndex("by_user", (q) => q.eq("userId", user._id))
         .collect(),
+      ctx.db
+        .query("businesses")
+        .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
+        .first(),
     ]);
+
+    let businessHandle: string | null = null;
+    if (business) {
+      const handleRow = await ctx.db
+        .query("handles")
+        .withIndex("by_business", (q) => q.eq("businessId", business._id))
+        .first();
+      businessHandle = handleRow?.handle ?? null;
+    }
 
     return {
       _id: user._id,
@@ -152,7 +153,32 @@ export const getMe = query({
       hasPendingBankAccount: bankAccounts.some(
         (account) => account.businessId === undefined && account.status === "pending",
       ),
+      businessPromptState: user.businessPromptState ?? null,
+      businessPromptDomain: identity.email?.split("@")[1] ?? null,
+      business: business
+        ? {
+            _id: business._id,
+            name: business.name,
+            category: business.category ?? null,
+            status: business.status,
+            handle: businessHandle,
+          }
+        : null,
     };
+  },
+});
+
+/** "No, mi cuenta es personal": no volver a preguntar en esta cuenta. */
+export const dismissBusinessPrompt = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await findUserByAuthId(ctx, await requireAuthUserId(ctx));
+    if (user?.businessPromptState === "pending") {
+      await ctx.db.patch(user._id, {
+        businessPromptState: "dismissed",
+        updatedAt: Date.now(),
+      });
+    }
   },
 });
 
