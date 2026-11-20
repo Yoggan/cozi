@@ -37,28 +37,32 @@ const ROUTES = {
   transactionsByBankAccount: "/transaction/bank-account",
 } as const;
 
-const CLABE_BANKS: Record<string, string> = {
-  "002": "Citibanamex",
-  "012": "BBVA",
-  "014": "Santander",
-  "021": "HSBC",
-  "030": "Bajío",
-  "036": "Inbursa",
-  "044": "Scotiabank",
-  "058": "Banregio",
-  "062": "Afirme",
-  "072": "Banorte",
-  "127": "Banco Azteca",
-  "137": "BanCoppel",
-  "638": "Nu México",
-  "646": "STP",
-  "722": "Mercado Pago",
-};
+const CLABE_BANKS = new Map([
+  ["002", "Citibanamex"],
+  ["012", "BBVA"],
+  ["014", "Santander"],
+  ["021", "HSBC"],
+  ["030", "Bajío"],
+  ["036", "Inbursa"],
+  ["044", "Scotiabank"],
+  ["058", "Banregio"],
+  ["062", "Afirme"],
+  ["072", "Banorte"],
+  ["127", "Banco Azteca"],
+  ["137", "BanCoppel"],
+  ["638", "Nu México"],
+  ["646", "STP"],
+  ["722", "Mercado Pago"],
+]);
 
 function isMockMode(): boolean {
   const mode = process.env.PEY_MODE?.trim().toLowerCase();
-  if (mode === "mock") return true;
-  if (mode === "live") return false;
+  if (mode === "mock") {
+    return true;
+  }
+  if (mode === "live") {
+    return false;
+  }
   return !process.env.PEY_API_KEY;
 }
 
@@ -72,29 +76,31 @@ function getSiteUrl(): string {
 
 function requireEnv(name: string): string {
   const value = process.env[name];
-  if (!value) throw new Error(`Falta la variable de entorno ${name}`);
+  if (!value) {
+    throw new Error(`Falta la variable de entorno ${name}`);
+  }
   return value;
 }
 
 function bankFromClabe(digits: string): string | undefined {
-  return digits.length === 18 ? CLABE_BANKS[digits.slice(0, 3)] : undefined;
+  return digits.length === 18 ? CLABE_BANKS.get(digits.slice(0, 3)) : undefined;
 }
 
 function numericRef(reference: string): string {
-  const digits = reference.replace(/\D/g, "").slice(0, 7);
+  const digits = reference.replaceAll(/\D/g, "").slice(0, 7);
   return digits.length > 0 ? digits : String(Date.now()).slice(-7);
 }
 
 async function peyFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const baseUrl = getBaseUrl();
 
+  const headers = new Headers(init.headers);
+  headers.set("Content-Type", "application/json");
+  headers.set("Authorization", `Bearer ${requireEnv("PEY_API_KEY")}`);
+
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${requireEnv("PEY_API_KEY")}`,
-      ...init.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -103,6 +109,8 @@ async function peyFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new Error(`Pey ${response.status} ${path}: ${detail.slice(0, 300)}`);
   }
 
+  // shortcut: el cliente confía en el contrato de Pey; los campos se validan al mapear.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return (await response.json()) as T;
 }
 
@@ -142,6 +150,20 @@ function mapBankAccountStatus(raw: string | undefined): BankAccountStatus {
     default:
       return "pending";
   }
+}
+
+function summarizeCodiTransactions(
+  id: string,
+  transactions: Array<PeyTransactionRaw>,
+): PeyCodiChargeResult {
+  const paid = transactions.find(
+    (tx) => tx.datePaid || normalizePaymentStatus(tx.status) === "succeeded",
+  );
+  return {
+    id,
+    status: paid ? "succeeded" : "pending",
+    transactionId: optionalString(paid?.transactionId ?? paid?.id),
+  };
 }
 
 function mapCodiCharge(raw: PeyCodiChargeRaw): PeyCodiChargeResult {
@@ -197,7 +219,7 @@ export const pey: PeyClient = {
         last4: input.accountNumber.slice(-4),
       });
       return {
-        id: `mock_ba_${crypto.randomUUID().replace(/-/g, "").slice(0, 20)}`,
+        id: `mock_ba_${crypto.randomUUID().replaceAll("-", "").slice(0, 20)}`,
         status: "verified",
         providerStatus: "ACTIVE",
         institution: bankFromClabe(input.accountNumber) ?? "Banco (modo pruebas)",
@@ -245,7 +267,7 @@ export const pey: PeyClient = {
 
   async createCodiCharge(input: CreateCodiChargeInput): Promise<PeyCodiChargeResult> {
     if (isMockMode()) {
-      const id = `mock_codi_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+      const id = `mock_codi_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`;
       console.info("[pey:mock] createCodiCharge", { id, method: input.method });
       return {
         id,
@@ -285,7 +307,7 @@ export const pey: PeyClient = {
 
   async createPaymentLink(input: CreatePaymentLinkInput): Promise<PeyPaymentLinkResult> {
     if (isMockMode()) {
-      const id = `mock_pl_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+      const id = `mock_pl_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`;
       console.info("[pey:mock] createPaymentLink", { id, reference: input.reference });
       return {
         id,
@@ -320,28 +342,17 @@ export const pey: PeyClient = {
     if (isMockMode() || id.startsWith("mock_")) {
       return { id, status: "succeeded" };
     }
-    const raw = await peyFetch<
-      PeyCodiChargeRaw | { transactions?: PeyTransactionRaw[] } | PeyTransactionRaw[]
-    >(`${ROUTES.transactionsByCodiQr}/${encodeURIComponent(id)}`);
+    const raw = await peyFetch<PeyCodiChargeRaw | Array<PeyTransactionRaw>>(
+      `${ROUTES.transactionsByCodiQr}/${encodeURIComponent(id)}`,
+    );
 
-    const list = Array.isArray(raw)
-      ? raw
-      : Array.isArray((raw as { transactions?: PeyTransactionRaw[] }).transactions)
-        ? (raw as { transactions: PeyTransactionRaw[] }).transactions
-        : null;
-
-    if (list) {
-      const paid = list.find(
-        (tx) => tx.datePaid || normalizePaymentStatus(tx.status) === "succeeded",
-      );
-      return {
-        id,
-        status: paid ? "succeeded" : "pending",
-        transactionId: optionalString(paid?.transactionId ?? paid?.id),
-      };
+    if (Array.isArray(raw)) {
+      return summarizeCodiTransactions(id, raw);
     }
-
-    return mapCodiCharge(raw as PeyCodiChargeRaw);
+    if (raw.transactions) {
+      return summarizeCodiTransactions(id, raw.transactions);
+    }
+    return mapCodiCharge(raw);
   },
 
   async getPaymentLink(id: string): Promise<PeyPaymentLinkResult> {

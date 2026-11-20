@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
-import { v, type Infer } from "convex/values";
+import { v } from "convex/values";
+import type { Infer } from "convex/values";
 
 /** Canales desde los que nace una orden. */
 export const orderChannelValidator = v.union(

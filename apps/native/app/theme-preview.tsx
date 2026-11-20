@@ -1,14 +1,28 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import { ImpactFeedbackStyle, impactAsync, selectionAsync } from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Text } from "heroui-native";
 import { useRef, useState } from "react";
-import { Dimensions, FlatList, Pressable, View, type ViewToken } from "react-native";
+import type { PropsWithChildren } from "react";
+import type { FlatList } from "react-native";
+import { Dimensions, Pressable, View } from "react-native";
+import Animated, {
+  Extrapolation,
+  FadeInDown,
+  FadeOutDown,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
+import type { SharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ThemeBackdrop } from "@/components/theme-backdrop";
 import { useAppTheme } from "@/contexts/app-theme-context";
-import { ACCENT_OPTIONS, getBackdropById, THEME_PRESETS, type ThemePreset } from "@/lib/themes";
+import { ACCENT_OPTIONS, getBackdropById, THEME_PRESETS } from "@/lib/themes";
+import type { ThemePreset } from "@/lib/themes";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_WIDTH = Math.min(SCREEN_WIDTH * 0.68, 286);
@@ -17,8 +31,38 @@ const CARD_SPACING = 18;
 const SNAP_INTERVAL = CARD_WIDTH + CARD_SPACING;
 const SIDE_PADDING = Math.round((SCREEN_WIDTH - CARD_WIDTH) / 2);
 
+function PressScale({
+  children,
+  onPress,
+  className,
+}: PropsWithChildren<{ onPress: () => void; className?: string }>) {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View style={animatedStyle} className={className}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => {
+          scale.value = withSpring(0.9, { damping: 16, stiffness: 320 });
+        }}
+        onPressOut={() => {
+          scale.value = withSpring(1, { damping: 16, stiffness: 320 });
+        }}
+        className="items-center gap-2"
+      >
+        {children}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 function ThemePreviewCard({
   item,
+  index,
+  scrollX,
   isActive,
   customBackdropId,
   accentHex,
@@ -26,6 +70,8 @@ function ThemePreviewCard({
   onSelect,
 }: {
   item: ThemePreset;
+  index: number;
+  scrollX: SharedValue<number>;
   isActive: boolean;
   customBackdropId: string | null;
   accentHex: string;
@@ -43,120 +89,139 @@ function ThemePreviewCard({
   const dotBg = isLightCard ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.22)";
   const textColor = isLightCard ? "#111827" : "#FFFFFF";
 
+  const animatedStyle = useAnimatedStyle(() => {
+    const inputRange = [
+      (index - 1) * SNAP_INTERVAL,
+      index * SNAP_INTERVAL,
+      (index + 1) * SNAP_INTERVAL,
+    ];
+
+    return {
+      transform: [
+        {
+          scale: interpolate(scrollX.value, inputRange, [0.9, 1, 0.9], Extrapolation.CLAMP),
+        },
+      ],
+      opacity: interpolate(scrollX.value, inputRange, [0.62, 1, 0.62], Extrapolation.CLAMP),
+    };
+  });
+
   return (
-    <Pressable
-      onPress={onSelect}
-      style={{
-        width: CARD_WIDTH,
-        height: CARD_HEIGHT,
-        borderRadius: 28,
-        overflow: "hidden",
-        backgroundColor: bg,
-        borderWidth: isActive ? 2 : 1,
-        borderColor: isActive ? accentHex : "rgba(255,255,255,0.14)",
-      }}
-    >
-      {effectiveBackdrop ? (
-        <ThemeBackdrop backdrop={effectiveBackdrop} height={Math.round(CARD_HEIGHT * 0.66)} />
-      ) : null}
+    <Animated.View style={animatedStyle}>
+      <Pressable
+        onPress={onSelect}
+        style={{
+          width: CARD_WIDTH,
+          height: CARD_HEIGHT,
+          borderRadius: 28,
+          overflow: "hidden",
+          backgroundColor: bg,
+          borderWidth: isActive ? 2 : 1,
+          borderColor: isActive ? accentHex : "rgba(255,255,255,0.14)",
+        }}
+      >
+        {effectiveBackdrop ? (
+          <ThemeBackdrop backdrop={effectiveBackdrop} height={Math.round(CARD_HEIGHT * 0.66)} />
+        ) : null}
 
-      <View className="flex-1 justify-between p-4">
-        {/* Mini top bar */}
-        <View className="flex-row items-center justify-between pt-1">
-          <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: dotBg }} />
-          <View style={{ width: 92, height: 26, borderRadius: 13, backgroundColor: dotBg }} />
-          <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: dotBg }} />
-        </View>
+        <View className="flex-1 justify-between p-4">
+          {/* Mini top bar */}
+          <View className="flex-row items-center justify-between pt-1">
+            <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: dotBg }} />
+            <View style={{ width: 92, height: 26, borderRadius: 13, backgroundColor: dotBg }} />
+            <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: dotBg }} />
+          </View>
 
-        {/* Center label + wallpaper picker button */}
-        <View className="items-center">
-          <Text
-            style={{ color: textColor }}
-            className="text-sm font-semibold tracking-tight opacity-95"
-          >
-            Personal · MXN
-          </Text>
-          <Text style={{ color: textColor }} className="mt-0.5 text-xs opacity-65">
-            {item.name}
-          </Text>
+          {/* Center label + wallpaper picker button */}
+          <View className="items-center">
+            <Text
+              style={{ color: textColor }}
+              className="text-sm font-semibold tracking-tight opacity-95"
+            >
+              Personal Â· MXN
+            </Text>
+            <Text style={{ color: textColor }} className="mt-0.5 text-xs opacity-65">
+              {item.name}
+            </Text>
 
-          <Pressable
-            onPress={(e) => {
-              e.stopPropagation();
-              void Haptics.selectionAsync();
-              onOpenBackdropPicker();
-            }}
-            style={{
-              marginTop: 14,
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              backgroundColor: isLightCard ? "rgba(0,0,0,0.10)" : "rgba(255,255,255,0.22)",
-              alignItems: "center",
-              justifyContent: "center",
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.25)",
-            }}
-          >
-            <Ionicons name="image-outline" size={20} color={textColor} />
-          </Pressable>
-        </View>
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                void selectionAsync();
+                onOpenBackdropPicker();
+              }}
+              style={{
+                marginTop: 14,
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: isLightCard ? "rgba(0,0,0,0.10)" : "rgba(255,255,255,0.22)",
+                alignItems: "center",
+                justifyContent: "center",
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.25)",
+              }}
+            >
+              <Ionicons name="image-outline" size={20} color={textColor} />
+            </Pressable>
+          </View>
 
-        {/* Mini circular action dots + translucent card */}
-        <View className="gap-3.5">
-          <View className="flex-row justify-between px-1">
-            {[0, 1, 2, 3].map((dot) => (
+          {/* Mini circular action dots + translucent card */}
+          <View className="gap-3.5">
+            <View className="flex-row justify-between px-1">
+              {[0, 1, 2, 3].map((dot) => (
+                <View
+                  key={dot}
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 17,
+                    backgroundColor: dot === 0 ? accentHex : dotBg,
+                  }}
+                />
+              ))}
+            </View>
+
+            <View
+              style={{
+                height: 112,
+                borderRadius: 18,
+                backgroundColor: cardBg,
+                borderWidth: 1,
+                borderColor: isLightCard ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.08)",
+                padding: 12,
+                justifyContent: "space-between",
+              }}
+            >
               <View
-                key={dot}
                 style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: 17,
-                  backgroundColor: dot === 0 ? accentHex : dotBg,
+                  width: "62%",
+                  height: 10,
+                  borderRadius: 5,
+                  backgroundColor: isLightCard ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.22)",
                 }}
               />
-            ))}
-          </View>
-
-          <View
-            style={{
-              height: 112,
-              borderRadius: 18,
-              backgroundColor: cardBg,
-              borderWidth: 1,
-              borderColor: isLightCard ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.08)",
-              padding: 12,
-              justifyContent: "space-between",
-            }}
-          >
-            <View
-              style={{
-                width: "62%",
-                height: 10,
-                borderRadius: 5,
-                backgroundColor: isLightCard ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.22)",
-              }}
-            />
-            <View
-              style={{
-                width: "42%",
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: isLightCard ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.14)",
-              }}
-            />
-            <View
-              style={{
-                height: 28,
-                borderRadius: 14,
-                backgroundColor: isLightCard ? "#111827" : "#FFFFFF",
-                opacity: 0.92,
-              }}
-            />
+              <View
+                style={{
+                  width: "42%",
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: isLightCard ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.14)",
+                }}
+              />
+              <View
+                style={{
+                  height: 28,
+                  borderRadius: 14,
+                  backgroundColor: isLightCard ? "#111827" : "#FFFFFF",
+                  opacity: 0.92,
+                }}
+              />
+            </View>
           </View>
         </View>
-      </View>
-    </Pressable>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -172,24 +237,33 @@ export default function ThemePreviewScreen() {
     THEME_PRESETS.findIndex((p) => p.id === preset.id),
   );
   const listRef = useRef<FlatList<ThemePreset>>(null);
+  const scrollX = useSharedValue(initialIndex * SNAP_INTERVAL);
 
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    const first = viewableItems[0]?.item as ThemePreset | undefined;
-    if (first) {
-      selectPreset(first.id);
-    }
-  }).current;
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollX.value = event.contentOffset.x;
+    },
+  });
+
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: Array<{ item: ThemePreset }> }) => {
+      const first = viewableItems[0]?.item;
+      if (first) {
+        selectPreset(first.id);
+      }
+    },
+  ).current;
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
 
   function handleReset() {
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    void impactAsync(ImpactFeedbackStyle.Light);
     resetTheme();
     listRef.current?.scrollToIndex({ index: 0, animated: true });
   }
 
   function handleToggleMode() {
-    void Haptics.selectionAsync();
+    void selectionAsync();
     toggleTheme();
   }
 
@@ -239,13 +313,15 @@ export default function ThemePreviewScreen() {
 
       {/* Carousel */}
       <View className="flex-1 justify-center">
-        <FlatList
+        <Animated.FlatList
           ref={listRef}
           data={THEME_PRESETS}
           keyExtractor={(item) => item.id}
           horizontal
           showsHorizontalScrollIndicator={false}
           initialScrollIndex={initialIndex}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
           getItemLayout={(_, index) => ({
             length: SNAP_INTERVAL,
             offset: SNAP_INTERVAL * index,
@@ -263,12 +339,14 @@ export default function ThemePreviewScreen() {
           renderItem={({ item, index }) => (
             <ThemePreviewCard
               item={item}
+              index={index}
+              scrollX={scrollX}
               isActive={item.id === preset.id}
               customBackdropId={backdrop?.id ?? null}
               accentHex={accent.hex}
               onOpenBackdropPicker={() => router.push("/theme-backdrop")}
               onSelect={() => {
-                void Haptics.selectionAsync();
+                void selectionAsync();
                 selectPreset(item.id);
                 listRef.current?.scrollToIndex({ index, animated: true });
               }}
@@ -279,14 +357,18 @@ export default function ThemePreviewScreen() {
 
       {/* Inline color swatch bar when Color is toggled */}
       {showColors ? (
-        <View className="mb-5 flex-row items-center justify-center gap-3 px-6">
+        <Animated.View
+          entering={FadeInDown.duration(220)}
+          exiting={FadeOutDown.duration(160)}
+          className="mb-5 flex-row items-center justify-center gap-3 px-6"
+        >
           {ACCENT_OPTIONS.map((swatch) => {
             const selected = swatch.id === accent.id;
             return (
               <Pressable
                 key={swatch.id}
                 onPress={() => {
-                  void Haptics.selectionAsync();
+                  void selectionAsync();
                   selectAccent(swatch.id);
                 }}
                 style={{
@@ -300,12 +382,12 @@ export default function ThemePreviewScreen() {
               />
             );
           })}
-        </View>
+        </Animated.View>
       ) : null}
 
       {/* Bottom circular controls: Tema + Color + Fondo */}
       <View className="flex-row items-center justify-center gap-10 pb-3">
-        <Pressable onPress={handleToggleMode} className="items-center gap-2">
+        <PressScale onPress={handleToggleMode}>
           <View
             style={{
               width: 50,
@@ -321,14 +403,13 @@ export default function ThemePreviewScreen() {
           <Text style={{ color: "#E4E4E7" }} className="text-xs font-medium">
             {isDark ? "Oscuro" : "Claro"}
           </Text>
-        </Pressable>
+        </PressScale>
 
-        <Pressable
+        <PressScale
           onPress={() => {
-            void Haptics.selectionAsync();
+            void selectionAsync();
             setShowColors((v) => !v);
           }}
-          className="items-center gap-2"
         >
           <View
             style={{
@@ -349,14 +430,13 @@ export default function ThemePreviewScreen() {
           <Text style={{ color: "#E4E4E7" }} className="text-xs font-medium">
             Color
           </Text>
-        </Pressable>
+        </PressScale>
 
-        <Pressable
+        <PressScale
           onPress={() => {
-            void Haptics.selectionAsync();
+            void selectionAsync();
             router.push("/theme-backdrop");
           }}
-          className="items-center gap-2"
         >
           <View
             style={{
@@ -373,7 +453,7 @@ export default function ThemePreviewScreen() {
           <Text style={{ color: "#E4E4E7" }} className="text-xs font-medium">
             Fondo
           </Text>
-        </Pressable>
+        </PressScale>
       </View>
     </View>
   );

@@ -1,4 +1,5 @@
 import { api } from "@cozi/backend/convex/_generated/api";
+import type { BankAccountStatus } from "@cozi/backend/convex/schema";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import {
@@ -16,10 +17,12 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Pressable, View } from "react-native";
+import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Container } from "@/components/container";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useAppLock } from "@/contexts/app-lock-context";
 import { useAppTheme } from "@/contexts/app-theme-context";
 import { useProfile } from "@/contexts/profile-context";
 import { authClient } from "@/lib/auth-client";
@@ -27,7 +30,7 @@ import { initials } from "@/lib/money";
 
 type AccountType = "clabe" | "card";
 
-const STATUS_LABELS: Record<string, string> = {
+const STATUS_LABELS: Record<BankAccountStatus, string> = {
   pending: "En revisión",
   verified: "Verificada",
   rejected: "Rechazada",
@@ -55,6 +58,10 @@ function TypeButton({
   );
 }
 
+async function handleSignOut() {
+  await authClient.signOut();
+}
+
 export default function ProfileScreen() {
   const profile = useProfile();
   const accounts = useQuery(api.users.listBankAccounts);
@@ -63,6 +70,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { preset, backdrop, accent } = useAppTheme();
+  const { isEnabled: isLockEnabled } = useAppLock();
   const { toast } = useToast();
   const muted = useThemeColor("muted");
   const warning = useThemeColor("warning");
@@ -78,7 +86,7 @@ export default function ProfileScreen() {
   const [isLinking, setIsLinking] = useState(false);
 
   async function handleLink() {
-    const digits = accountNumber.replace(/[\s-]/g, "");
+    const digits = accountNumber.replaceAll(/[\s-]/g, "");
     if (!digits) {
       toast.show({ variant: "danger", label: "Escribe el número de cuenta" });
       return;
@@ -102,10 +110,10 @@ export default function ProfileScreen() {
       } else {
         toast.show({ variant: "success", label: "Cuenta vinculada" });
       }
-    } catch (cause) {
+    } catch (error) {
       toast.show({
         variant: "danger",
-        label: cause instanceof Error ? cause.message : "No pudimos vincular la cuenta",
+        label: error instanceof Error ? error.message : "No pudimos vincular la cuenta",
       });
     } finally {
       setIsLinking(false);
@@ -121,28 +129,36 @@ export default function ProfileScreen() {
       });
       setShowEdit(false);
       toast.show({ variant: "success", label: "Perfil actualizado" });
-    } catch (cause) {
+    } catch (error) {
       toast.show({
         variant: "danger",
-        label: cause instanceof Error ? cause.message : "No pudimos guardar tu perfil",
+        label: error instanceof Error ? error.message : "No pudimos guardar tu perfil",
       });
     } finally {
       setIsSaving(false);
     }
   }
 
-  async function handleSignOut() {
-    await authClient.signOut();
-  }
-
   return (
     <Container className="px-5" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center justify-between pb-6 pt-4">
-        <Text className="text-2xl font-semibold tracking-tight text-foreground">Perfil</Text>
+        <View className="flex-row items-center gap-3">
+          <Pressable
+            onPress={() => router.back()}
+            hitSlop={10}
+            className="h-10 w-10 items-center justify-center rounded-full bg-surface"
+          >
+            <Ionicons name="arrow-back" size={20} color={muted} />
+          </Pressable>
+          <Text className="text-2xl font-semibold tracking-tight text-foreground">Perfil</Text>
+        </View>
         <ThemeToggle />
       </View>
 
-      <View className="flex-row items-center gap-4 rounded-3xl bg-surface p-5">
+      <Animated.View
+        entering={FadeInDown.duration(220)}
+        className="flex-row items-center gap-4 rounded-3xl bg-surface p-5"
+      >
         <Avatar size="lg" color="success">
           <Avatar.Fallback>{initials(profile.displayName)}</Avatar.Fallback>
         </Avatar>
@@ -154,43 +170,77 @@ export default function ProfileScreen() {
         <Button size="sm" variant="secondary" onPress={() => setShowEdit((value) => !value)}>
           <Button.Label>Editar</Button.Label>
         </Button>
-      </View>
+      </Animated.View>
 
-      <Pressable
-        onPress={() => router.push("/theme-preview")}
-        className="mt-4 flex-row items-center gap-3 rounded-2xl bg-surface p-4"
-      >
-        <View
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 19,
-            backgroundColor: accent.softHex,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+      <Animated.View entering={FadeInDown.duration(220).delay(40)}>
+        <Pressable
+          onPress={() => router.push("/theme-preview")}
+          className="mt-4 flex-row items-center gap-3 rounded-2xl bg-surface p-4"
         >
-          <Ionicons name="color-palette" size={19} color={accent.hex} />
-        </View>
-        <View className="flex-1">
-          <Text className="text-sm font-semibold text-foreground">Apariencia y temas</Text>
-          <Text className="mt-0.5 text-xs text-muted">
-            {backdrop ? `${preset.name} · ${backdrop.name}` : preset.name}
-          </Text>
-        </View>
-        <View
-          style={{
-            width: 14,
-            height: 14,
-            borderRadius: 7,
-            backgroundColor: accent.hex,
-          }}
-        />
-        <Ionicons name="chevron-forward" size={18} color={muted} />
-      </Pressable>
+          <View
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              backgroundColor: accent.softHex,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name="color-palette" size={19} color={accent.hex} />
+          </View>
+          <View className="flex-1">
+            <Text className="text-sm font-semibold text-foreground">Apariencia y temas</Text>
+            <Text className="mt-0.5 text-xs text-muted">
+              {backdrop ? `${preset.name} · ${backdrop.name}` : preset.name}
+            </Text>
+          </View>
+          <View
+            style={{
+              width: 14,
+              height: 14,
+              borderRadius: 7,
+              backgroundColor: accent.hex,
+            }}
+          />
+          <Ionicons name="chevron-forward" size={18} color={muted} />
+        </Pressable>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.duration(220).delay(60)}>
+        <Pressable
+          onPress={() => router.push("/security")}
+          className="mt-3 flex-row items-center gap-3 rounded-2xl bg-surface p-4"
+        >
+          <View
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              backgroundColor: accent.softHex,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name="shield-checkmark" size={19} color={accent.hex} />
+          </View>
+          <View className="flex-1">
+            <Text className="text-sm font-semibold text-foreground">Seguridad</Text>
+            <Text className="mt-0.5 text-xs text-muted">
+              {isLockEnabled ? "PIN activo" : "PIN y biometría"}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={muted} />
+        </Pressable>
+      </Animated.View>
 
       {showEdit ? (
-        <View className="mt-3 gap-3 rounded-2xl bg-surface p-4">
+        <Animated.View
+          entering={FadeInDown.duration(220)}
+          exiting={FadeOutUp.duration(160)}
+          layout={LinearTransition.springify().damping(20).stiffness(200)}
+          className="mt-3 gap-3 rounded-2xl bg-surface p-4"
+        >
           <TextField>
             <Label>Nombre</Label>
             <Input value={displayName} onChangeText={setDisplayName} autoCapitalize="words" />
@@ -211,10 +261,14 @@ export default function ProfileScreen() {
               <Button.Label>Guardar cambios</Button.Label>
             )}
           </Button>
-        </View>
+        </Animated.View>
       ) : null}
 
-      <View className="mt-6 flex-row items-center justify-between">
+      <Animated.View
+        layout={LinearTransition.springify().damping(20).stiffness(200)}
+        entering={FadeInDown.duration(220).delay(80)}
+        className="mt-6 flex-row items-center justify-between"
+      >
         <View>
           <Text className="text-lg font-semibold text-foreground">Cuentas para recibir</Text>
           <Text className="mt-0.5 text-xs text-muted">Tu CLABE solo se comparte con Pey.</Text>
@@ -222,10 +276,15 @@ export default function ProfileScreen() {
         <Button size="sm" variant="secondary" onPress={() => setShowForm((value) => !value)}>
           <Button.Label>{showForm ? "Cerrar" : "Agregar"}</Button.Label>
         </Button>
-      </View>
+      </Animated.View>
 
       {showForm ? (
-        <View className="mt-3 gap-3 rounded-2xl bg-surface p-4">
+        <Animated.View
+          entering={FadeInDown.duration(220)}
+          exiting={FadeOutUp.duration(160)}
+          layout={LinearTransition.springify().damping(20).stiffness(200)}
+          className="mt-3 gap-3 rounded-2xl bg-surface p-4"
+        >
           <View className="flex-row rounded-xl bg-surface-secondary p-1">
             <TypeButton
               active={accountType === "clabe"}
@@ -262,10 +321,14 @@ export default function ProfileScreen() {
               <Button.Label>Vincular cuenta</Button.Label>
             )}
           </Button>
-        </View>
+        </Animated.View>
       ) : null}
 
-      <View className="mt-3 rounded-2xl bg-surface px-4">
+      <Animated.View
+        layout={LinearTransition.springify().damping(20).stiffness(200)}
+        entering={FadeInDown.duration(220).delay(120)}
+        className="mt-3 rounded-2xl bg-surface px-4"
+      >
         {accounts === undefined ? (
           <View className="py-6">
             <Text className="text-center text-sm text-muted">Cargando cuentas...</Text>
@@ -337,7 +400,7 @@ export default function ProfileScreen() {
             </View>
           ))
         )}
-      </View>
+      </Animated.View>
 
       <Pressable
         onPress={handleSignOut}
@@ -348,6 +411,8 @@ export default function ProfileScreen() {
       </Pressable>
 
       <Text className="mt-6 text-center text-xs text-muted">cozi · MXN · Hecho en México</Text>
+
+      <View className="h-8" />
     </Container>
   );
 }

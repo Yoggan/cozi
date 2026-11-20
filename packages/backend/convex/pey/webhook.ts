@@ -13,7 +13,9 @@ const MAX_TIMESTAMP_DRIFT_SECONDS = 300;
  */
 export async function verifyPeySignature(rawBody: string, headers: Headers): Promise<boolean> {
   const secret = process.env.PEY_WEBHOOK_SECRET;
-  if (!secret) return false;
+  if (!secret) {
+    return false;
+  }
 
   const webhookId = headers.get("webhook-id");
   const webhookTimestamp = headers.get("webhook-timestamp");
@@ -21,9 +23,13 @@ export async function verifyPeySignature(rawBody: string, headers: Headers): Pro
 
   if (webhookId && webhookTimestamp && webhookSignature) {
     const ts = Number.parseInt(webhookTimestamp, 10);
-    if (!Number.isFinite(ts)) return false;
+    if (!Number.isFinite(ts)) {
+      return false;
+    }
     const nowSeconds = Math.floor(Date.now() / 1000);
-    if (Math.abs(nowSeconds - ts) > MAX_TIMESTAMP_DRIFT_SECONDS) return false;
+    if (Math.abs(nowSeconds - ts) > MAX_TIMESTAMP_DRIFT_SECONDS) {
+      return false;
+    }
 
     const keyBytes = decodeWebhookSecret(secret);
     const key = await crypto.subtle.importKey(
@@ -53,7 +59,9 @@ export async function verifyPeySignature(rawBody: string, headers: Headers): Pro
   }
 
   const legacyHeader = headers.get("x-pey-signature") ?? headers.get("pey-signature");
-  if (!legacyHeader) return false;
+  if (!legacyHeader) {
+    return false;
+  }
 
   const signature = legacyHeader.trim().replace(SIGNATURE_PREFIX, "");
   const encoder = new TextEncoder();
@@ -91,8 +99,8 @@ export async function sha256Hex(value: string): Promise<string> {
   return bytesToHex(new Uint8Array(digest));
 }
 
-function decodeSignatureCandidates(value: string): Uint8Array[] {
-  const candidates: Uint8Array[] = [];
+function decodeSignatureCandidates(value: string): Array<Uint8Array> {
+  const candidates: Array<Uint8Array> = [];
 
   if (HEX.test(value) && value.length % 2 === 0) {
     const bytes = new Uint8Array(value.length / 2);
@@ -218,16 +226,27 @@ function statusFromEventType(type: string): NormalizedPeyWebhook["status"] {
   ) {
     return "succeeded";
   }
-  if (normalized.endsWith(".expired")) return "expired";
-  if (normalized.endsWith(".failed") || normalized.endsWith(".cancelled")) return "failed";
-  if (normalized.endsWith(".refunded")) return "refunded";
+  if (normalized.endsWith(".expired")) {
+    return "expired";
+  }
+  if (normalized.endsWith(".failed") || normalized.endsWith(".cancelled")) {
+    return "failed";
+  }
+  if (normalized.endsWith(".refunded")) {
+    return "refunded";
+  }
   return null;
 }
 
-function firstFiniteNumber(record: Record<string, unknown>, keys: string[]): number | undefined {
+function firstFiniteNumber(
+  record: Record<string, unknown>,
+  keys: Array<string>,
+): number | undefined {
   for (const key of keys) {
     const value = record[key];
-    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
   }
   return undefined;
 }
@@ -236,29 +255,33 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function firstString(record: Record<string, unknown>, keys: string[]): string | undefined {
+function firstString(record: Record<string, unknown>, keys: Array<string>): string | undefined {
   for (const key of keys) {
     const value = record[key];
-    if (typeof value === "string" && value.trim().length > 0) return value.trim();
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
   }
   return undefined;
 }
 
-function firstInteger(record: Record<string, unknown>, keys: string[]): number | undefined {
+function firstInteger(record: Record<string, unknown>, keys: Array<string>): number | undefined {
   for (const key of keys) {
     const value = record[key];
-    if (typeof value === "number" && Number.isInteger(value)) return value;
+    if (typeof value === "number" && Number.isInteger(value)) {
+      return value;
+    }
   }
   return undefined;
 }
 
-function pickStrings(record: Record<string, unknown>, keys: string[]): string[] {
+function pickStrings(record: Record<string, unknown>, keys: Array<string>): Array<string> {
   return keys.flatMap((key) => {
     const value = record[key];
     return typeof value === "string" && value.trim().length > 0 ? [value.trim()] : [];
   });
 }
 
-function unique(values: string[]): string[] {
+function unique(values: Array<string>): Array<string> {
   return [...new Set(values)];
 }

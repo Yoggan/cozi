@@ -25,11 +25,17 @@ export async function findActivePayment(
 
   return (
     payments.find((payment) => {
-      if (payment.status !== "pending" && payment.status !== "processing") return false;
-      if (payment.expiresAt) return payment.expiresAt > now;
+      if (payment.status !== "pending" && payment.status !== "processing") {
+        return false;
+      }
+      if (payment.expiresAt) {
+        return payment.expiresAt > now;
+      }
       // Intento en vuelo (aún sin referencia de Pey): ventana corta.
       // Si ya hay cargo en Pey, se mantiene vigente hasta que el webhook lo cierre.
-      if (payment.peyReference) return true;
+      if (payment.peyReference) {
+        return true;
+      }
       return payment.createdAt > now - 2 * 60 * 1000;
     }) ?? null
   );
@@ -78,14 +84,20 @@ export const getOrderForCharge = internalQuery({
   },
   handler: async (ctx, args) => {
     const viewer = await getViewerByAuthId(ctx, args.authUserId);
-    if (!viewer) throw new ConvexError("Completa tu perfil antes de cobrar");
+    if (!viewer) {
+      throw new ConvexError("Completa tu perfil antes de cobrar");
+    }
 
     const order = await ctx.db.get(args.orderId);
-    if (!order) throw new ConvexError("Orden no encontrada");
+    if (!order) {
+      throw new ConvexError("Orden no encontrada");
+    }
     // P2P: el pagador también puede iniciar el cobro a la cuenta del receptor.
     const isSeller = order.sellerId === viewer._id;
     const isPayer = order.channel === "p2p" && order.buyerId === viewer._id;
-    if (!isSeller && !isPayer) throw new ConvexError("No tienes acceso a esta orden");
+    if (!isSeller && !isPayer) {
+      throw new ConvexError("No tienes acceso a esta orden");
+    }
     if (order.status === "paid" || order.status === "fulfilled") {
       throw new ConvexError("La orden ya está pagada");
     }
@@ -94,7 +106,9 @@ export const getOrderForCharge = internalQuery({
     }
 
     const business = order.businessId ? await ctx.db.get(order.businessId) : null;
-    if (order.businessId && !business) throw new ConvexError("Negocio no encontrado");
+    if (order.businessId && !business) {
+      throw new ConvexError("Negocio no encontrado");
+    }
     if (business && (business.status !== "active" || !business.acceptingOrders)) {
       throw new ConvexError("El negocio no está aceptando pedidos");
     }
@@ -122,13 +136,19 @@ export const getPaymentForRefresh = internalQuery({
   },
   handler: async (ctx, args) => {
     const viewer = await getViewerByAuthId(ctx, args.authUserId);
-    if (!viewer) throw new ConvexError("Completa tu perfil");
+    if (!viewer) {
+      throw new ConvexError("Completa tu perfil");
+    }
 
     const payment = await ctx.db.get(args.paymentId);
-    if (!payment) throw new ConvexError("Pago no encontrado");
+    if (!payment) {
+      throw new ConvexError("Pago no encontrado");
+    }
 
     const order = await ctx.db.get(payment.orderId);
-    if (!order) throw new ConvexError("Orden no encontrada");
+    if (!order) {
+      throw new ConvexError("Orden no encontrada");
+    }
     if (order.sellerId !== viewer._id && order.buyerId !== viewer._id) {
       throw new ConvexError("No tienes acceso a este pago");
     }
@@ -145,10 +165,14 @@ export const getBankAccountForRefresh = internalQuery({
   },
   handler: async (ctx, args) => {
     const viewer = await getViewerByAuthId(ctx, args.authUserId);
-    if (!viewer) throw new ConvexError("Completa tu perfil");
+    if (!viewer) {
+      throw new ConvexError("Completa tu perfil");
+    }
 
     const account = await ctx.db.get(args.bankAccountId);
-    if (!account) throw new ConvexError("Cuenta bancaria no encontrada");
+    if (!account) {
+      throw new ConvexError("Cuenta bancaria no encontrada");
+    }
     if (account.userId !== viewer._id) {
       throw new ConvexError("No tienes acceso a esta cuenta");
     }

@@ -33,7 +33,7 @@ export default function SendScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const amountCents = parseAmountToCents(amountText);
-  const cleanRecipient = recipient.replace(/^@/, "").replace(/\s/g, "").toLowerCase();
+  const cleanRecipient = recipient.replace(/^@/, "").replaceAll(/\s/g, "").toLowerCase();
   const recipientLookup = useQuery(
     api.users.findByHandle,
     cleanRecipient.length >= 3 ? { handle: cleanRecipient } : "skip",
@@ -46,7 +46,9 @@ export default function SendScreen() {
     !isSubmitting;
 
   async function handleSubmit() {
-    if (amountCents === null || cleanRecipient.length < 3) return;
+    if (amountCents === null || cleanRecipient.length < 3) {
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -58,10 +60,10 @@ export default function SendScreen() {
 
       try {
         await createPaymentLink({ orderId: order.orderId, expiresInMinutes: 30 });
-      } catch (cause) {
+      } catch (error) {
         toast.show({
           variant: "danger",
-          label: cause instanceof Error ? cause.message : "No pudimos generar el link de pago",
+          label: error instanceof Error ? error.message : "No pudimos generar el link de pago",
         });
       }
 
@@ -69,10 +71,10 @@ export default function SendScreen() {
         pathname: "/order/[publicId]",
         params: { publicId: order.publicId },
       });
-    } catch (cause) {
+    } catch (error) {
       toast.show({
         variant: "danger",
-        label: cause instanceof Error ? cause.message : "No pudimos iniciar el envío",
+        label: error instanceof Error ? error.message : "No pudimos iniciar el envío",
       });
     } finally {
       setIsSubmitting(false);

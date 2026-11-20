@@ -8,8 +8,8 @@ import {
   bankAccountTypeValidator,
   paymentMethodValidator,
   paymentStatusValidator,
-  type PaymentStatus,
 } from "../schema";
+import type { PaymentStatus } from "../schema";
 import { findActivePayment } from "./queries";
 
 /**
@@ -24,10 +24,18 @@ async function settlePayment(
   status: PaymentStatus,
   options: { paidAt?: number; failureReason?: string } = {},
 ) {
-  if (status === "pending" || status === "processing") return;
-  if (payment.status === status) return;
-  if (payment.status === "refunded") return;
-  if (payment.status === "succeeded" && status !== "refunded") return;
+  if (status === "pending" || status === "processing") {
+    return;
+  }
+  if (payment.status === status) {
+    return;
+  }
+  if (payment.status === "refunded") {
+    return;
+  }
+  if (payment.status === "succeeded" && status !== "refunded") {
+    return;
+  }
 
   const now = Date.now();
   const order = await ctx.db.get(payment.orderId);
@@ -39,10 +47,14 @@ async function settlePayment(
     updatedAt: now,
   });
 
-  if (!order) return;
+  if (!order) {
+    return;
+  }
 
   if (status === "succeeded") {
-    if (order.status === "paid" || order.status === "fulfilled") return;
+    if (order.status === "paid" || order.status === "fulfilled") {
+      return;
+    }
 
     await ctx.db.patch(order._id, {
       status: "paid",
@@ -69,11 +81,17 @@ async function settlePayment(
 
 async function decrementInventory(ctx: MutationCtx, order: Doc<"orders">) {
   for (const item of order.items) {
-    if (!item.productId) continue;
+    if (!item.productId) {
+      continue;
+    }
 
     const product = await ctx.db.get(item.productId);
-    if (!product || product.stock === undefined) continue;
-    if (product.businessId !== order.businessId) continue;
+    if (!product || product.stock === undefined) {
+      continue;
+    }
+    if (product.businessId !== order.businessId) {
+      continue;
+    }
 
     // Un pago ya cobrado nunca se rechaza por inventario; se acota a cero.
     // shortcut: el stock se descuenta al pagar, no se reserva al crear la orden;
@@ -95,7 +113,9 @@ export const beginPayment = internalMutation({
   },
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
-    if (!order) throw new ConvexError("Orden no encontrada");
+    if (!order) {
+      throw new ConvexError("Orden no encontrada");
+    }
     if (order.totalCents !== args.amountCents) {
       throw new ConvexError("El monto no coincide con la orden");
     }
@@ -110,10 +130,14 @@ export const beginPayment = internalMutation({
       .query("payments")
       .withIndex("by_attempt_id", (q) => q.eq("attemptId", args.attemptId))
       .unique();
-    if (byAttempt) return { existing: true, payment: byAttempt };
+    if (byAttempt) {
+      return { existing: true, payment: byAttempt };
+    }
 
     const active = await findActivePayment(ctx.db, args.orderId);
-    if (active) return { existing: true, payment: active };
+    if (active) {
+      return { existing: true, payment: active };
+    }
 
     const now = Date.now();
     const paymentId = await ctx.db.insert("payments", {
@@ -135,7 +159,9 @@ export const beginPayment = internalMutation({
     });
 
     const payment = await ctx.db.get(paymentId);
-    if (!payment) throw new Error("No se pudo crear el intento de pago");
+    if (!payment) {
+      throw new Error("No se pudo crear el intento de pago");
+    }
 
     return { existing: false, payment };
   },
@@ -158,8 +184,12 @@ export const attachProvider = internalMutation({
   },
   handler: async (ctx, args) => {
     const payment = await ctx.db.get(args.paymentId);
-    if (!payment) throw new ConvexError("Pago no encontrado");
-    if (payment.status === "succeeded" || payment.status === "refunded") return payment;
+    if (!payment) {
+      throw new ConvexError("Pago no encontrado");
+    }
+    if (payment.status === "succeeded" || payment.status === "refunded") {
+      return payment;
+    }
 
     await ctx.db.patch(payment._id, {
       status: "pending",
@@ -177,12 +207,16 @@ export const attachProvider = internalMutation({
     });
 
     const updated = await ctx.db.get(payment._id);
-    if (!updated) throw new Error("No se pudo actualizar el pago");
+    if (!updated) {
+      throw new Error("No se pudo actualizar el pago");
+    }
 
     if (args.status !== "pending" && args.status !== "processing") {
       await settlePayment(ctx, updated, args.status);
       const settled = await ctx.db.get(payment._id);
-      if (!settled) throw new Error("No se pudo conciliar el pago");
+      if (!settled) {
+        throw new Error("No se pudo conciliar el pago");
+      }
       return settled;
     }
 
@@ -198,7 +232,9 @@ export const failPayment = internalMutation({
   },
   handler: async (ctx, args) => {
     const payment = await ctx.db.get(args.paymentId);
-    if (!payment) throw new ConvexError("Pago no encontrado");
+    if (!payment) {
+      throw new ConvexError("Pago no encontrado");
+    }
     if (payment.status === "succeeded" || payment.status === "refunded") {
       return { paymentId: payment._id };
     }
@@ -237,7 +273,9 @@ export const applyProviderStatus = internalMutation({
   },
   handler: async (ctx, args) => {
     const payment = await ctx.db.get(args.paymentId);
-    if (!payment) throw new ConvexError("Pago no encontrado");
+    if (!payment) {
+      throw new ConvexError("Pago no encontrado");
+    }
 
     if (args.amountCents !== undefined && args.amountCents !== payment.amountCents) {
       throw new ConvexError("El monto del pago no coincide con la orden");
@@ -360,7 +398,9 @@ export const updateBankAccountStatus = internalMutation({
             .first()
         : null;
 
-    if (!account) return { found: false, status: args.status };
+    if (!account) {
+      return { found: false, status: args.status };
+    }
 
     const now = Date.now();
     await ctx.db.patch(account._id, {
@@ -370,44 +410,54 @@ export const updateBankAccountStatus = internalMutation({
       lastCheckedAt: now,
       updatedAt: now,
       verifiedAt: args.status === "verified" ? (account.verifiedAt ?? now) : account.verifiedAt,
-      ...(args.institution !== undefined ? { institution: args.institution } : {}),
+      institution: args.institution,
     });
 
     return { found: true, status: args.status };
   },
 });
 
-async function findPaymentByReferences(db: DatabaseReader, references: string[]) {
+async function findPaymentByReferences(db: DatabaseReader, references: Array<string>) {
   for (const reference of references) {
     const byReference = await db
       .query("payments")
       .withIndex("by_pey_reference", (q) => q.eq("peyReference", reference))
       .first();
-    if (byReference) return byReference;
+    if (byReference) {
+      return byReference;
+    }
 
     const byPaymentId = await db
       .query("payments")
       .withIndex("by_pey_payment_id", (q) => q.eq("peyPaymentId", reference))
       .first();
-    if (byPaymentId) return byPaymentId;
+    if (byPaymentId) {
+      return byPaymentId;
+    }
 
     const byLinkId = await db
       .query("payments")
       .withIndex("by_pey_link_id", (q) => q.eq("peyPaymentLinkId", reference))
       .first();
-    if (byLinkId) return byLinkId;
+    if (byLinkId) {
+      return byLinkId;
+    }
 
     const byCodiId = await db
       .query("payments")
       .withIndex("by_pey_codi_id", (q) => q.eq("peyCodiId", reference))
       .first();
-    if (byCodiId) return byCodiId;
+    if (byCodiId) {
+      return byCodiId;
+    }
 
     const byTransactionId = await db
       .query("payments")
       .withIndex("by_pey_transaction_id", (q) => q.eq("peyTransactionId", reference))
       .first();
-    if (byTransactionId) return byTransactionId;
+    if (byTransactionId) {
+      return byTransactionId;
+    }
 
     // Pey puede ecoar nuestro `reference` (el publicId de la orden) en lugar
     // de su propio id. Es un fallback, no la llave principal.
@@ -418,14 +468,18 @@ async function findPaymentByReferences(db: DatabaseReader, references: string[])
     if (order) {
       if (order.paymentId) {
         const payment = await db.get(order.paymentId);
-        if (payment) return payment;
+        if (payment) {
+          return payment;
+        }
       }
       const latest = await db
         .query("payments")
         .withIndex("by_order", (q) => q.eq("orderId", order._id))
         .order("desc")
         .first();
-      if (latest) return latest;
+      if (latest) {
+        return latest;
+      }
     }
   }
 

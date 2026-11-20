@@ -6,7 +6,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { HANDLE_PATTERN, normalizeHandle } from "./lib/identifiers";
 import { findActivePayment } from "./pey/queries";
 
-const MIN_AMOUNT_CENTS = 1_000;
+const MIN_AMOUNT_CENTS = 1000;
 const MAX_AMOUNT_CENTS = 2_000_000;
 
 function makePublicId(): string {
@@ -34,20 +34,28 @@ function validateAmount(amountCents: number): number {
 
 function cleanNote(note: string | undefined): string | undefined {
   const value = note?.trim();
-  if (!value) return undefined;
-  if (value.length > 140) throw new ConvexError("La nota no puede pasar de 140 caracteres");
+  if (!value) {
+    return undefined;
+  }
+  if (value.length > 140) {
+    throw new ConvexError("La nota no puede pasar de 140 caracteres");
+  }
   return value;
 }
 
 async function getViewer(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new ConvexError("Inicia sesión para continuar");
+  if (!identity) {
+    throw new ConvexError("Inicia sesión para continuar");
+  }
 
   const user = await ctx.db
     .query("users")
     .withIndex("by_auth_user", (q) => q.eq("authUserId", identity.subject))
     .unique();
-  if (!user) throw new ConvexError("Completa tu perfil antes de continuar");
+  if (!user) {
+    throw new ConvexError("Completa tu perfil antes de continuar");
+  }
 
   const handle = await ctx.db
     .query("handles")
@@ -73,7 +81,9 @@ async function resolveUserHandle(ctx: QueryCtx | MutationCtx, rawHandle: string)
   }
 
   const user = await ctx.db.get(handleDocument.userId);
-  if (!user) throw new ConvexError("No encontramos ese @handle");
+  if (!user) {
+    throw new ConvexError("No encontramos ese @handle");
+  }
 
   return { user, handle: handleDocument.handle };
 }
@@ -111,7 +121,9 @@ export const createTransfer = mutation({
   },
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
-    if (!viewer.handle) throw new ConvexError("Completa tu perfil antes de enviar dinero");
+    if (!viewer.handle) {
+      throw new ConvexError("Completa tu perfil antes de enviar dinero");
+    }
 
     const recipient = await resolveUserHandle(ctx, args.recipientHandle);
     if (recipient.user._id === viewer.user._id) {
@@ -167,7 +179,9 @@ export const createRequest = mutation({
   },
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
-    if (!viewer.handle) throw new ConvexError("Completa tu perfil antes de cobrar");
+    if (!viewer.handle) {
+      throw new ConvexError("Completa tu perfil antes de cobrar");
+    }
 
     const payer = args.payerHandle ? await resolveUserHandle(ctx, args.payerHandle) : null;
     if (payer?.user._id === viewer.user._id) {
@@ -237,7 +251,9 @@ export const listActivity = query({
     ]);
 
     const unique = new Map<Id<"orders">, Doc<"orders">>();
-    for (const order of [...incoming, ...outgoing]) unique.set(order._id, order);
+    for (const order of [...incoming, ...outgoing]) {
+      unique.set(order._id, order);
+    }
 
     const orders = [...unique.values()].sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
 
@@ -271,10 +287,14 @@ export const getOrder = query({
       .withIndex("by_public_id", (q) => q.eq("publicId", args.publicId))
       .unique();
 
-    if (!order) return null;
+    if (!order) {
+      return null;
+    }
     const isSeller = order.sellerId === viewer.user._id;
     const isBuyer = order.buyerId === viewer.user._id;
-    if (!isSeller && !isBuyer) return null;
+    if (!isSeller && !isBuyer) {
+      return null;
+    }
 
     const latestPayment = await ctx.db
       .query("payments")

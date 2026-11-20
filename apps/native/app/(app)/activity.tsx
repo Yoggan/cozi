@@ -4,6 +4,7 @@ import { useQuery } from "convex/react";
 import { useRouter } from "expo-router";
 import { Text, useThemeColor } from "heroui-native";
 import { View } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ActivityRow } from "@/components/activity-row";
@@ -41,7 +42,11 @@ export default function ActivityScreen() {
           </View>
         ) : (
           activity.map((item, index) => (
-            <View key={item.publicId} className={index > 0 ? "border-t border-border" : undefined}>
+            <Animated.View
+              key={item.publicId}
+              entering={FadeInDown.duration(280).delay(Math.min(index * 40, 240))}
+              className={index > 0 ? "border-t border-border" : undefined}
+            >
               <ActivityRow
                 item={item}
                 onPress={() =>
@@ -51,10 +56,12 @@ export default function ActivityScreen() {
                   })
                 }
               />
-            </View>
+            </Animated.View>
           ))
         )}
       </View>
+
+      <View style={{ height: 100 }} />
     </Container>
   );
 }

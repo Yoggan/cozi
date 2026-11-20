@@ -1,5 +1,6 @@
 import { expo } from "@better-auth/expo";
-import { createClient, type GenericCtx } from "@convex-dev/better-auth";
+import { createClient } from "@convex-dev/better-auth";
+import type { GenericCtx } from "@convex-dev/better-auth";
 import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth/minimal";
 
@@ -8,7 +9,15 @@ import type { DataModel } from "./_generated/dataModel";
 import { query } from "./_generated/server";
 import authConfig from "./auth.config";
 
-const siteUrl = process.env.SITE_URL!;
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Falta la variable de entorno ${name}`);
+  }
+  return value;
+}
+
+const siteUrl = requireEnv("SITE_URL");
 const nativeAppUrl = process.env.NATIVE_APP_URL || "cozi://";
 
 export const authComponent = createClient<DataModel>(components.betterAuth);
@@ -16,7 +25,7 @@ export const authComponent = createClient<DataModel>(components.betterAuth);
 function createAuth(ctx: GenericCtx<DataModel>) {
   return betterAuth({
     baseURL: {
-      allowedHosts: [siteUrl, process.env.CONVEX_SITE_URL!],
+      allowedHosts: [siteUrl, requireEnv("CONVEX_SITE_URL")],
       fallback: siteUrl,
     },
     advanced: {
@@ -28,6 +37,15 @@ function createAuth(ctx: GenericCtx<DataModel>) {
       enabled: true,
       requireEmailVerification: false,
     },
+    socialProviders:
+      process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+        ? {
+            google: {
+              clientId: process.env.GOOGLE_CLIENT_ID,
+              clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+            },
+          }
+        : undefined,
     plugins: [
       expo(),
       crossDomain({ siteUrl }),

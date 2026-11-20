@@ -37,12 +37,14 @@ export default function RequestScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const amountCents = parseAmountToCents(amountText);
-  const cleanPayer = payer.replace(/^@/, "").replace(/\s/g, "").toLowerCase();
+  const cleanPayer = payer.replace(/^@/, "").replaceAll(/\s/g, "").toLowerCase();
   const canSubmit =
     profile.hasReceivingAccount && amountCents !== null && amountCents >= 1000 && !isSubmitting;
 
   async function handleSubmit() {
-    if (amountCents === null) return;
+    if (amountCents === null) {
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -54,10 +56,10 @@ export default function RequestScreen() {
 
       try {
         await createPaymentLink({ orderId: order.orderId, expiresInMinutes: 1440 });
-      } catch (cause) {
+      } catch (error) {
         toast.show({
           variant: "danger",
-          label: cause instanceof Error ? cause.message : "No pudimos generar el link de pago",
+          label: error instanceof Error ? error.message : "No pudimos generar el link de pago",
         });
       }
 
@@ -65,10 +67,10 @@ export default function RequestScreen() {
         pathname: "/order/[publicId]",
         params: { publicId: order.publicId },
       });
-    } catch (cause) {
+    } catch (error) {
       toast.show({
         variant: "danger",
-        label: cause instanceof Error ? cause.message : "No pudimos crear el cobro",
+        label: error instanceof Error ? error.message : "No pudimos crear el cobro",
       });
     } finally {
       setIsSubmitting(false);

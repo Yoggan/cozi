@@ -12,7 +12,9 @@ import type { PaymentHandle } from "./types";
 
 async function getAuthUserId(ctx: ActionCtx): Promise<string> {
   const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new ConvexError("Inicia sesión para continuar");
+  if (!identity) {
+    throw new ConvexError("Inicia sesión para continuar");
+  }
   return identity.subject;
 }
 
@@ -58,7 +60,9 @@ export const createCodiCharge = action({
     }
 
     const data = await loadChargeContext(ctx, args.orderId);
-    if (data.activePayment) return toHandle(data.activePayment, true);
+    if (data.activePayment) {
+      return toHandle(data.activePayment, true);
+    }
 
     const bankAccountId = data.bankAccount.peyBankAccountId;
     if (!bankAccountId) {
@@ -71,7 +75,9 @@ export const createCodiCharge = action({
       attemptId: crypto.randomUUID(),
       amountCents: data.order.totalCents,
     });
-    if (started.existing) return toHandle(started.payment, true);
+    if (started.existing) {
+      return toHandle(started.payment, true);
+    }
 
     try {
       const charge = await pey.createCodiCharge({
@@ -122,7 +128,9 @@ export const createPaymentLink = action({
     }
 
     const data = await loadChargeContext(ctx, args.orderId);
-    if (data.activePayment) return toHandle(data.activePayment, true);
+    if (data.activePayment) {
+      return toHandle(data.activePayment, true);
+    }
 
     const bankAccountId = data.bankAccount.peyBankAccountId;
     if (!bankAccountId) {
@@ -135,7 +143,9 @@ export const createPaymentLink = action({
       attemptId: crypto.randomUUID(),
       amountCents: data.order.totalCents,
     });
-    if (started.existing) return toHandle(started.payment, true);
+    if (started.existing) {
+      return toHandle(started.payment, true);
+    }
 
     try {
       const link = await pey.createPaymentLink({
@@ -224,7 +234,7 @@ export const linkBankAccount = action({
     status: BankAccountStatus;
     providerStatus: string | null;
   }> => {
-    const digits = args.accountNumber.replace(/[\s-]/g, "");
+    const digits = args.accountNumber.replaceAll(/[\s-]/g, "");
     if (!/^\d+$/.test(digits)) {
       throw new ConvexError("El número de cuenta solo debe contener dígitos");
     }
@@ -243,14 +253,18 @@ export const linkBankAccount = action({
     const viewer = await ctx.runQuery(internal.pey.queries.getViewer, {
       authUserId: await getAuthUserId(ctx),
     });
-    if (!viewer) throw new ConvexError("Completa tu perfil antes de vincular una cuenta");
+    if (!viewer) {
+      throw new ConvexError("Completa tu perfil antes de vincular una cuenta");
+    }
 
     if (args.businessId) {
       const business = await ctx.runQuery(internal.pey.queries.getBusinessForOwner, {
         businessId: args.businessId,
         ownerId: viewer._id,
       });
-      if (!business) throw new ConvexError("No tienes acceso a este negocio");
+      if (!business) {
+        throw new ConvexError("No tienes acceso a este negocio");
+      }
     }
 
     const account = await pey

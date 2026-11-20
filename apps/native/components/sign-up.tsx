@@ -1,19 +1,11 @@
 import { useForm } from "@tanstack/react-form";
-import {
-  Button,
-  FieldError,
-  Input,
-  type InputRef,
-  Label,
-  Spinner,
-  Surface,
-  TextField,
-  useToast,
-} from "heroui-native";
+import { useToast } from "heroui-native";
 import { useRef } from "react";
-import { Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import type { TextInput } from "react-native";
 import z from "zod";
 
+import { AuthErrorBanner, AuthField, AuthSubmitButton } from "@/components/auth-controls";
 import { authClient } from "@/lib/auth-client";
 
 const signUpSchema = z.object({
@@ -23,7 +15,9 @@ const signUpSchema = z.object({
 });
 
 function getErrorMessage(error: unknown): string | null {
-  if (!error) return null;
+  if (!error) {
+    return null;
+  }
 
   if (typeof error === "string") {
     return error;
@@ -50,8 +44,8 @@ function getErrorMessage(error: unknown): string | null {
 }
 
 export function SignUp() {
-  const emailInputRef = useRef<InputRef>(null);
-  const passwordInputRef = useRef<InputRef>(null);
+  const emailInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
   const { toast } = useToast();
 
   const form = useForm({
@@ -90,8 +84,8 @@ export function SignUp() {
   });
 
   return (
-    <Surface variant="secondary" className="rounded-lg p-4">
-      <Text className="mb-4 font-medium text-foreground">Crear cuenta</Text>
+    <View style={styles.wrapper}>
+      <Text style={styles.hint}>Solo tu nombre, correo y contraseña.</Text>
 
       <form.Subscribe
         selector={(state) => ({
@@ -100,92 +94,106 @@ export function SignUp() {
         })}
       >
         {({ isSubmitting, validationError }) => {
-          const formError = validationError;
-
           return (
-            <>
-              <FieldError isInvalid={!!formError} className="mb-3">
-                {formError}
-              </FieldError>
-
-              <View className="gap-3">
+            <View style={styles.form}>
+              <View style={styles.fields}>
                 <form.Field name="name">
                   {(field) => (
-                    <TextField>
-                      <Label>Nombre</Label>
-                      <Input
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChangeText={field.handleChange}
-                        placeholder="Sergio Castro"
-                        autoComplete="name"
-                        textContentType="name"
-                        returnKeyType="next"
-                        blurOnSubmit={false}
-                        onSubmitEditing={() => {
-                          emailInputRef.current?.focus();
-                        }}
-                      />
-                    </TextField>
+                    <AuthField
+                      autoCapitalize="words"
+                      autoComplete="name"
+                      blurOnSubmit={false}
+                      icon="person-outline"
+                      label="Nombre"
+                      onBlur={field.handleBlur}
+                      onChangeText={field.handleChange}
+                      onSubmitEditing={() => {
+                        emailInputRef.current?.focus();
+                      }}
+                      placeholder="Tu nombre"
+                      returnKeyType="next"
+                      textContentType="name"
+                      value={field.state.value}
+                    />
                   )}
                 </form.Field>
 
                 <form.Field name="email">
                   {(field) => (
-                    <TextField>
-                      <Label>Correo</Label>
-                      <Input
-                        ref={emailInputRef}
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChangeText={field.handleChange}
-                        placeholder="tu@correo.com"
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        autoComplete="email"
-                        textContentType="emailAddress"
-                        returnKeyType="next"
-                        blurOnSubmit={false}
-                        onSubmitEditing={() => {
-                          passwordInputRef.current?.focus();
-                        }}
-                      />
-                    </TextField>
+                    <AuthField
+                      autoCapitalize="none"
+                      autoComplete="email"
+                      autoCorrect={false}
+                      blurOnSubmit={false}
+                      icon="mail-outline"
+                      inputRef={emailInputRef}
+                      keyboardType="email-address"
+                      label="Correo"
+                      onBlur={field.handleBlur}
+                      onChangeText={field.handleChange}
+                      onSubmitEditing={() => {
+                        passwordInputRef.current?.focus();
+                      }}
+                      placeholder="tu@correo.com"
+                      returnKeyType="next"
+                      textContentType="emailAddress"
+                      value={field.state.value}
+                    />
                   )}
                 </form.Field>
 
                 <form.Field name="password">
                   {(field) => (
-                    <TextField>
-                      <Label>Contraseña</Label>
-                      <Input
-                        ref={passwordInputRef}
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChangeText={field.handleChange}
-                        placeholder="Mínimo 8 caracteres"
-                        secureTextEntry
-                        autoComplete="new-password"
-                        textContentType="newPassword"
-                        returnKeyType="go"
-                        onSubmitEditing={form.handleSubmit}
-                      />
-                    </TextField>
+                    <AuthField
+                      autoComplete="new-password"
+                      icon="lock-closed-outline"
+                      inputRef={passwordInputRef}
+                      label="Contraseña"
+                      onBlur={field.handleBlur}
+                      onChangeText={field.handleChange}
+                      onSubmitEditing={() => {
+                        void form.handleSubmit();
+                      }}
+                      placeholder="Mínimo 8 caracteres"
+                      returnKeyType="go"
+                      secure
+                      textContentType="newPassword"
+                      value={field.state.value}
+                    />
                   )}
                 </form.Field>
-
-                <Button onPress={form.handleSubmit} isDisabled={isSubmitting} className="mt-1">
-                  {isSubmitting ? (
-                    <Spinner size="sm" color="default" />
-                  ) : (
-                    <Button.Label>Crear cuenta</Button.Label>
-                  )}
-                </Button>
               </View>
-            </>
+
+              <AuthErrorBanner message={validationError} />
+
+              <AuthSubmitButton
+                isSubmitting={isSubmitting}
+                label="Crear cuenta"
+                onPress={() => {
+                  void form.handleSubmit();
+                }}
+              />
+            </View>
           );
         }}
       </form.Subscribe>
-    </Surface>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  wrapper: {
+    gap: 16,
+  },
+  hint: {
+    color: "rgba(255,255,255,0.62)",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  form: {
+    gap: 14,
+  },
+  fields: {
+    gap: 14,
+  },
+});

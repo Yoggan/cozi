@@ -1,7 +1,8 @@
 import { api } from "@cozi/backend/convex/_generated/api";
+import type { OrderStatus, PaymentMethod } from "@cozi/backend/convex/schema";
 import { useAction, useQuery } from "convex/react";
 import { useLocalSearchParams } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
+import { openBrowserAsync } from "expo-web-browser";
 import { useState } from "react";
 import { Button, Chip, Spinner, Text, useThemeColor, useToast } from "heroui-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,8 +10,9 @@ import { Share, View } from "react-native";
 
 import { Container } from "@/components/container";
 import { formatMxn } from "@/lib/money";
+import { firstParam } from "@/lib/search-params";
 
-const STATUS_LABELS: Record<string, string> = {
+const STATUS_LABELS: Record<OrderStatus, string> = {
   draft: "Pendiente",
   awaiting_payment: "Esperando pago",
   paid: "Pagado",
@@ -19,7 +21,7 @@ const STATUS_LABELS: Record<string, string> = {
   expired: "Expirado",
 };
 
-const METHOD_LABELS: Record<string, string> = {
+const METHOD_LABELS: Record<PaymentMethod, string> = {
   codi_qr: "CoDi QR",
   codi_push: "CoDi push",
   payment_link: "Link de pago",
@@ -36,7 +38,7 @@ function formatDate(timestamp: number): string {
 
 export default function OrderScreen() {
   const params = useLocalSearchParams<{ publicId: string }>();
-  const publicId = Array.isArray(params.publicId) ? params.publicId[0] : params.publicId;
+  const publicId = firstParam(params.publicId);
   const order = useQuery(api.p2p.getOrder, publicId ? { publicId } : "skip");
   const createPaymentLink = useAction(api.pey.actions.createPaymentLink);
   const refreshPayment = useAction(api.pey.actions.refreshPayment);
@@ -62,7 +64,7 @@ export default function OrderScreen() {
           Pago no encontrado
         </Text>
         <Text className="text-center text-sm text-muted">
-          Este link no existe o no tienes acceso a él.
+          Este link no existe o no tienes acceso a Ã©l.
         </Text>
       </View>
     );
@@ -82,7 +84,7 @@ export default function OrderScreen() {
       : "Pago a"
     : isIncoming
       ? isPaid
-        ? "Te envió"
+        ? "Te enviÃ³"
         : "Te quiere enviar"
       : "Enviaste a";
 
@@ -91,10 +93,10 @@ export default function OrderScreen() {
     try {
       await createPaymentLink({ orderId: current.orderId, expiresInMinutes: 1440 });
       toast.show({ variant: "success", label: "Link de pago listo" });
-    } catch (cause) {
+    } catch (error) {
       toast.show({
         variant: "danger",
-        label: cause instanceof Error ? cause.message : "No pudimos generar el link",
+        label: error instanceof Error ? error.message : "No pudimos generar el link",
       });
     } finally {
       setIsGenerating(false);
@@ -102,26 +104,32 @@ export default function OrderScreen() {
   }
 
   async function handleShare() {
-    if (!checkoutUrl) return;
+    if (!checkoutUrl) {
+      return;
+    }
     await Share.share({
-      message: `Te cobré ${formatMxn(current.amountCents)} en Cozi. Paga aquí: ${checkoutUrl}`,
+      message: `Te cobrÃ© ${formatMxn(current.amountCents)} en Cozi. Paga aquÃ­: ${checkoutUrl}`,
     });
   }
 
   async function handlePay() {
-    if (!checkoutUrl) return;
-    await WebBrowser.openBrowserAsync(checkoutUrl);
+    if (!checkoutUrl) {
+      return;
+    }
+    await openBrowserAsync(checkoutUrl);
   }
 
   async function handleRefresh() {
-    if (!current.payment) return;
+    if (!current.payment) {
+      return;
+    }
     setIsRefreshing(true);
     try {
       await refreshPayment({ paymentId: current.payment.paymentId });
-    } catch (cause) {
+    } catch (error) {
       toast.show({
         variant: "danger",
-        label: cause instanceof Error ? cause.message : "No pudimos revisar el pago",
+        label: error instanceof Error ? error.message : "No pudimos revisar el pago",
       });
     } finally {
       setIsRefreshing(false);
@@ -166,7 +174,7 @@ export default function OrderScreen() {
         </View>
         {order.payment ? (
           <View className="flex-row justify-between">
-            <Text className="text-sm text-muted">Método</Text>
+            <Text className="text-sm text-muted">MÃ©todo</Text>
             <Text className="text-sm font-medium text-foreground">
               {METHOD_LABELS[order.payment.method] ?? order.payment.method}
             </Text>
@@ -183,7 +191,7 @@ export default function OrderScreen() {
       {isPaid ? (
         <View className="mt-6 items-center rounded-2xl bg-success-soft p-4">
           <Text className="text-center text-sm font-medium text-success-soft-foreground">
-            {isIncoming ? "El dinero va en camino a tu cuenta." : "Tu pago se completó."}
+            {isIncoming ? "El dinero va en camino a tu cuenta." : "Tu pago se completÃ³."}
           </Text>
         </View>
       ) : (
@@ -196,7 +204,7 @@ export default function OrderScreen() {
             ) : isIncoming ? (
               <View className="rounded-2xl bg-surface p-4">
                 <Text className="text-center text-sm text-muted">
-                  Te están enviando dinero. El pago se confirmará automáticamente.
+                  Te estÃ¡n enviando dinero. El pago se confirmarÃ¡ automÃ¡ticamente.
                 </Text>
               </View>
             ) : (
@@ -208,7 +216,7 @@ export default function OrderScreen() {
                   {isRefreshing ? (
                     <Spinner size="sm" color="default" />
                   ) : (
-                    <Button.Label>Ya pagué</Button.Label>
+                    <Button.Label>Ya paguÃ©</Button.Label>
                   )}
                 </Button>
               </>
@@ -224,7 +232,7 @@ export default function OrderScreen() {
           ) : (
             <View className="rounded-2xl bg-surface p-4">
               <Text className="text-center text-sm text-muted">
-                Te están enviando dinero. El pago se confirmará automáticamente.
+                Te estÃ¡n enviando dinero. El pago se confirmarÃ¡ automÃ¡ticamente.
               </Text>
             </View>
           )}

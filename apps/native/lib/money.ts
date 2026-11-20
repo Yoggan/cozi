@@ -13,10 +13,14 @@ export function formatMxn(cents: number): string {
 
 /** Convierte "123.45" o "1,234.5" a centavos. Devuelve null si no es válido. */
 export function parseAmountToCents(value: string): number | null {
-  const normalized = value.replace(/,/g, "").replace(/[^\d.]/g, "");
-  if (!normalized || normalized === ".") return null;
+  const normalized = value.replaceAll(",", "").replaceAll(/[^\d.]/g, "");
+  if (!normalized || normalized === ".") {
+    return null;
+  }
   const amount = Number(normalized);
-  if (!Number.isFinite(amount)) return null;
+  if (!Number.isFinite(amount)) {
+    return null;
+  }
   return Math.round(amount * 100);
 }
 

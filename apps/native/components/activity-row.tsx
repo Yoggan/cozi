@@ -16,14 +16,14 @@ export type ActivityItem = {
   createdAt: number;
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Pendiente",
-  awaiting_payment: "Esperando pago",
-  paid: "Pagado",
-  fulfilled: "Completado",
-  cancelled: "Cancelado",
-  expired: "Expirado",
-};
+const STATUS_LABELS = new Map([
+  ["draft", "Pendiente"],
+  ["awaiting_payment", "Esperando pago"],
+  ["paid", "Pagado"],
+  ["fulfilled", "Completado"],
+  ["cancelled", "Cancelado"],
+  ["expired", "Expirado"],
+]);
 
 function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString("es-MX", {
@@ -34,8 +34,12 @@ function formatDate(timestamp: number): string {
 
 function activityVerb(item: ActivityItem): string {
   const pending = item.status === "draft" || item.status === "awaiting_payment";
-  if (item.kind === "request") return item.direction === "in" ? "Cobro" : "Pago";
-  if (item.direction === "in") return pending ? "Te quiere enviar" : "Te envió";
+  if (item.kind === "request") {
+    return item.direction === "in" ? "Cobro" : "Pago";
+  }
+  if (item.direction === "in") {
+    return pending ? "Te quiere enviar" : "Te envió";
+  }
   return "Enviaste";
 }
 
@@ -65,7 +69,8 @@ export function ActivityRow({ item, onPress }: { item: ActivityItem; onPress?: (
           {verb} {counterpart ? `· ${counterpart}` : ""}
         </Text>
         <Text className="mt-0.5 text-xs text-muted" numberOfLines={1}>
-          {item.note} · {STATUS_LABELS[item.status] ?? item.status} · {formatDate(item.createdAt)}
+          {item.note} · {STATUS_LABELS.get(item.status) ?? item.status} ·{" "}
+          {formatDate(item.createdAt)}
         </Text>
       </View>
 

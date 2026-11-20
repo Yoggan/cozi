@@ -2,15 +2,8 @@ import { api } from "@cozi/backend/convex/_generated/api";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Button, Text } from "heroui-native";
 import { authClient } from "@/lib/auth-client";
-import {
-  createContext,
-  type PropsWithChildren,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import type { PropsWithChildren } from "react";
 import { View } from "react-native";
 
 import { Splash } from "@/components/splash";
@@ -41,8 +34,8 @@ export function ProfileProvider({ children }: PropsWithChildren) {
     setEnsuring(true);
     try {
       await ensureProfile({});
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No pudimos crear tu perfil");
+    } catch (error_) {
+      setError(error_ instanceof Error ? error_.message : "No pudimos crear tu perfil");
     } finally {
       setEnsuring(false);
     }
@@ -53,13 +46,19 @@ export function ProfileProvider({ children }: PropsWithChildren) {
       attempted.current = false;
       return;
     }
-    if (me !== null || attempted.current) return;
+    if (me !== null || attempted.current) {
+      return;
+    }
     attempted.current = true;
     void runEnsure();
   }, [isAuthenticated, me, runEnsure]);
 
-  if (!isAuthenticated) return <>{children}</>;
-  if (me) return <ProfileContext.Provider value={me}>{children}</ProfileContext.Provider>;
+  if (!isAuthenticated) {
+    return <>{children}</>;
+  }
+  if (me) {
+    return <ProfileContext.Provider value={me}>{children}</ProfileContext.Provider>;
+  }
 
   if (error) {
     return (
@@ -83,6 +82,8 @@ export function ProfileProvider({ children }: PropsWithChildren) {
 
 export function useProfile(): Profile {
   const value = useContext(ProfileContext);
-  if (!value) throw new Error("useProfile debe usarse dentro de ProfileProvider");
+  if (!value) {
+    throw new Error("useProfile debe usarse dentro de ProfileProvider");
+  }
   return value;
 }

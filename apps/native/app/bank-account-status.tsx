@@ -1,21 +1,31 @@
 import { api } from "@cozi/backend/convex/_generated/api";
+import type { BankAccountStatus } from "@cozi/backend/convex/schema";
 import { Ionicons } from "@expo/vector-icons";
 import { useAction, useQuery } from "convex/react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, Chip, Spinner, Text, useThemeColor, useToast } from "heroui-native";
 import { View } from "react-native";
+import Animated, {
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 
 import { Container } from "@/components/container";
+import { firstParam } from "@/lib/search-params";
 
-const STATUS_LABELS: Record<string, string> = {
+const STATUS_LABELS: Record<BankAccountStatus, string> = {
   pending: "En revisión",
   verified: "Verificada",
   rejected: "Rechazada",
   disabled: "Deshabilitada",
 };
 
-const STATUS_COLORS: Record<string, "warning" | "success" | "danger" | "default"> = {
+const STATUS_COLORS: Record<BankAccountStatus, "warning" | "success" | "danger" | "default"> = {
   pending: "warning",
   verified: "success",
   rejected: "danger",
@@ -57,6 +67,23 @@ function TimelineStep({
   const warningForeground = useThemeColor("warning-foreground");
   const dangerForeground = useThemeColor("danger-foreground");
 
+  const pulse = useSharedValue(1);
+  useEffect(() => {
+    if (state === "active") {
+      pulse.value = withRepeat(
+        withSequence(withTiming(1.12, { duration: 900 }), withTiming(1, { duration: 900 })),
+        -1,
+        true,
+      );
+    } else {
+      pulse.value = 1;
+    }
+  }, [state, pulse]);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulse.value }],
+  }));
+
   return (
     <View className="flex-row gap-3">
       <View className="items-center">
@@ -65,9 +92,12 @@ function TimelineStep({
             <Ionicons name="checkmark" size={14} color={successForeground} />
           </View>
         ) : state === "active" ? (
-          <View className="h-6 w-6 items-center justify-center rounded-full bg-warning">
+          <Animated.View
+            style={pulseStyle}
+            className="h-6 w-6 items-center justify-center rounded-full bg-warning"
+          >
             <Ionicons name="time" size={14} color={warningForeground} />
-          </View>
+          </Animated.View>
         ) : state === "failed" ? (
           <View className="h-6 w-6 items-center justify-center rounded-full bg-danger">
             <Ionicons name="close" size={14} color={dangerForeground} />
@@ -102,7 +132,7 @@ function TimelineStep({
 
 export default function BankAccountStatusScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
-  const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const id = firstParam(params.id);
   const accounts = useQuery(api.users.listBankAccounts);
   const refreshBankAccount = useAction(api.pey.actions.refreshBankAccount);
   const router = useRouter();
@@ -192,10 +222,10 @@ export default function BankAccountStatusScreen() {
           label: "Sigue en validación con Banxico (1–5 días hábiles)",
         });
       }
-    } catch (cause) {
+    } catch (error) {
       toast.show({
         variant: "danger",
-        label: cause instanceof Error ? cause.message : "No pudimos revisar tu cuenta",
+        label: error instanceof Error ? error.message : "No pudimos revisar tu cuenta",
       });
     } finally {
       setIsRefreshing(false);
@@ -204,7 +234,10 @@ export default function BankAccountStatusScreen() {
 
   return (
     <Container className="px-5">
-      <View className="mt-5 flex-row items-center gap-3 rounded-3xl bg-surface p-5">
+      <Animated.View
+        entering={FadeInDown.duration(220)}
+        className="mt-5 flex-row items-center gap-3 rounded-3xl bg-surface p-5"
+      >
         <View className="h-12 w-12 items-center justify-center rounded-full bg-surface-secondary">
           <Ionicons name="card-outline" size={22} color={muted} />
         </View>
@@ -218,9 +251,12 @@ export default function BankAccountStatusScreen() {
         <Chip size="sm" variant="soft" color={STATUS_COLORS[account.status] ?? "default"}>
           <Chip.Label>{STATUS_LABELS[account.status] ?? account.status}</Chip.Label>
         </Chip>
-      </View>
+      </Animated.View>
 
-      <View className={`mt-4 rounded-3xl p-5 ${bannerClassName}`}>
+      <Animated.View
+        entering={FadeInDown.duration(240).delay(60)}
+        className={`mt-4 rounded-3xl p-5 ${bannerClassName}`}
+      >
         <View className="flex-row items-center gap-2">
           <Ionicons
             name={isVerified ? "checkmark-circle" : isRejected ? "alert-circle" : "time-outline"}
@@ -254,11 +290,16 @@ export default function BankAccountStatusScreen() {
             </Button>
           </View>
         ) : null}
-      </View>
+      </Animated.View>
 
-      <Text className="mt-6 text-base font-semibold text-foreground">Tu proceso de activación</Text>
+      <Animated.View entering={FadeInDown.duration(240).delay(120)} className="mt-6">
+        <Text className="text-base font-semibold text-foreground">Tu proceso de activación</Text>
+      </Animated.View>
 
-      <View className="mt-3 rounded-2xl bg-surface p-4">
+      <Animated.View
+        entering={FadeInDown.duration(240).delay(140)}
+        className="mt-3 rounded-2xl bg-surface p-4"
+      >
         <TimelineStep
           title="CLABE enviada a Pey"
           description={`Registrada el ${formatDate(account.createdAt)}`}
@@ -285,10 +326,13 @@ export default function BankAccountStatusScreen() {
           state={isVerified ? "done" : "pending"}
           isLast
         />
-      </View>
+      </Animated.View>
 
       {isPending ? (
-        <View className="mt-4 gap-3 rounded-2xl bg-surface-secondary p-4">
+        <Animated.View
+          entering={FadeInDown.duration(240).delay(180)}
+          className="mt-4 gap-3 rounded-2xl bg-surface-secondary p-4"
+        >
           <View className="flex-row items-center gap-2">
             <Ionicons name="information-circle-outline" size={18} color={muted} />
             <Text className="text-sm font-semibold text-foreground">
@@ -305,7 +349,7 @@ export default function BankAccountStatusScreen() {
               <Text className="flex-1 text-xs text-muted">{item}</Text>
             </View>
           ))}
-        </View>
+        </Animated.View>
       ) : null}
 
       <View className="mt-6 gap-3">

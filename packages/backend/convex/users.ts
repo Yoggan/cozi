@@ -7,7 +7,9 @@ import { HANDLE_PATTERN, handleBase, normalizeHandle } from "./lib/identifiers";
 
 async function requireAuthUserId(ctx: QueryCtx | MutationCtx): Promise<string> {
   const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new ConvexError("Inicia sesión para continuar");
+  if (!identity) {
+    throw new ConvexError("Inicia sesión para continuar");
+  }
   return identity.subject;
 }
 
@@ -40,13 +42,15 @@ async function claimHandle(ctx: MutationCtx, base: string): Promise<string> {
       .query("handles")
       .withIndex("by_handle", (q) => q.eq("handle", candidate))
       .unique();
-    if (!existing) return candidate;
+    if (!existing) {
+      return candidate;
+    }
   }
   throw new ConvexError("No pudimos asignarte un @handle. Intenta de nuevo.");
 }
 
 function normalizePhone(value: string): string {
-  return value.replace(/[\s()-]/g, "");
+  return value.replaceAll(/[\s()-]/g, "");
 }
 
 async function getReceivingAccounts(ctx: QueryCtx, userId: Id<"users">) {
@@ -71,7 +75,9 @@ export const ensureProfile = mutation({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new ConvexError("Inicia sesión para continuar");
+    if (!identity) {
+      throw new ConvexError("Inicia sesión para continuar");
+    }
 
     const existing = await findUserByAuthId(ctx, identity.subject);
     if (existing) {
@@ -116,10 +122,14 @@ export const getMe = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
+    if (!identity) {
+      return null;
+    }
 
     const user = await findUserByAuthId(ctx, identity.subject);
-    if (!user) return null;
+    if (!user) {
+      return null;
+    }
 
     const [handle, receivingAccounts, avatarUrl, bankAccounts] = await Promise.all([
       readHandle(ctx, user._id),
@@ -151,20 +161,28 @@ export const findByHandle = query({
   args: { handle: v.string() },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new ConvexError("Inicia sesión para continuar");
+    if (!identity) {
+      throw new ConvexError("Inicia sesión para continuar");
+    }
 
     const normalized = normalizeHandle(args.handle);
-    if (!HANDLE_PATTERN.test(normalized)) return null;
+    if (!HANDLE_PATTERN.test(normalized)) {
+      return null;
+    }
 
     const handle = await ctx.db
       .query("handles")
       .withIndex("by_handle", (q) => q.eq("handle", normalized))
       .unique();
 
-    if (!handle || handle.ownerType !== "user" || !handle.userId) return null;
+    if (!handle || handle.ownerType !== "user" || !handle.userId) {
+      return null;
+    }
 
     const user = await ctx.db.get(handle.userId);
-    if (!user) return null;
+    if (!user) {
+      return null;
+    }
 
     const accounts = await ctx.db
       .query("bankAccounts")
@@ -191,7 +209,9 @@ export const listBankAccounts = query({
   args: {},
   handler: async (ctx) => {
     const user = await findUserByAuthId(ctx, await requireAuthUserId(ctx));
-    if (!user) return [];
+    if (!user) {
+      return [];
+    }
 
     const accounts = await ctx.db
       .query("bankAccounts")
@@ -218,6 +238,13 @@ export const listBankAccounts = query({
   },
 });
 
+type ProfilePatch = {
+  displayName?: string;
+  phone?: string;
+  bio?: string;
+  updatedAt: number;
+};
+
 /** Editar nombre, @handle, teléfono o bio. */
 export const updateProfile = mutation({
   args: {
@@ -228,17 +255,16 @@ export const updateProfile = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new ConvexError("Inicia sesión para continuar");
+    if (!identity) {
+      throw new ConvexError("Inicia sesión para continuar");
+    }
 
     const user = await findUserByAuthId(ctx, identity.subject);
-    if (!user) throw new ConvexError("Completa tu perfil antes de editarlo");
+    if (!user) {
+      throw new ConvexError("Completa tu perfil antes de editarlo");
+    }
 
-    const patch: {
-      displayName?: string;
-      phone?: string;
-      bio?: string;
-      updatedAt: number;
-    } = { updatedAt: Date.now() };
+    const patch: ProfilePatch = { updatedAt: Date.now() };
 
     if (args.displayName !== undefined) {
       const displayName = args.displayName.trim();
@@ -258,7 +284,9 @@ export const updateProfile = mutation({
 
     if (args.bio !== undefined) {
       const bio = args.bio.trim();
-      if (bio.length > 160) throw new ConvexError("La bio no puede pasar de 160 caracteres");
+      if (bio.length > 160) {
+        throw new ConvexError("La bio no puede pasar de 160 caracteres");
+      }
       patch.bio = bio || undefined;
     }
 
