@@ -130,10 +130,13 @@ export default defineSchema({
     holderName: v.string(),
     institution: v.optional(v.string()),
     status: bankAccountStatusValidator,
+    providerStatus: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
     isDefault: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
     verifiedAt: v.optional(v.number()),
+    lastCheckedAt: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
     .index("by_business", ["businessId"])
@@ -204,6 +207,8 @@ export default defineSchema({
     sellerId: v.id("users"), // receptor; en negocio es el dueño
     buyerId: v.optional(v.id("users")), // si el comprador ya es usuario Cozi
     channel: orderChannelValidator,
+    // "send" = lo inicia el pagador; "request" = lo inicia el receptor.
+    p2pKind: v.optional(v.union(v.literal("send"), v.literal("request"))),
     status: orderStatusValidator,
     items: v.array(orderItemValidator),
     subtotalCents: v.number(),

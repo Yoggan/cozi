@@ -264,6 +264,8 @@ export const saveBankAccount = internalMutation({
     holderName: v.string(),
     institution: v.optional(v.string()),
     status: bankAccountStatusValidator,
+    providerStatus: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
     setDefault: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
@@ -318,10 +320,13 @@ export const saveBankAccount = internalMutation({
       holderName: args.holderName,
       institution: args.institution,
       status: args.status,
+      providerStatus: args.providerStatus,
+      errorMessage: args.errorMessage,
       isDefault: makeDefault,
       createdAt: now,
       updatedAt: now,
       verifiedAt: args.status === "verified" ? now : undefined,
+      lastCheckedAt: now,
     });
 
     if (args.businessId && makeDefault) {
@@ -332,6 +337,43 @@ export const saveBankAccount = internalMutation({
     }
 
     return { bankAccountId };
+  },
+});
+
+/** Aplica el estatus que Pey reporta a una cuenta ya guardada. */
+export const updateBankAccountStatus = internalMutation({
+  args: {
+    bankAccountId: v.optional(v.id("bankAccounts")),
+    peyBankAccountId: v.optional(v.string()),
+    status: bankAccountStatusValidator,
+    providerStatus: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
+    institution: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const account = args.bankAccountId
+      ? await ctx.db.get(args.bankAccountId)
+      : args.peyBankAccountId
+        ? await ctx.db
+            .query("bankAccounts")
+            .withIndex("by_pey_account", (q) => q.eq("peyBankAccountId", args.peyBankAccountId))
+            .first()
+        : null;
+
+    if (!account) return { found: false, status: args.status };
+
+    const now = Date.now();
+    await ctx.db.patch(account._id, {
+      status: args.status,
+      providerStatus: args.providerStatus,
+      errorMessage: args.errorMessage,
+      lastCheckedAt: now,
+      updatedAt: now,
+      verifiedAt: args.status === "verified" ? (account.verifiedAt ?? now) : account.verifiedAt,
+      ...(args.institution !== undefined ? { institution: args.institution } : {}),
+    });
+
+    return { found: true, status: args.status };
   },
 });
 

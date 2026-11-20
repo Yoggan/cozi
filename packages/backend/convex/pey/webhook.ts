@@ -2,22 +2,60 @@ import type { NormalizedPeyWebhook } from "./types";
 import { normalizePaymentStatus } from "./types";
 
 const SIGNATURE_PREFIX = /^sha256=/i;
+const WHSEC_PREFIX = /^whsec_/;
 const HEX = /^[0-9a-f]+$/i;
+const MAX_TIMESTAMP_DRIFT_SECONDS = 300;
 
 /**
- * Firma HMAC-SHA256 del cuerpo crudo.
- *
- * TODO(pey): confirmar header, algoritmo y si la firma incluye timestamp.
- * Este helper es el único punto que habrá que ajustar cuando llegue el payload.
+ * Verifica firmas de Pey siguiendo Standard Webhooks (`webhook-id`,
+ * `webhook-timestamp`, `webhook-signature` con secreto `whsec_...`) y mantiene
+ * respaldo para `x-pey-signature` / `pey-signature` sobre el cuerpo crudo.
  */
-export async function verifyPeySignature(
-  rawBody: string,
-  signatureHeader: string | null,
-): Promise<boolean> {
+export async function verifyPeySignature(rawBody: string, headers: Headers): Promise<boolean> {
   const secret = process.env.PEY_WEBHOOK_SECRET;
-  if (!secret || !signatureHeader) return false;
+  if (!secret) return false;
 
-  const signature = signatureHeader.trim().replace(SIGNATURE_PREFIX, "");
+  const webhookId = headers.get("webhook-id");
+  const webhookTimestamp = headers.get("webhook-timestamp");
+  const webhookSignature = headers.get("webhook-signature");
+
+  if (webhookId && webhookTimestamp && webhookSignature) {
+    const ts = Number.parseInt(webhookTimestamp, 10);
+    if (!Number.isFinite(ts)) return false;
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    if (Math.abs(nowSeconds - ts) > MAX_TIMESTAMP_DRIFT_SECONDS) return false;
+
+    const keyBytes = decodeWebhookSecret(secret);
+    const key = await crypto.subtle.importKey(
+      "raw",
+      keyBytes,
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+    const signedPayload = `${webhookId}.${webhookTimestamp}.${rawBody}`;
+    const expected = new Uint8Array(
+      await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(signedPayload)),
+    );
+
+    const signatures = webhookSignature
+      .trim()
+      .split(/\s+/)
+      .map((entry) => entry.split(","))
+      .filter(([version, value]) => version === "v1" && Boolean(value))
+      .map(([, value]) => value);
+
+    return signatures.some((sig) =>
+      decodeSignatureCandidates(sig).some(
+        (candidate) => candidate.length === expected.length && timingSafeEqual(expected, candidate),
+      ),
+    );
+  }
+
+  const legacyHeader = headers.get("x-pey-signature") ?? headers.get("pey-signature");
+  if (!legacyHeader) return false;
+
+  const signature = legacyHeader.trim().replace(SIGNATURE_PREFIX, "");
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
@@ -31,6 +69,21 @@ export async function verifyPeySignature(
   return decodeSignatureCandidates(signature).some(
     (candidate) => candidate.length === expected.length && timingSafeEqual(expected, candidate),
   );
+}
+
+function decodeWebhookSecret(secret: string): Uint8Array<ArrayBuffer> {
+  if (WHSEC_PREFIX.test(secret)) {
+    const raw = atob(secret.replace(WHSEC_PREFIX, ""));
+    const bytes = new Uint8Array(new ArrayBuffer(raw.length));
+    for (let i = 0; i < raw.length; i += 1) {
+      bytes[i] = raw.charCodeAt(i);
+    }
+    return bytes;
+  }
+  const encoded = new TextEncoder().encode(secret);
+  const bytes = new Uint8Array(new ArrayBuffer(encoded.length));
+  bytes.set(encoded);
+  return bytes;
 }
 
 export async function sha256Hex(value: string): Promise<string> {
@@ -71,17 +124,28 @@ function bytesToHex(bytes: Uint8Array): string {
 }
 
 /**
- * Convierte el payload crudo en lo único que necesita la mutación.
- * No confiamos en `data.amount` porque no sabemos si Pey lo manda en pesos
- * decimales; solo aceptamos un campo explícito en centavos.
+ * Convierte el payload crudo de Pey en lo único que necesita la mutación.
+ * Soporta los eventos oficiales de Pey (`codi.qr.payment_received`,
+ * `codi.pn.payment_received`, con `amount` en MXN) y formatos alternativos.
  */
-export function parsePeyWebhook(payload: unknown, payloadHash: string): NormalizedPeyWebhook {
+export function parsePeyWebhook(
+  payload: unknown,
+  payloadHash: string,
+  webhookIdHeader?: string | null,
+): NormalizedPeyWebhook {
   const root = isRecord(payload) ? payload : {};
   const data = isRecord(root.data) ? root.data : isRecord(root.payload) ? root.payload : root;
+  const metadata = isRecord(data.metadata)
+    ? data.metadata
+    : isRecord(root.metadata)
+      ? root.metadata
+      : {};
+  const externalMetadata = isRecord(metadata.externalMetadata) ? metadata.externalMetadata : {};
 
   // No usamos `root.id`: en algunos proveedores ese id es el del pago y
   // colapsaría dos eventos distintos (pending y succeeded) en uno.
   const eventId =
+    (webhookIdHeader?.trim() || undefined) ??
     firstString(root, ["eventId", "event_id", "webhook_id"]) ??
     firstString(data, ["event_id", "eventId"]) ??
     payloadHash;
@@ -95,6 +159,8 @@ export function parsePeyWebhook(payload: unknown, payloadHash: string): Normaliz
     firstString(data, ["status", "payment_status", "paymentStatus"]) ??
     firstString(root, ["status"]);
 
+  const inferredStatus = normalizePaymentStatus(rawStatus) ?? statusFromEventType(type);
+
   const references = unique([
     ...pickStrings(data, [
       "payment_id",
@@ -103,8 +169,10 @@ export function parsePeyWebhook(payload: unknown, payloadHash: string): Normaliz
       "paymentLinkId",
       "codi_id",
       "codiId",
+      "codiQrId",
       "transaction_id",
       "transactionId",
+      "clientReferenceId",
       "reference",
     ]),
     ...pickStrings(root, [
@@ -114,23 +182,54 @@ export function parsePeyWebhook(payload: unknown, payloadHash: string): Normaliz
       "paymentLinkId",
       "codi_id",
       "codiId",
+      "codiQrId",
       "transaction_id",
       "transactionId",
+      "clientReferenceId",
       "reference",
     ]),
+    ...pickStrings(metadata, ["orderId", "reference"]),
+    ...pickStrings(externalMetadata, ["orderId", "reference"]),
   ]);
+
+  const explicitCents =
+    firstInteger(data, ["amount_cents", "amountCents"]) ??
+    firstInteger(root, ["amount_cents", "amountCents"]);
+  const mxnAmount = firstFiniteNumber(data, ["amount"]) ?? firstFiniteNumber(root, ["amount"]);
 
   return {
     eventId,
     type,
     references,
-    status: normalizePaymentStatus(rawStatus),
-    amountCents:
-      firstInteger(data, ["amount_cents", "amountCents"]) ??
-      firstInteger(root, ["amount_cents", "amountCents"]) ??
-      null,
+    status: inferredStatus,
+    amountCents: explicitCents ?? (mxnAmount !== undefined ? Math.round(mxnAmount * 100) : null),
     currency: firstString(data, ["currency"]) ?? firstString(root, ["currency"]) ?? null,
   };
+}
+
+function statusFromEventType(type: string): NormalizedPeyWebhook["status"] {
+  const normalized = type.trim().toLowerCase();
+  if (
+    normalized === "codi.qr.payment_received" ||
+    normalized === "codi.pn.payment_received" ||
+    normalized.endsWith(".payment_received") ||
+    normalized.endsWith(".paid") ||
+    normalized.endsWith(".succeeded")
+  ) {
+    return "succeeded";
+  }
+  if (normalized.endsWith(".expired")) return "expired";
+  if (normalized.endsWith(".failed") || normalized.endsWith(".cancelled")) return "failed";
+  if (normalized.endsWith(".refunded")) return "refunded";
+  return null;
+}
+
+function firstFiniteNumber(record: Record<string, unknown>, keys: string[]): number | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+  }
+  return undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -2,46 +2,66 @@ import type { Id } from "../_generated/dataModel";
 import type { BankAccountStatus, PaymentMethod, PaymentStatus } from "../schema";
 
 /**
- * Contratos de la API REST de Pey.
- *
- * TODO(pey): los nombres de campos de los `*Raw` son placeholders hasta pegar
- * los payloads oficiales de Bank Account, CoDi, Payment Link y Webhooks.
- * La capa que cambia es esta + `client.ts`; el resto del backend consume
- * únicamente los tipos normalizados de abajo.
+ * Contratos de la API REST de Pey (`https://api.pey.mx`, docs en `https://docs.pey.mx`).
+ * La capa que habla con el proveedor vive aquí y en `client.ts`; el resto del backend
+ * consume únicamente los tipos normalizados de abajo.
  */
 
 export interface PeyRawResponse {
-  id: string;
+  id?: string;
   status?: string;
   [key: string]: unknown;
 }
 
 export interface PeyBankAccountRaw extends PeyRawResponse {
-  institution?: string;
+  id: string;
+  alias?: string;
+  name?: string;
   clabe?: string;
-  holder_name?: string;
+  entity?: "BUSINESS" | "PERSON" | string;
+  taxId?: string;
+  codiStatus?: string;
+  errorMessage?: string;
+  institution?: string;
+  dateCreated?: number;
 }
 
 export interface PeyCodiChargeRaw extends PeyRawResponse {
+  codiQrId?: string;
+  qr?: string;
+  qrCode?: string;
   qr_image_url?: string;
+  deepLink?: string;
   deep_link?: string;
+  expiration?: number;
+  expiresAt?: string | number;
   expires_at?: string | number;
+  transactionId?: string;
   transaction_id?: string;
 }
 
 export interface PeyPaymentLinkRaw extends PeyRawResponse {
+  id: string;
   url?: string;
   short_url?: string;
+  expiresAt?: string | number;
   expires_at?: string | number;
+  transactionId?: string;
   transaction_id?: string;
 }
 
 export interface PeyTransactionRaw extends PeyRawResponse {
+  transactionId?: string;
+  codiQrId?: string;
   reference?: string;
+  numRef?: string;
   amount?: number;
   amount_cents?: number;
   currency?: string;
+  datePaid?: string | number;
+  paidAt?: string | number;
   paid_at?: string | number;
+  failureReason?: string;
   failure_reason?: string;
 }
 
@@ -103,6 +123,8 @@ export interface CreatePaymentLinkInput {
 export interface PeyBankAccountResult {
   id: string;
   status: BankAccountStatus;
+  providerStatus?: string;
+  errorMessage?: string;
   institution?: string;
 }
 
@@ -151,6 +173,7 @@ export interface PaymentProviderRefs {
 /** Contrato que implementa `client.ts`. */
 export interface PeyClient {
   createBankAccount(input: RegisterBankAccountInput): Promise<PeyBankAccountResult>;
+  getBankAccount(id: string): Promise<PeyBankAccountResult>;
   createCodiCharge(input: CreateCodiChargeInput): Promise<PeyCodiChargeResult>;
   createPaymentLink(input: CreatePaymentLinkInput): Promise<PeyPaymentLinkResult>;
   getCodiCharge(id: string): Promise<PeyCodiChargeResult>;

@@ -219,7 +219,11 @@ export const linkBankAccount = action({
   handler: async (
     ctx,
     args,
-  ): Promise<{ bankAccountId: Id<"bankAccounts">; status: BankAccountStatus }> => {
+  ): Promise<{
+    bankAccountId: Id<"bankAccounts">;
+    status: BankAccountStatus;
+    providerStatus: string | null;
+  }> => {
     const digits = args.accountNumber.replace(/[\s-]/g, "");
     if (!/^\d+$/.test(digits)) {
       throw new ConvexError("El número de cuenta solo debe contener dígitos");
@@ -270,9 +274,61 @@ export const linkBankAccount = action({
       holderName,
       institution: account.institution,
       status: account.status,
+      providerStatus: account.providerStatus,
+      errorMessage: account.errorMessage,
       setDefault: args.setDefault,
     });
 
-    return { bankAccountId: saved.bankAccountId, status: account.status };
+    return {
+      bankAccountId: saved.bankAccountId,
+      status: account.status,
+      providerStatus: account.providerStatus ?? null,
+    };
+  },
+});
+
+/**
+ * Consulta a Pey el estatus real de una cuenta y lo aplica. El webhook es la
+ * fuente primaria; esto es el fallback para cuando una entrega se pierde.
+ */
+export const refreshBankAccount = action({
+  args: { bankAccountId: v.id("bankAccounts") },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    status: BankAccountStatus;
+    providerStatus: string | null;
+    errorMessage: string | null;
+    lastCheckedAt: number;
+  }> => {
+    const { account } = await ctx.runQuery(internal.pey.queries.getBankAccountForRefresh, {
+      bankAccountId: args.bankAccountId,
+      authUserId: await getAuthUserId(ctx),
+    });
+
+    if (!account.peyBankAccountId) {
+      throw new ConvexError("La cuenta aún no está registrada en Pey");
+    }
+
+    const remote = await pey.getBankAccount(account.peyBankAccountId).catch((error: unknown) => {
+      console.error("Error consultando cuenta en Pey", error);
+      throw new ConvexError("No se pudo consultar la cuenta con Pey");
+    });
+
+    const result = await ctx.runMutation(internal.pey.mutations.updateBankAccountStatus, {
+      bankAccountId: account._id,
+      status: remote.status,
+      providerStatus: remote.providerStatus,
+      errorMessage: remote.errorMessage,
+      institution: remote.institution,
+    });
+
+    return {
+      status: result.status,
+      providerStatus: remote.providerStatus ?? null,
+      errorMessage: remote.errorMessage ?? null,
+      lastCheckedAt: Date.now(),
+    };
   },
 });
