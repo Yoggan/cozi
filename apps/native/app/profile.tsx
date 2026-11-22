@@ -27,7 +27,6 @@ import { useAppLock } from "@/contexts/app-lock-context";
 import { useAppTheme } from "@/contexts/app-theme-context";
 import { useProfile } from "@/contexts/profile-context";
 import { authClient } from "@/lib/auth-client";
-import { CONTACTS_BACKEND_READY } from "@/lib/features";
 import { initials } from "@/lib/money";
 
 type AccountType = "clabe" | "card";
@@ -269,40 +268,38 @@ export default function ProfileScreen() {
         </Pressable>
       </Animated.View>
 
-      {CONTACTS_BACKEND_READY ? (
-        <Animated.View entering={FadeInDown.duration(220).delay(70)}>
-          <Pressable
-            onPress={() => router.push("/contacts")}
-            className={cn(
-              "mt-3 flex-row items-center gap-3 rounded-2xl p-4",
-              !isImmersive && "bg-surface",
-            )}
-            style={glass}
+      <Animated.View entering={FadeInDown.duration(220).delay(70)}>
+        <Pressable
+          onPress={() => router.push("/contacts")}
+          className={cn(
+            "mt-3 flex-row items-center gap-3 rounded-2xl p-4",
+            !isImmersive && "bg-surface",
+          )}
+          style={glass}
+        >
+          <View
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              backgroundColor: accent.softHex,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
           >
-            <View
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                backgroundColor: accent.softHex,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Ionicons name="people" size={19} color={accent.hex} />
-            </View>
-            <View className="flex-1">
-              <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
-                Contactos
-              </Text>
-              <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
-                Envía o cobra en un toque
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={iconMuted} />
-          </Pressable>
-        </Animated.View>
-      ) : null}
+            <Ionicons name="people" size={19} color={accent.hex} />
+          </View>
+          <View className="flex-1">
+            <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
+              Contactos
+            </Text>
+            <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
+              Envía o cobra en un toque
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={iconMuted} />
+        </Pressable>
+      </Animated.View>
 
       {profile.business ? (
         <Animated.View entering={FadeInDown.duration(220).delay(75)}>

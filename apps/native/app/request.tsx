@@ -20,7 +20,6 @@ import {
 } from "@/components/payment-controls";
 import { ThemeBackdrop } from "@/components/theme-backdrop";
 import { useProfile } from "@/contexts/profile-context";
-import { CONTACTS_BACKEND_READY } from "@/lib/features";
 import { parseAmountToCents } from "@/lib/money";
 import { firstParam } from "@/lib/search-params";
 
@@ -34,7 +33,7 @@ export default function RequestScreen() {
   const theme = usePaymentTheme();
   const createRequest = useMutation(api.p2p.createRequest);
   const createPaymentLink = useAction(api.pey.actions.createPaymentLink);
-  const contactData = useQuery(api.contacts.suggestions, CONTACTS_BACKEND_READY ? {} : "skip");
+  const contactData = useQuery(api.contacts.suggestions);
   const contacts = contactData ? [...contactData.saved, ...contactData.recent] : [];
 
   const [payer, setPayer] = useState(initialHandle?.replace(/^@/, "") ?? "");
@@ -46,8 +45,7 @@ export default function RequestScreen() {
 
   const amountCents = parseAmountToCents(amountText);
   const cleanPayer = payer.replace(/^@/, "").replaceAll(/\s/g, "").toLowerCase();
-  const showSuggestions =
-    CONTACTS_BACKEND_READY && handleFocused && !suppressSuggestions && contacts.length > 0;
+  const showSuggestions = handleFocused && !suppressSuggestions && contacts.length > 0;
   const canSubmit =
     profile.hasReceivingAccount && amountCents !== null && amountCents >= 1000 && !isSubmitting;
 

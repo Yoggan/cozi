@@ -9,7 +9,6 @@ import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { usePaymentTheme } from "@/components/payment-controls";
 import { useAppTheme } from "@/contexts/app-theme-context";
 import type { Contact } from "@/lib/contacts";
-import { CONTACTS_BACKEND_READY } from "@/lib/features";
 import { initials } from "@/lib/money";
 
 function ContactAvatar({ contact, size = 54 }: { contact: Contact; size?: number }) {
@@ -40,10 +39,10 @@ export function ContactsStrip() {
   const { isImmersive, cardColor, cardBorder, accent } = useAppTheme();
   const theme = usePaymentTheme();
   const surface = useThemeColor("surface");
-  const data = useQuery(api.contacts.suggestions, CONTACTS_BACKEND_READY ? {} : "skip");
+  const data = useQuery(api.contacts.suggestions);
   const [selected, setSelected] = useState<Contact | null>(null);
 
-  if (!CONTACTS_BACKEND_READY || data === undefined) {
+  if (data === undefined) {
     return null;
   }
 
