@@ -1,6 +1,6 @@
 import { ConvexQueryClient } from "@convex-dev/react-query";
 import { QueryClient } from "@tanstack/react-query";
-import { createRouter as createTanStackRouter } from "@tanstack/react-router";
+import { Link, createRouter as createTanStackRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 
 import Loader from "./components/loader";
@@ -29,7 +29,15 @@ export function getRouter() {
     routeTree,
     defaultPreload: "intent",
     defaultPendingComponent: () => <Loader />,
-    defaultNotFoundComponent: () => <div>Not Found</div>,
+    defaultNotFoundComponent: () => (
+      <div className="mx-auto max-w-md px-4 py-16 text-center">
+        <h1 className="text-xl font-semibold">Página no encontrada</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Revisa el enlace e inténtalo de nuevo.</p>
+        <Link to="/" className="mt-4 inline-block text-sm underline underline-offset-4">
+          Volver al inicio
+        </Link>
+      </div>
+    ),
     context: { queryClient, convexQueryClient },
   });
 
