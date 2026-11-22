@@ -109,7 +109,7 @@ function BusinessProfile({
 
         <div>
           <a
-            href={`cozi://b/${business.handle}`}
+            href={`cozi://business/${business.handle}`}
             onClick={handleOpenApp}
             className={buttonVariants({ size: "lg" })}
           >
