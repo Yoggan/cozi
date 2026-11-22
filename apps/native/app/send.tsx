@@ -19,7 +19,6 @@ import {
   usePaymentTheme,
 } from "@/components/payment-controls";
 import { ThemeBackdrop } from "@/components/theme-backdrop";
-import { CONTACTS_BACKEND_READY } from "@/lib/features";
 import { parseAmountToCents } from "@/lib/money";
 import { firstParam } from "@/lib/search-params";
 
@@ -107,7 +106,7 @@ export default function SendScreen() {
   const createTransfer = useMutation(api.p2p.createTransfer);
   const createPaymentLink = useAction(api.pey.actions.createPaymentLink);
   const saveContact = useMutation(api.contacts.save);
-  const contactData = useQuery(api.contacts.suggestions, CONTACTS_BACKEND_READY ? {} : "skip");
+  const contactData = useQuery(api.contacts.suggestions);
   const contacts = contactData ? [...contactData.saved, ...contactData.recent] : [];
 
   const [recipient, setRecipient] = useState(initialHandle?.replace(/^@/, "") ?? "");
@@ -126,8 +125,7 @@ export default function SendScreen() {
   );
   const status = getRecipientStatus(cleanRecipient, recipientLookup);
   const savedContact = contactData?.saved.find((contact) => contact.handle === cleanRecipient);
-  const showSuggestions =
-    CONTACTS_BACKEND_READY && handleFocused && !suppressSuggestions && contacts.length > 0;
+  const showSuggestions = handleFocused && !suppressSuggestions && contacts.length > 0;
   const canSubmit =
     Boolean(recipientLookup?.canReceive) &&
     !recipientLookup?.isSelf &&
@@ -146,7 +144,7 @@ export default function SendScreen() {
   }
 
   async function handleSaveContact() {
-    if (!CONTACTS_BACKEND_READY || !recipientLookup || recipientLookup.isSelf || isSavingContact) {
+    if (!recipientLookup || recipientLookup.isSelf || isSavingContact) {
       return;
     }
 
@@ -273,7 +271,7 @@ export default function SendScreen() {
                         Guardado
                       </Text>
                     </View>
-                  ) : CONTACTS_BACKEND_READY && recipientLookup && !recipientLookup.isSelf ? (
+                  ) : recipientLookup && !recipientLookup.isSelf ? (
                     <Pressable
                       accessibilityLabel="Guardar contacto"
                       accessibilityRole="button"

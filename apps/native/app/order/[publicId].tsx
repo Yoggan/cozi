@@ -10,7 +10,6 @@ import { Share, View } from "react-native";
 
 import { Container } from "@/components/container";
 import { useAppTheme } from "@/contexts/app-theme-context";
-import { CONTACTS_BACKEND_READY } from "@/lib/features";
 import { formatMxn } from "@/lib/money";
 import { firstParam } from "@/lib/search-params";
 
@@ -46,7 +45,7 @@ export default function OrderScreen() {
   const createPaymentLink = useAction(api.pey.actions.createPaymentLink);
   const refreshPayment = useAction(api.pey.actions.refreshPayment);
   const saveContact = useMutation(api.contacts.save);
-  const contacts = useQuery(api.contacts.list, CONTACTS_BACKEND_READY ? {} : "skip");
+  const contacts = useQuery(api.contacts.list);
   const splitSourceOrderId =
     order &&
     !order.billSplitId &&
@@ -168,7 +167,7 @@ export default function OrderScreen() {
   }
 
   async function handleSaveCounterpart() {
-    if (!current.counterpartHandle || savedContact || isSavingContact || !CONTACTS_BACKEND_READY) {
+    if (!current.counterpartHandle || savedContact || isSavingContact) {
       return;
     }
 
@@ -335,7 +334,7 @@ export default function OrderScreen() {
         </View>
       ) : null}
 
-      {isPaid && current.counterpartHandle && !savedContact && CONTACTS_BACKEND_READY ? (
+      {isPaid && current.counterpartHandle && !savedContact ? (
         <View className="mt-3 rounded-2xl bg-surface p-4" style={immersiveCard}>
           <Text className="text-sm font-semibold text-foreground">¿Guardar a {counterpart}?</Text>
           <Text className="mt-1 text-xs leading-5 text-muted">

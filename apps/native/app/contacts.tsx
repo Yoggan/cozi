@@ -20,7 +20,6 @@ import {
 import { ThemeBackdrop } from "@/components/theme-backdrop";
 import { useAppTheme } from "@/contexts/app-theme-context";
 import type { Contact } from "@/lib/contacts";
-import { CONTACTS_BACKEND_READY } from "@/lib/features";
 import { initials } from "@/lib/money";
 
 type ManagedContact = Contact & {
@@ -37,7 +36,7 @@ export default function ContactsScreen() {
   const { toast } = useToast();
   const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
 
-  const contacts = useQuery(api.contacts.list, CONTACTS_BACKEND_READY ? {} : "skip");
+  const contacts = useQuery(api.contacts.list);
   const saveContact = useMutation(api.contacts.save);
   const removeContact = useMutation(api.contacts.remove);
 
@@ -60,6 +59,17 @@ export default function ContactsScreen() {
     setHandle(contact.handle);
     setNickname(contact.nickname ?? "");
     scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }
+
+  function handleContactPress(contact: ManagedContact) {
+    if (contact.kind === "business") {
+      router.push({
+        pathname: "/business/[handle]",
+        params: { handle: contact.handle },
+      });
+      return;
+    }
+    startEdit(contact);
   }
 
   async function handleSave() {
@@ -155,54 +165,52 @@ export default function ContactsScreen() {
       >
         <View style={{ flexGrow: 1, width: "100%", maxWidth: 460, alignSelf: "center" }}>
           <View style={{ gap: 18 }}>
-            {CONTACTS_BACKEND_READY ? (
-              <View style={[cardStyle, { gap: 14, padding: 16 }]}>
-                {editingHandle ? (
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      paddingHorizontal: 2,
-                    }}
-                  >
-                    <Text style={{ color: theme.text, fontSize: 14, fontWeight: "600" }}>
-                      Editando @{editingHandle}
-                    </Text>
-                    <Pressable onPress={resetForm} hitSlop={8}>
-                      <Text style={{ color: theme.textMuted, fontSize: 12 }}>Cancelar</Text>
-                    </Pressable>
-                  </View>
-                ) : (
-                  <GlassField
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    hint="Ejemplo: @sergio o @tunegocio"
-                    icon="at"
-                    label="¿A quién guardas?"
-                    onChangeText={setHandle}
-                    placeholder="ej. sergio"
-                    value={handle}
-                  />
-                )}
-
+            <View style={[cardStyle, { gap: 14, padding: 16 }]}>
+              {editingHandle ? (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    paddingHorizontal: 2,
+                  }}
+                >
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: "600" }}>
+                    Editando @{editingHandle}
+                  </Text>
+                  <Pressable onPress={resetForm} hitSlop={8}>
+                    <Text style={{ color: theme.textMuted, fontSize: 12 }}>Cancelar</Text>
+                  </Pressable>
+                </View>
+              ) : (
                 <GlassField
-                  autoCapitalize="words"
-                  icon="pricetag-outline"
-                  label="Apodo (opcional)"
-                  onChangeText={setNickname}
-                  placeholder="Mamá, Renta, Gym..."
-                  value={nickname}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  hint="Ejemplo: @sergio o @tunegocio"
+                  icon="at"
+                  label="¿A quién guardas?"
+                  onChangeText={setHandle}
+                  placeholder="ej. sergio"
+                  value={handle}
                 />
+              )}
 
-                <PrimaryPillButton
-                  isDisabled={!canSave}
-                  isSubmitting={isSaving}
-                  label={editingHandle ? "Guardar apodo" : "Guardar contacto"}
-                  onPress={handleSave}
-                />
-              </View>
-            ) : null}
+              <GlassField
+                autoCapitalize="words"
+                icon="pricetag-outline"
+                label="Apodo (opcional)"
+                onChangeText={setNickname}
+                placeholder="Mamá, Renta, Gym..."
+                value={nickname}
+              />
+
+              <PrimaryPillButton
+                isDisabled={!canSave}
+                isSubmitting={isSaving}
+                label={editingHandle ? "Guardar apodo" : "Guardar contacto"}
+                onPress={handleSave}
+              />
+            </View>
 
             <View>
               <Text
@@ -212,13 +220,7 @@ export default function ContactsScreen() {
               </Text>
 
               <View style={cardStyle}>
-                {!CONTACTS_BACKEND_READY ? (
-                  <View style={{ paddingVertical: 24, paddingHorizontal: 18 }}>
-                    <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: "center" }}>
-                      Contactos se está activando.
-                    </Text>
-                  </View>
-                ) : contacts === undefined ? (
+                {contacts === undefined ? (
                   <View style={{ paddingVertical: 24 }}>
                     <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: "center" }}>
                       Cargando contactos...
@@ -286,11 +288,13 @@ export default function ContactsScreen() {
                         }}
                       >
                         <Pressable
-                          accessibilityLabel={`Editar apodo de ${
-                            managed.nickname ?? managed.displayName
-                          }`}
+                          accessibilityLabel={
+                            isBusiness
+                              ? `Abrir ${managed.nickname ?? managed.displayName}`
+                              : `Editar apodo de ${managed.nickname ?? managed.displayName}`
+                          }
                           accessibilityRole="button"
-                          onPress={() => startEdit(managed)}
+                          onPress={() => handleContactPress(managed)}
                           style={({ pressed }) => ({
                             flex: 1,
                             flexDirection: "row",
@@ -345,6 +349,19 @@ export default function ContactsScreen() {
                             </Text>
                           </View>
                         </Pressable>
+                        {isBusiness ? (
+                          <Pressable
+                            accessibilityLabel={`Editar apodo de ${
+                              managed.nickname ?? managed.displayName
+                            }`}
+                            accessibilityRole="button"
+                            hitSlop={10}
+                            onPress={() => startEdit(managed)}
+                            style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}
+                          >
+                            <Ionicons name="pricetag-outline" size={18} color={theme.icon} />
+                          </Pressable>
+                        ) : null}
                         <Pressable
                           accessibilityLabel={`Quitar ${
                             managed.nickname ?? managed.displayName
