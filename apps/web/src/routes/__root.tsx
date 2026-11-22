@@ -39,7 +39,11 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "My App",
+        title: "Cozi",
+      },
+      {
+        name: "description",
+        content: "Paga, cobra y compra en Cozi.",
       },
     ],
     links: [
@@ -71,7 +75,7 @@ function RootDocument() {
       authClient={authClient}
       initialToken={context.token}
     >
-      <html lang="en" className="dark">
+      <html lang="es" className="dark">
         <head>
           <HeadContent />
         </head>
