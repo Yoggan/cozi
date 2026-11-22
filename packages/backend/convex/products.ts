@@ -69,8 +69,8 @@ function readPriceCents(priceCents: number): number {
   return normalized;
 }
 
-function readStock(stock: number | undefined): number | undefined {
-  if (stock === undefined) {
+function readStock(stock: number | null | undefined): number | undefined {
+  if (stock === undefined || stock === null) {
     return undefined;
   }
   if (!Number.isInteger(stock) || stock < 0) {
@@ -142,7 +142,7 @@ export const update = mutation({
     priceCents: v.optional(v.number()),
     sku: v.optional(v.string()),
     category: v.optional(v.string()),
-    stock: v.optional(v.number()),
+    stock: v.optional(v.union(v.number(), v.null())),
     active: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {

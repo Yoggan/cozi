@@ -2,12 +2,12 @@ import { ConvexError, v } from "convex/values";
 
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
-import type { MutationCtx } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { businessStatusValidator } from "./schema";
 import { claimHandle } from "./lib/handles";
 import { HANDLE_PATTERN, handleBase, normalizeHandle } from "./lib/identifiers";
 
-async function requireUser(ctx: MutationCtx): Promise<Doc<"users">> {
+async function requireUser(ctx: QueryCtx | MutationCtx): Promise<Doc<"users">> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
     throw new ConvexError("Inicia sesión para continuar");
@@ -213,5 +213,39 @@ export const getByHandle = query({
         stock: product.stock ?? null,
       })),
     };
+  },
+});
+
+/** Cuentas bancarias del negocio, solo la máscara. */
+export const listBankAccounts = query({
+  args: { businessId: v.id("businesses") },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const business = await ctx.db.get(args.businessId);
+    if (!business || business.ownerId !== user._id) {
+      throw new ConvexError("Negocio no encontrado");
+    }
+
+    const accounts = await ctx.db
+      .query("bankAccounts")
+      .withIndex("by_business", (q) => q.eq("businessId", business._id))
+      .collect();
+
+    return accounts
+      .sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || b.createdAt - a.createdAt)
+      .map((account) => ({
+        _id: account._id,
+        accountType: account.accountType,
+        accountNumberMasked: account.accountNumberMasked,
+        holderName: account.holderName,
+        institution: account.institution ?? null,
+        status: account.status,
+        providerStatus: account.providerStatus ?? null,
+        errorMessage: account.errorMessage ?? null,
+        isDefault: account.isDefault,
+        createdAt: account.createdAt,
+        verifiedAt: account.verifiedAt ?? null,
+        lastCheckedAt: account.lastCheckedAt ?? null,
+      }));
   },
 });

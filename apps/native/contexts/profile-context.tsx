@@ -26,6 +26,8 @@ export type Profile = {
     category: string | null;
     status: "active" | "paused";
     handle: string | null;
+    acceptingOrders: boolean;
+    tipsEnabled: boolean;
   } | null;
 };
 
