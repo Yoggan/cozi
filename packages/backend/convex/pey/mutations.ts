@@ -62,6 +62,9 @@ async function settlePayment(
       updatedAt: now,
     });
     await decrementInventory(ctx, order);
+    if (order.billSplitId) {
+      await reconcileBillSplit(ctx, order.billSplitId, options.paidAt ?? now);
+    }
     return;
   }
 
@@ -77,6 +80,39 @@ async function settlePayment(
       });
     }
   }
+}
+
+async function reconcileBillSplit(ctx: MutationCtx, billSplitId: Id<"billSplits">, now: number) {
+  const split = await ctx.db.get(billSplitId);
+  if (!split || split.status === "cancelled") {
+    return;
+  }
+
+  const shareOrders = await ctx.db
+    .query("orders")
+    .withIndex("by_bill_split", (q) => q.eq("billSplitId", billSplitId))
+    .collect();
+
+  const paidOrders = shareOrders.filter(
+    (item) => item.status === "paid" || item.status === "fulfilled",
+  );
+  const paidParticipantCount = paidOrders.length;
+  const collectedCents = paidOrders.reduce((sum, item) => sum + item.totalCents, 0);
+
+  const nextStatus =
+    paidParticipantCount >= split.participantCount
+      ? ("settled" as const)
+      : paidParticipantCount > 0
+        ? ("partially_paid" as const)
+        : ("open" as const);
+
+  await ctx.db.patch(split._id, {
+    collectedCents,
+    paidParticipantCount,
+    status: nextStatus,
+    settledAt: nextStatus === "settled" ? (split.settledAt ?? now) : undefined,
+    updatedAt: now,
+  });
 }
 
 async function decrementInventory(ctx: MutationCtx, order: Doc<"orders">) {

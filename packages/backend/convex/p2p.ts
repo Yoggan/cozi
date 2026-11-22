@@ -3,23 +3,11 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-import { HANDLE_PATTERN, normalizeHandle } from "./lib/identifiers";
+import { HANDLE_PATTERN, makePublicId, normalizeHandle } from "./lib/identifiers";
 import { findActivePayment } from "./pey/queries";
 
 const MIN_AMOUNT_CENTS = 1000;
 const MAX_AMOUNT_CENTS = 2_000_000;
-
-function makePublicId(): string {
-  const bytes = new Uint8Array(16);
-  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
-    crypto.getRandomValues(bytes);
-  } else {
-    for (let index = 0; index < bytes.length; index += 1) {
-      bytes[index] = Math.floor(Math.random() * 256);
-    }
-  }
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
 
 function validateAmount(amountCents: number): number {
   const normalized = Math.round(amountCents);
@@ -98,6 +86,22 @@ async function resolveCounterpart(
       name: order.customer.name?.trim() || "Alguien",
       handle: order.customer.handle ?? null,
     };
+  }
+
+  if (order.businessId) {
+    const [business, businessHandle] = await Promise.all([
+      ctx.db.get(order.businessId),
+      ctx.db
+        .query("handles")
+        .withIndex("by_business", (q) => q.eq("businessId", order.businessId))
+        .first(),
+    ]);
+    if (business) {
+      return {
+        name: business.name,
+        handle: businessHandle?.handle ?? null,
+      };
+    }
   }
 
   const seller = await ctx.db.get(order.sellerId);
