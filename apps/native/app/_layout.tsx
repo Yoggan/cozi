@@ -128,6 +128,7 @@ function RootNavigator() {
           options={{ headerShown: false, presentation: "fullScreenModal" }}
         />
         <Stack.Screen name="business" options={{ headerShown: true, title: "Mi negocio" }} />
+        <Stack.Screen name="business-catalog" options={{ headerShown: true, title: "Catálogo" }} />
         <Stack.Screen
           name="split"
           options={{ headerShown: false, presentation: "fullScreenModal" }}

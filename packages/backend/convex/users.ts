@@ -162,6 +162,8 @@ export const getMe = query({
             category: business.category ?? null,
             status: business.status,
             handle: businessHandle,
+            acceptingOrders: business.acceptingOrders,
+            tipsEnabled: business.tipsEnabled,
           }
         : null,
     };

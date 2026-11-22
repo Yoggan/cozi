@@ -17,6 +17,7 @@ import Animated, {
 
 import { Container } from "@/components/container";
 import { useAppTheme } from "@/contexts/app-theme-context";
+import { useProfile } from "@/contexts/profile-context";
 import { firstParam } from "@/lib/search-params";
 
 const STATUS_LABELS: Record<BankAccountStatus, string> = {
@@ -134,7 +135,13 @@ function TimelineStep({
 export default function BankAccountStatusScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const id = firstParam(params.id);
-  const accounts = useQuery(api.users.listBankAccounts);
+  const profile = useProfile();
+  const businessId = profile.business?._id;
+  const personalAccounts = useQuery(api.users.listBankAccounts);
+  const businessAccounts = useQuery(
+    api.businesses.listBankAccounts,
+    businessId ? { businessId } : "skip",
+  );
   const refreshBankAccount = useAction(api.pey.actions.refreshBankAccount);
   const router = useRouter();
   const { toast } = useToast();
@@ -151,7 +158,10 @@ export default function BankAccountStatusScreen() {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  if (accounts === undefined) {
+  const isLoading =
+    personalAccounts === undefined || (businessId !== undefined && businessAccounts === undefined);
+
+  if (isLoading) {
     return (
       <View
         className="flex-1 items-center justify-center bg-background"
@@ -162,10 +172,13 @@ export default function BankAccountStatusScreen() {
     );
   }
 
+  const allAccounts = [...(personalAccounts ?? []), ...(businessAccounts ?? [])];
   const account =
-    (id ? accounts.find((item) => item._id === id) : undefined) ??
-    accounts.find((item) => item.status === "pending") ??
-    accounts[0];
+    (id ? allAccounts.find((item) => item._id === id) : undefined) ??
+    personalAccounts?.find((item) => item.status === "pending") ??
+    personalAccounts?.[0] ??
+    businessAccounts?.find((item) => item.status === "pending") ??
+    businessAccounts?.[0];
 
   if (!account) {
     return (
@@ -178,10 +191,10 @@ export default function BankAccountStatusScreen() {
           Sin cuentas todavía
         </Text>
         <Text className="text-center text-sm text-muted">
-          Agrega una CLABE en tu perfil para recibir pagos por CoDi.
+          Agrega una CLABE desde tu perfil o negocio para recibir pagos por CoDi.
         </Text>
         <Button variant="secondary" onPress={() => router.back()}>
-          <Button.Label>Volver a Perfil</Button.Label>
+          <Button.Label>Volver</Button.Label>
         </Button>
       </View>
     );
