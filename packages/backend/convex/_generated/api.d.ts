@@ -16,6 +16,7 @@ import type * as http from "../http.js";
 import type * as lib_email from "../lib/email.js";
 import type * as lib_handles from "../lib/handles.js";
 import type * as lib_identifiers from "../lib/identifiers.js";
+import type * as orders from "../orders.js";
 import type * as p2p from "../p2p.js";
 import type * as pey_actions from "../pey/actions.js";
 import type * as pey_client from "../pey/client.js";
@@ -24,6 +25,8 @@ import type * as pey_queries from "../pey/queries.js";
 import type * as pey_types from "../pey/types.js";
 import type * as pey_webhook from "../pey/webhook.js";
 import type * as privateData from "../privateData.js";
+import type * as products from "../products.js";
+import type * as splits from "../splits.js";
 import type * as users from "../users.js";
 
 import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server";
@@ -37,6 +40,7 @@ declare const fullApi: ApiFromModules<{
   "lib/email": typeof lib_email;
   "lib/handles": typeof lib_handles;
   "lib/identifiers": typeof lib_identifiers;
+  orders: typeof orders;
   p2p: typeof p2p;
   "pey/actions": typeof pey_actions;
   "pey/client": typeof pey_client;
@@ -45,6 +49,8 @@ declare const fullApi: ApiFromModules<{
   "pey/types": typeof pey_types;
   "pey/webhook": typeof pey_webhook;
   privateData: typeof privateData;
+  products: typeof products;
+  splits: typeof splits;
   users: typeof users;
 }>;
 

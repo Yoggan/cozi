@@ -1,5 +1,4 @@
-// oxlint-disable typescript/no-unsafe-call -- bun:test no está en los types del proyecto Convex.
-import { expect, test } from "bun:test";
+import { expect, test } from "vitest";
 
 import { isBusinessEmail } from "./email";
 

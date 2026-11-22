@@ -6,7 +6,9 @@
   "author": "",
   "scripts": {
     "dev": "convex dev",
-    "dev:setup": "convex dev --configure --until-success"
+    "dev:setup": "convex dev --configure --until-success",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@better-auth/expo": "catalog:",
@@ -17,7 +19,10 @@
   },
   "devDependencies": {
     "@cozi/config": "workspace:*",
+    "@edge-runtime/vm": "^5.0.0",
     "@types/node": "catalog:",
-    "typescript": "^6.0.3"
+    "convex-test": "^0.0.73",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.1"
   }
 }

@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 
 import type { Doc } from "./_generated/dataModel";
-import { mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import { businessStatusValidator } from "./schema";
 import { claimHandle } from "./lib/handles";
@@ -113,6 +113,8 @@ type BusinessPatch = {
   name?: string;
   category?: string;
   status?: "active" | "paused";
+  acceptingOrders?: boolean;
+  tipsEnabled?: boolean;
   updatedAt: number;
 };
 
@@ -123,6 +125,8 @@ export const update = mutation({
     name: v.optional(v.string()),
     category: v.optional(v.string()),
     status: v.optional(businessStatusValidator),
+    acceptingOrders: v.optional(v.boolean()),
+    tipsEnabled: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
@@ -142,8 +146,72 @@ export const update = mutation({
     if (args.status !== undefined) {
       patch.status = args.status;
     }
+    if (args.acceptingOrders !== undefined) {
+      patch.acceptingOrders = args.acceptingOrders;
+    }
+    if (args.tipsEnabled !== undefined) {
+      patch.tipsEnabled = args.tipsEnabled;
+    }
 
     await ctx.db.patch(business._id, patch);
     return { ok: true as const };
+  },
+});
+
+/** Perfil público de un negocio por @handle, junto con su catálogo activo. */
+export const getByHandle = query({
+  args: { handle: v.string() },
+  handler: async (ctx, args) => {
+    const normalized = normalizeHandle(args.handle);
+    if (!HANDLE_PATTERN.test(normalized)) {
+      return null;
+    }
+
+    const handleDoc = await ctx.db
+      .query("handles")
+      .withIndex("by_handle", (q) => q.eq("handle", normalized))
+      .unique();
+    if (!handleDoc || handleDoc.ownerType !== "business" || !handleDoc.businessId) {
+      return null;
+    }
+
+    const business = await ctx.db.get(handleDoc.businessId);
+    if (!business) {
+      return null;
+    }
+
+    const [bankAccounts, products] = await Promise.all([
+      ctx.db
+        .query("bankAccounts")
+        .withIndex("by_business", (q) => q.eq("businessId", business._id))
+        .take(20),
+      ctx.db
+        .query("products")
+        .withIndex("by_business_active", (q) => q.eq("businessId", business._id).eq("active", true))
+        .take(100),
+    ]);
+
+    const hasReceivingAccount = bankAccounts.some(
+      (account) => account.status === "verified" && Boolean(account.peyBankAccountId),
+    );
+
+    return {
+      _id: business._id,
+      handle: handleDoc.handle,
+      name: business.name,
+      category: business.category ?? null,
+      status: business.status,
+      acceptingOrders: business.acceptingOrders,
+      tipsEnabled: business.tipsEnabled,
+      hasReceivingAccount,
+      products: products.map((product) => ({
+        _id: product._id,
+        name: product.name,
+        description: product.description ?? null,
+        priceCents: product.priceCents,
+        category: product.category ?? null,
+        stock: product.stock ?? null,
+      })),
+    };
   },
 });

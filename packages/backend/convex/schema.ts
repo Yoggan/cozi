@@ -61,12 +61,23 @@ export const chatSessionStatusValidator = v.union(
   v.literal("closed"),
 );
 
+export const billSplitModeValidator = v.union(v.literal("equal"), v.literal("custom"));
+
+export const billSplitStatusValidator = v.union(
+  v.literal("open"),
+  v.literal("partially_paid"),
+  v.literal("settled"),
+  v.literal("cancelled"),
+);
+
 export type OrderChannel = Infer<typeof orderChannelValidator>;
 export type OrderStatus = Infer<typeof orderStatusValidator>;
 export type PaymentMethod = Infer<typeof paymentMethodValidator>;
 export type PaymentStatus = Infer<typeof paymentStatusValidator>;
 export type BankAccountType = Infer<typeof bankAccountTypeValidator>;
 export type BankAccountStatus = Infer<typeof bankAccountStatusValidator>;
+export type BillSplitMode = Infer<typeof billSplitModeValidator>;
+export type BillSplitStatus = Infer<typeof billSplitStatusValidator>;
 
 /** Snapshot de precio: la orden no cambia si el producto cambia después. */
 export const orderItemValidator = v.object({
@@ -243,6 +254,7 @@ export default defineSchema({
     customer: orderCustomerValidator,
     note: v.optional(v.string()),
     chatSessionId: v.optional(v.id("chatSessions")),
+    billSplitId: v.optional(v.id("billSplits")),
     paymentId: v.optional(v.id("payments")), // intento vigente o el pagado
     paidAt: v.optional(v.number()),
     fulfilledAt: v.optional(v.number()),
@@ -258,7 +270,34 @@ export default defineSchema({
     .index("by_seller_created", ["sellerId", "createdAt"])
     .index("by_buyer_created", ["buyerId", "createdAt"])
     .index("by_chat_session", ["chatSessionId"])
+    .index("by_bill_split", ["billSplitId"])
     .index("by_status_created", ["status", "createdAt"]),
+
+  /**
+   * División de una cuenta ya pagada entre varios usuarios mediante cobros P2P.
+   * Los participantes se representan como órdenes P2P hijas indexadas por `billSplitId`.
+   */
+  billSplits: defineTable({
+    sourceOrderId: v.id("orders"),
+    creatorId: v.id("users"),
+    businessId: v.optional(v.id("businesses")),
+    mode: billSplitModeValidator,
+    status: billSplitStatusValidator,
+    totalCents: v.number(),
+    creatorShareCents: v.number(),
+    requestedTotalCents: v.number(),
+    collectedCents: v.number(),
+    participantCount: v.number(),
+    paidParticipantCount: v.number(),
+    currency: v.literal("MXN"),
+    note: v.optional(v.string()),
+    settledAt: v.optional(v.number()),
+    cancelledAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_source_order", ["sourceOrderId"])
+    .index("by_creator_created", ["creatorId", "createdAt"]),
 
   /**
    * Intento de cobro. `attemptId` idempotencia el inicio; `peyReference` es

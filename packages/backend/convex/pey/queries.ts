@@ -92,10 +92,11 @@ export const getOrderForCharge = internalQuery({
     if (!order) {
       throw new ConvexError("Orden no encontrada");
     }
-    // P2P: el pagador también puede iniciar el cobro a la cuenta del receptor.
+    // El vendedor o el comprador asignado a la orden pueden generar el cobro;
+    // los fondos siempre van a la cuenta verificada del receptor/negocio.
     const isSeller = order.sellerId === viewer._id;
-    const isPayer = order.channel === "p2p" && order.buyerId === viewer._id;
-    if (!isSeller && !isPayer) {
+    const isBuyer = order.buyerId === viewer._id;
+    if (!isSeller && !isBuyer) {
       throw new ConvexError("No tienes acceso a esta orden");
     }
     if (order.status === "paid" || order.status === "fulfilled") {
@@ -118,7 +119,9 @@ export const getOrderForCharge = internalQuery({
       throw new ConvexError(
         isSeller
           ? "Configura una cuenta bancaria verificada para recibir pagos"
-          : "Esa persona aún no puede recibir pagos",
+          : business
+            ? "El negocio aún no puede recibir pagos"
+            : "Esa persona aún no puede recibir pagos",
       );
     }
 
