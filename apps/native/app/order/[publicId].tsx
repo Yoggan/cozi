@@ -66,6 +66,11 @@ export default function OrderScreen() {
   const saveContact = useMutation(api.contacts.save);
   const fulfillOrder = useMutation(api.orders.fulfill);
   const cancelOrder = useMutation(api.orders.cancel);
+  const openOrderThread = useMutation(api.messages.getOrCreateOrderThread);
+  const threadState = useQuery(
+    api.messages.getOrderThreadState,
+    publicId ? { orderPublicId: publicId } : "skip",
+  );
   const contacts = useQuery(api.contacts.list);
   const splitSourceOrderId =
     order &&
@@ -87,6 +92,7 @@ export default function OrderScreen() {
   const [isSavingContact, setIsSavingContact] = useState(false);
   const [isFulfillingOrder, setIsFulfillingOrder] = useState(false);
   const [isCancellingOrder, setIsCancellingOrder] = useState(false);
+  const [isOpeningThread, setIsOpeningThread] = useState(false);
 
   const immersiveCard = isImmersive
     ? { backgroundColor: cardColor, borderColor: cardBorder, borderWidth: 1 }
@@ -454,6 +460,29 @@ export default function OrderScreen() {
           </View>
         ) : null}
 
+        {threadState?.canMessage ? (
+          <View className="mt-3 rounded-2xl bg-surface p-4" style={immersiveCard}>
+            <Text className="text-sm font-semibold text-foreground">¿Dudas con este pedido?</Text>
+            <Text className="mt-1 text-xs leading-5 text-muted">
+              Escríbele a{" "}
+              {isBusinessSeller ? customer : (businessOrder.business?.name ?? "el negocio")} desde
+              Cozi.
+            </Text>
+            <Button
+              className="mt-3"
+              variant="secondary"
+              onPress={() => handleOpenThread(businessOrder.publicId)}
+              isDisabled={isOpeningThread}
+            >
+              {isOpeningThread ? (
+                <Spinner size="sm" color="default" />
+              ) : (
+                <Button.Label>Mensaje</Button.Label>
+              )}
+            </Button>
+          </View>
+        ) : null}
+
         <Text className="mt-5 pb-6 text-center text-xs text-muted">
           Los pagos se procesan con CoDi. Cozi nunca guarda tu CLABE completa.
         </Text>
@@ -566,6 +595,21 @@ export default function OrderScreen() {
     }
   }
 
+  async function handleOpenThread(orderPublicId: string) {
+    setIsOpeningThread(true);
+    try {
+      const { threadId } = await openOrderThread({ orderPublicId });
+      router.push({ pathname: "/messages/[threadId]", params: { threadId } });
+    } catch (error) {
+      toast.show({
+        variant: "danger",
+        label: error instanceof Error ? error.message : "No pudimos abrir la conversación",
+      });
+    } finally {
+      setIsOpeningThread(false);
+    }
+  }
+
   return (
     <Container className="px-5">
       <View className="items-center pb-8 pt-6">
@@ -668,6 +712,27 @@ export default function OrderScreen() {
           )}
         </View>
       )}
+
+      {threadState?.canMessage ? (
+        <View className="mt-3 rounded-2xl bg-surface p-4" style={immersiveCard}>
+          <Text className="text-sm font-semibold text-foreground">¿Dudas sobre este pago?</Text>
+          <Text className="mt-1 text-xs leading-5 text-muted">
+            Escríbele a {counterpart} desde Cozi.
+          </Text>
+          <Button
+            className="mt-3"
+            variant="secondary"
+            onPress={() => handleOpenThread(current.publicId)}
+            isDisabled={isOpeningThread}
+          >
+            {isOpeningThread ? (
+              <Spinner size="sm" color="default" />
+            ) : (
+              <Button.Label>Mensaje</Button.Label>
+            )}
+          </Button>
+        </View>
+      ) : null}
 
       {isPaid && !isIncoming && !current.billSplitId ? (
         <View className="mt-3 rounded-2xl bg-surface p-4" style={immersiveCard}>

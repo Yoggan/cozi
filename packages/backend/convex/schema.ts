@@ -361,6 +361,37 @@ export default defineSchema({
     .index("by_status", ["status"]),
 
   /**
+   * Hilo de mensajería entre dos personas. Nace de una orden o de un negocio,
+   * nunca de un @handle suelto. `chatSessions` sigue siendo el chat de ventas
+   * con IA por WhatsApp/Instagram; estas tablas son la base del inbox en app.
+   */
+  messageThreads: defineTable({
+    orderId: v.optional(v.id("orders")),
+    businessId: v.optional(v.id("businesses")),
+    customerId: v.id("users"),
+    ownerId: v.id("users"),
+    channel: v.literal("app"),
+    externalThreadId: v.optional(v.string()), // futuro WhatsApp/Instagram
+    customerLastReadAt: v.optional(v.number()),
+    ownerLastReadAt: v.optional(v.number()),
+    lastMessageAt: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_order", ["orderId"])
+    .index("by_business_customer", ["businessId", "customerId"])
+    .index("by_customer_last_message", ["customerId", "lastMessageAt"])
+    .index("by_owner_last_message", ["ownerId", "lastMessageAt"]),
+
+  /** Mensajes de texto de un hilo. Sin adjuntos ni notas de voz por ahora. */
+  messages: defineTable({
+    threadId: v.id("messageThreads"),
+    senderId: v.id("users"),
+    text: v.string(),
+    createdAt: v.number(),
+  }).index("by_thread_created", ["threadId", "createdAt"]),
+
+  /**
    * Bitácora e idempotencia de webhooks de Pey. Evita doble descuento de
    * inventario cuando Pey reintenta la misma entrega.
    */

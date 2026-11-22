@@ -16,6 +16,7 @@ import type * as http from "../http.js";
 import type * as lib_email from "../lib/email.js";
 import type * as lib_handles from "../lib/handles.js";
 import type * as lib_identifiers from "../lib/identifiers.js";
+import type * as messages from "../messages.js";
 import type * as orders from "../orders.js";
 import type * as p2p from "../p2p.js";
 import type * as pey_actions from "../pey/actions.js";
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   "lib/email": typeof lib_email;
   "lib/handles": typeof lib_handles;
   "lib/identifiers": typeof lib_identifiers;
+  messages: typeof messages;
   orders: typeof orders;
   p2p: typeof p2p;
   "pey/actions": typeof pey_actions;
