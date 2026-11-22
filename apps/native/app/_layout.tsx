@@ -130,6 +130,11 @@ function RootNavigator() {
         <Stack.Screen name="business" options={{ headerShown: true, title: "Mi negocio" }} />
         <Stack.Screen name="business-catalog" options={{ headerShown: true, title: "Catálogo" }} />
         <Stack.Screen name="business/[handle]" options={{ headerShown: false }} />
+        <Stack.Screen name="business-orders" options={{ headerShown: true, title: "Pedidos" }} />
+        <Stack.Screen
+          name="business-order"
+          options={{ headerShown: false, presentation: "fullScreenModal" }}
+        />
         <Stack.Screen
           name="split"
           options={{ headerShown: false, presentation: "fullScreenModal" }}
