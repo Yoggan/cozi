@@ -333,6 +333,7 @@ export const getByPublicId = query({
       publicId: order.publicId,
       channel: order.channel,
       p2pKind: order.p2pKind ?? null,
+      direction: isSeller ? ("in" as const) : ("out" as const),
       status: order.status,
       items: order.items,
       subtotalCents: order.subtotalCents,

@@ -59,13 +59,13 @@ function OptionButton({
 export default function BusinessScreen() {
   const profile = useProfile();
   const business = profile.business;
+  const router = useRouter();
   const updateBusiness = useMutation(api.businesses.update);
   const linkBankAccount = useAction(api.pey.actions.linkBankAccount);
   const accounts = useQuery(
     api.businesses.listBankAccounts,
     business ? { businessId: business._id } : "skip",
   );
-  const router = useRouter();
   const { toast } = useToast();
   const { accent, isImmersive, cardColor, cardBorder } = useAppTheme();
   const muted = useThemeColor("muted");
@@ -224,6 +224,27 @@ export default function BusinessScreen() {
         <Chip size="sm" variant="soft" color={business.status === "active" ? "success" : "warning"}>
           <Chip.Label>{business.status === "active" ? "Activo" : "Pausado"}</Chip.Label>
         </Chip>
+      </Animated.View>
+
+      <Animated.View
+        entering={FadeInDown.duration(220).delay(30)}
+        className={cn("mt-4 gap-3 rounded-2xl p-4", !isImmersive && "bg-surface")}
+        style={glass}
+      >
+        <View>
+          <Text className="text-base font-semibold text-foreground" style={textPrimary}>
+            Ventas
+          </Text>
+          <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
+            Toma pedidos en el local y comparte el link de pago.
+          </Text>
+        </View>
+        <Button onPress={() => router.push("/business-order")}>
+          <Button.Label>Nuevo pedido</Button.Label>
+        </Button>
+        <Button variant="secondary" onPress={() => router.push("/business-orders")}>
+          <Button.Label>Pedidos</Button.Label>
+        </Button>
       </Animated.View>
 
       <Animated.View
