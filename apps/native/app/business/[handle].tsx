@@ -152,6 +152,7 @@ export default function BusinessProfileScreen() {
   const { toast } = useToast();
   const createBusinessOrder = useMutation(api.orders.createBusinessOrder);
   const createPaymentLink = useAction(api.pey.actions.createPaymentLink);
+  const openBusinessThread = useMutation(api.messages.getOrCreateBusinessThread);
 
   const handle = (firstParam(params.handle) ?? "").replace(/^@/, "").trim();
   const business = useQuery(api.businesses.getByHandle, handle ? { handle } : "skip");
@@ -159,6 +160,7 @@ export default function BusinessProfileScreen() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [tipPercent, setTipPercent] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isOpeningThread, setIsOpeningThread] = useState(false);
 
   const cardStyle = {
     backgroundColor: isImmersive ? cardColor : surface,
@@ -274,6 +276,21 @@ export default function BusinessProfileScreen() {
     }
   }
 
+  async function handleOpenThread() {
+    setIsOpeningThread(true);
+    try {
+      const { threadId } = await openBusinessThread({ businessId: current._id });
+      router.push({ pathname: "/messages/[threadId]", params: { threadId } });
+    } catch (error) {
+      toast.show({
+        variant: "danger",
+        label: error instanceof Error ? error.message : "No pudimos abrir la conversación",
+      });
+    } finally {
+      setIsOpeningThread(false);
+    }
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: isImmersive ? theme.baseColor : theme.background }}>
       <StatusBar style={theme.dark ? "light" : "dark"} />
@@ -343,6 +360,32 @@ export default function BusinessProfileScreen() {
                 tone={current.hasReceivingAccount ? "success" : "warning"}
               />
             </View>
+            {profile.business?._id !== current._id ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Enviar mensaje al negocio"
+                disabled={isOpeningThread}
+                onPress={handleOpenThread}
+                style={({ pressed }) => ({
+                  alignSelf: "flex-start",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 999,
+                  backgroundColor: theme.pillFill,
+                  borderWidth: 1,
+                  borderColor: theme.pillBorder,
+                  opacity: pressed || isOpeningThread ? 0.6 : 1,
+                })}
+              >
+                <Ionicons name="chatbubble-outline" size={15} color={theme.text} />
+                <Text style={{ color: theme.text, fontSize: 12, fontWeight: "600" }}>
+                  {isOpeningThread ? "Abriendo..." : "Mensaje al negocio"}
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
 
           {availabilityMessage ? (

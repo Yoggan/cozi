@@ -140,6 +140,10 @@ function RootNavigator() {
           options={{ headerShown: false, presentation: "fullScreenModal" }}
         />
         <Stack.Screen name="order/[publicId]" options={{ headerShown: true, title: "Pago" }} />
+        <Stack.Screen
+          name="messages/[threadId]"
+          options={{ headerShown: true, title: "Conversación" }}
+        />
       </Stack.Protected>
     </Stack>
   );
