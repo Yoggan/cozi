@@ -344,6 +344,7 @@ export const getOrder = query({
       direction: isSeller ? ("in" as const) : ("out" as const),
       counterpartName: counterpart.name,
       counterpartHandle: counterpart.handle,
+      billSplitId: order.billSplitId ?? null,
       createdAt: order.createdAt,
       paidAt: order.paidAt ?? null,
       payment: payment

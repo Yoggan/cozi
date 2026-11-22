@@ -1,7 +1,7 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import type { OrderStatus, PaymentMethod } from "@cozi/backend/convex/schema";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { openBrowserAsync } from "expo-web-browser";
 import { useState } from "react";
 import { Button, Chip, Spinner, Text, useThemeColor, useToast } from "heroui-native";
@@ -39,6 +39,7 @@ function formatDate(timestamp: number): string {
 }
 
 export default function OrderScreen() {
+  const router = useRouter();
   const params = useLocalSearchParams<{ publicId: string }>();
   const publicId = firstParam(params.publicId);
   const order = useQuery(api.p2p.getOrder, publicId ? { publicId } : "skip");
@@ -46,6 +47,17 @@ export default function OrderScreen() {
   const refreshPayment = useAction(api.pey.actions.refreshPayment);
   const saveContact = useMutation(api.contacts.save);
   const contacts = useQuery(api.contacts.list, CONTACTS_BACKEND_READY ? {} : "skip");
+  const splitSourceOrderId =
+    order &&
+    !order.billSplitId &&
+    (order.status === "paid" || order.status === "fulfilled") &&
+    order.direction === "out"
+      ? order.orderId
+      : null;
+  const activeSplit = useQuery(
+    api.splits.getBySourceOrder,
+    splitSourceOrderId ? { sourceOrderId: splitSourceOrderId } : "skip",
+  );
   const { toast } = useToast();
   const { isImmersive, baseColor, cardColor, cardBorder } = useAppTheme();
   const success = useThemeColor("success");
@@ -276,6 +288,52 @@ export default function OrderScreen() {
           )}
         </View>
       )}
+
+      {isPaid && !isIncoming && !current.billSplitId ? (
+        <View className="mt-3 rounded-2xl bg-surface p-4" style={immersiveCard}>
+          {activeSplit ? (
+            <>
+              <Text className="text-sm font-semibold text-foreground">Cuenta dividida</Text>
+              <Text className="mt-1 text-xs leading-5 text-muted">
+                Cobrado {formatMxn(activeSplit.collectedCents)} de{" "}
+                {formatMxn(activeSplit.requestedTotalCents)} · {activeSplit.paidParticipantCount}/
+                {activeSplit.participantCount} participantes
+              </Text>
+              <Button
+                className="mt-3"
+                variant="secondary"
+                onPress={() =>
+                  router.push({
+                    pathname: "/split",
+                    params: { publicId: current.publicId },
+                  })
+                }
+              >
+                <Button.Label>Ver división</Button.Label>
+              </Button>
+            </>
+          ) : activeSplit === null ? (
+            <>
+              <Text className="text-sm font-semibold text-foreground">¿Compartimos la cuenta?</Text>
+              <Text className="mt-1 text-xs leading-5 text-muted">
+                Reparte el total entre tus contactos y cada quien recibe su cobro por Cozi.
+              </Text>
+              <Button
+                className="mt-3"
+                variant="secondary"
+                onPress={() =>
+                  router.push({
+                    pathname: "/split",
+                    params: { publicId: current.publicId },
+                  })
+                }
+              >
+                <Button.Label>Dividir cuenta</Button.Label>
+              </Button>
+            </>
+          ) : null}
+        </View>
+      ) : null}
 
       {isPaid && current.counterpartHandle && !savedContact && CONTACTS_BACKEND_READY ? (
         <View className="mt-3 rounded-2xl bg-surface p-4" style={immersiveCard}>
