@@ -8,6 +8,7 @@ import type { PropsWithChildren } from "react";
 import { View } from "react-native";
 
 import { Splash } from "@/components/splash";
+import { consumePendingAccountType } from "@/lib/account-type";
 
 export type Profile = {
   _id: string;
@@ -18,8 +19,8 @@ export type Profile = {
   avatarUrl: string | null;
   hasReceivingAccount: boolean;
   hasPendingBankAccount?: boolean;
-  businessPromptState: "pending" | "dismissed" | "completed" | null;
-  businessPromptDomain: string | null;
+  accountType: "personal" | "business";
+  onboardingCompleted: boolean;
   business: {
     _id: Id<"businesses">;
     name: string;
@@ -45,7 +46,8 @@ export function ProfileProvider({ children }: PropsWithChildren) {
     setError(null);
     setEnsuring(true);
     try {
-      await ensureProfile({});
+      const accountType = await consumePendingAccountType();
+      await ensureProfile({ accountType });
     } catch (error_) {
       setError(error_ instanceof Error ? error_.message : "No pudimos crear tu perfil");
     } finally {

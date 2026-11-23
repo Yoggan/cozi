@@ -3,6 +3,7 @@ import { createClient } from "@convex-dev/better-auth";
 import type { GenericCtx } from "@convex-dev/better-auth";
 import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth/minimal";
+import { multiSession } from "better-auth/plugins";
 
 import { components } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
@@ -49,6 +50,7 @@ function createAuth(ctx: GenericCtx<DataModel>) {
     plugins: [
       expo(),
       crossDomain({ siteUrl }),
+      multiSession(),
       convex({
         authConfig,
         jwksRotateOnTokenGenerationError: true,

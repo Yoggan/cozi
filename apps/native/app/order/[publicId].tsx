@@ -185,6 +185,7 @@ export default function OrderScreen() {
     const businessPaid = businessOrder.status === "paid" || businessOrder.status === "fulfilled";
     const businessFulfilled = businessOrder.status === "fulfilled";
     const businessCancelled = businessOrder.status === "cancelled";
+    const businessExpired = businessOrder.status === "expired";
     const isBusinessSeller = businessOrder.direction === "in";
     const canFulfill = isBusinessSeller && businessOrder.status === "paid";
     const canCancel =
@@ -249,6 +250,14 @@ export default function OrderScreen() {
               {formatDate(businessOrder.createdAt)}
             </Text>
           </View>
+          {!businessPaid ? (
+            <View className="flex-row justify-between">
+              <Text className="text-sm text-muted">{businessExpired ? "Expiró" : "Vence"}</Text>
+              <Text className="text-sm font-medium text-foreground">
+                {businessOrder.expiresAt ? formatDate(businessOrder.expiresAt) : "Sin vencimiento"}
+              </Text>
+            </View>
+          ) : null}
           {businessOrder.payment ? (
             <View className="flex-row justify-between">
               <Text className="text-sm text-muted">Método</Text>
@@ -345,7 +354,29 @@ export default function OrderScreen() {
           </View>
         ) : null}
 
-        {businessCheckoutUrl && canPay ? (
+        {businessExpired ? (
+          <View className="mt-6 gap-3">
+            <View className="rounded-2xl bg-surface p-4" style={immersiveCard}>
+              <Text className="text-center text-sm text-muted">
+                {isBusinessSeller
+                  ? "Este pedido expiró. Renueva el link para seguir cobrando."
+                  : "Este pedido expiró. Pide un link nuevo al negocio."}
+              </Text>
+            </View>
+            {isBusinessSeller ? (
+              <Button
+                onPress={() => generatePaymentLink(businessOrder.orderId)}
+                isDisabled={isGenerating}
+              >
+                {isGenerating ? (
+                  <Spinner size="sm" color="default" />
+                ) : (
+                  <Button.Label>Renovar link</Button.Label>
+                )}
+              </Button>
+            ) : null}
+          </View>
+        ) : businessCheckoutUrl && canPay ? (
           <Button className="mt-6" onPress={handleShareBusinessOrder}>
             <Button.Label>Compartir link de pago</Button.Label>
           </Button>
@@ -520,6 +551,7 @@ export default function OrderScreen() {
 
   const current = order;
   const isPaid = current.status === "paid" || current.status === "fulfilled";
+  const isExpired = current.status === "expired";
   const isIncoming = current.direction === "in";
   const isRequest = current.kind === "request";
   const checkoutUrl = current.payment?.checkoutUrl ?? null;
@@ -630,7 +662,12 @@ export default function OrderScreen() {
         <Text className="mt-1 text-5xl font-bold tracking-tight text-foreground">
           {formatMxn(order.amountCents)}
         </Text>
-        <Chip size="sm" variant="soft" color={isPaid ? "success" : "warning"} className="mt-3">
+        <Chip
+          size="sm"
+          variant="soft"
+          color={isExpired ? "danger" : isPaid ? "success" : "warning"}
+          className="mt-3"
+        >
           <Chip.Label>{STATUS_LABELS[order.status] ?? order.status}</Chip.Label>
         </Chip>
       </View>
@@ -646,6 +683,14 @@ export default function OrderScreen() {
           <Text className="text-sm text-muted">Creado</Text>
           <Text className="text-sm font-medium text-foreground">{formatDate(order.createdAt)}</Text>
         </View>
+        {!isPaid ? (
+          <View className="flex-row justify-between">
+            <Text className="text-sm text-muted">{isExpired ? "Expiró" : "Vence"}</Text>
+            <Text className="text-sm font-medium text-foreground">
+              {order.expiresAt ? formatDate(order.expiresAt) : "Sin vencimiento"}
+            </Text>
+          </View>
+        ) : null}
         {order.payment ? (
           <View className="flex-row justify-between">
             <Text className="text-sm text-muted">Método</Text>
@@ -670,7 +715,26 @@ export default function OrderScreen() {
         </View>
       ) : (
         <View className="mt-6 gap-3">
-          {checkoutUrl ? (
+          {isExpired ? (
+            <>
+              <View className="rounded-2xl bg-surface p-4" style={immersiveCard}>
+                <Text className="text-center text-sm text-muted">
+                  {isIncoming
+                    ? "Este cobro expiró. Renueva el link para seguir cobrando."
+                    : "Este cobro expiró. Pide un link nuevo a quien te cobró."}
+                </Text>
+              </View>
+              {isIncoming && isRequest ? (
+                <Button onPress={handleGenerateLink} isDisabled={isGenerating}>
+                  {isGenerating ? (
+                    <Spinner size="sm" color="default" />
+                  ) : (
+                    <Button.Label>Renovar link</Button.Label>
+                  )}
+                </Button>
+              ) : null}
+            </>
+          ) : checkoutUrl ? (
             isIncoming && isRequest ? (
               <Button onPress={handleShare}>
                 <Button.Label>Compartir link</Button.Label>

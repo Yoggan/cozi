@@ -1,4 +1,5 @@
 import { getItemAsync, setItemAsync } from "expo-secure-store";
+import { setBackgroundColorAsync } from "expo-system-ui";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Uniwind, useUniwind } from "uniwind";
 
@@ -90,6 +91,11 @@ export const AppThemeProvider = ({ children }: { children: React.ReactNode }) =>
   const baseColor = backdrop?.baseColor ?? preset.baseColor;
   const cardColor = backdrop?.cardColor ?? preset.cardColor;
   const cardBorder = backdrop?.cardBorder ?? preset.cardBorder;
+
+  // Android edge-to-edge system bars are transparent; the root view color shows through.
+  useEffect(() => {
+    void setBackgroundColorAsync(baseColor);
+  }, [baseColor]);
 
   const setTheme = useCallback(
     (newTheme: ThemeName) => {

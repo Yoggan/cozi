@@ -1,6 +1,6 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import type { BankAccountStatus } from "@cozi/backend/convex/schema";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { useState } from "react";
 import {
   Avatar,
@@ -21,6 +21,7 @@ import { Pressable, View } from "react-native";
 import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AccountsAvatar } from "@/components/accounts-avatar";
 import { Container } from "@/components/container";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAppLock } from "@/contexts/app-lock-context";
@@ -67,7 +68,6 @@ export default function ProfileScreen() {
   const profile = useProfile();
   const accounts = useQuery(api.users.listBankAccounts);
   const linkBankAccount = useAction(api.pey.actions.linkBankAccount);
-  const updateProfile = useMutation(api.users.updateProfile);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { preset, backdrop, accent, isImmersive, cardColor, cardBorder } = useAppTheme();
@@ -83,10 +83,6 @@ export default function ProfileScreen() {
   const textSecondary = isImmersive ? { color: "rgba(255,255,255,0.70)" } : undefined;
   const iconMuted = isImmersive ? "rgba(255,255,255,0.70)" : muted;
 
-  const [showEdit, setShowEdit] = useState(false);
-  const [displayName, setDisplayName] = useState(profile.displayName);
-  const [handle, setHandle] = useState(profile.handle ?? "");
-  const [isSaving, setIsSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [accountType, setAccountType] = useState<AccountType>("clabe");
   const [accountNumber, setAccountNumber] = useState("");
@@ -125,25 +121,6 @@ export default function ProfileScreen() {
       });
     } finally {
       setIsLinking(false);
-    }
-  }
-
-  async function handleSaveProfile() {
-    setIsSaving(true);
-    try {
-      await updateProfile({
-        displayName: displayName.trim(),
-        handle: handle.trim().replace(/^@/, ""),
-      });
-      setShowEdit(false);
-      toast.show({ variant: "success", label: "Perfil actualizado" });
-    } catch (error) {
-      toast.show({
-        variant: "danger",
-        label: error instanceof Error ? error.message : "No pudimos guardar tu perfil",
-      });
-    } finally {
-      setIsSaving(false);
     }
   }
 
@@ -189,9 +166,31 @@ export default function ProfileScreen() {
             </Text>
           ) : null}
         </View>
-        <Button size="sm" variant="secondary" onPress={() => setShowEdit((value) => !value)}>
+        <Button size="sm" variant="secondary" onPress={() => router.push("/edit-profile")}>
           <Button.Label>Editar</Button.Label>
         </Button>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.duration(220).delay(30)}>
+        <Pressable
+          onPress={() => router.push("/accounts")}
+          className={cn(
+            "mt-4 flex-row items-center gap-3 rounded-2xl p-4",
+            !isImmersive && "bg-surface",
+          )}
+          style={glass}
+        >
+          <AccountsAvatar size="md" />
+          <View className="flex-1">
+            <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
+              Cuentas
+            </Text>
+            <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
+              Cambiar de cuenta
+            </Text>
+          </View>
+          <Ionicons name="swap-horizontal" size={18} color={iconMuted} />
+        </Pressable>
       </Animated.View>
 
       <Animated.View entering={FadeInDown.duration(220).delay(40)}>
@@ -268,38 +267,40 @@ export default function ProfileScreen() {
         </Pressable>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.duration(220).delay(70)}>
-        <Pressable
-          onPress={() => router.push("/contacts")}
-          className={cn(
-            "mt-3 flex-row items-center gap-3 rounded-2xl p-4",
-            !isImmersive && "bg-surface",
-          )}
-          style={glass}
-        >
-          <View
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 19,
-              backgroundColor: accent.softHex,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
+      {profile.accountType === "personal" ? (
+        <Animated.View entering={FadeInDown.duration(220).delay(70)}>
+          <Pressable
+            onPress={() => router.push("/contacts")}
+            className={cn(
+              "mt-3 flex-row items-center gap-3 rounded-2xl p-4",
+              !isImmersive && "bg-surface",
+            )}
+            style={glass}
           >
-            <Ionicons name="people" size={19} color={accent.hex} />
-          </View>
-          <View className="flex-1">
-            <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
-              Contactos
-            </Text>
-            <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
-              Envía o cobra en un toque
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={iconMuted} />
-        </Pressable>
-      </Animated.View>
+            <View
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                backgroundColor: accent.softHex,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="people" size={19} color={accent.hex} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
+                Contactos
+              </Text>
+              <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
+                Envía o cobra en un toque
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={iconMuted} />
+          </Pressable>
+        </Animated.View>
+      ) : null}
 
       {profile.business ? (
         <Animated.View entering={FadeInDown.duration(220).delay(75)}>
@@ -337,56 +338,27 @@ export default function ProfileScreen() {
         </Animated.View>
       ) : null}
 
-      {showEdit ? (
+      {profile.accountType === "personal" ? (
         <Animated.View
-          entering={FadeInDown.duration(220)}
-          exiting={FadeOutUp.duration(160)}
           layout={LinearTransition.duration(200)}
-          className={cn("mt-3 gap-3 rounded-2xl p-4", !isImmersive && "bg-surface")}
-          style={glass}
+          entering={FadeInDown.duration(220).delay(80)}
+          className="mt-6 flex-row items-center justify-between"
         >
-          <TextField>
-            <Label>Nombre</Label>
-            <Input value={displayName} onChangeText={setDisplayName} autoCapitalize="words" />
-          </TextField>
-          <TextField>
-            <Label>@handle</Label>
-            <Input
-              value={handle}
-              onChangeText={setHandle}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </TextField>
-          <Button onPress={handleSaveProfile} isDisabled={isSaving}>
-            {isSaving ? (
-              <Spinner size="sm" color="default" />
-            ) : (
-              <Button.Label>Guardar cambios</Button.Label>
-            )}
+          <View>
+            <Text className="text-lg font-semibold text-foreground" style={textPrimary}>
+              Cuentas para recibir
+            </Text>
+            <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
+              Tu CLABE solo se comparte con Pey.
+            </Text>
+          </View>
+          <Button size="sm" variant="secondary" onPress={() => setShowForm((value) => !value)}>
+            <Button.Label>{showForm ? "Cerrar" : "Agregar"}</Button.Label>
           </Button>
         </Animated.View>
       ) : null}
 
-      <Animated.View
-        layout={LinearTransition.duration(200)}
-        entering={FadeInDown.duration(220).delay(80)}
-        className="mt-6 flex-row items-center justify-between"
-      >
-        <View>
-          <Text className="text-lg font-semibold text-foreground" style={textPrimary}>
-            Cuentas para recibir
-          </Text>
-          <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
-            Tu CLABE solo se comparte con Pey.
-          </Text>
-        </View>
-        <Button size="sm" variant="secondary" onPress={() => setShowForm((value) => !value)}>
-          <Button.Label>{showForm ? "Cerrar" : "Agregar"}</Button.Label>
-        </Button>
-      </Animated.View>
-
-      {showForm ? (
+      {showForm && profile.accountType === "personal" ? (
         <Animated.View
           entering={FadeInDown.duration(220)}
           exiting={FadeOutUp.duration(160)}
@@ -433,71 +405,32 @@ export default function ProfileScreen() {
         </Animated.View>
       ) : null}
 
-      <Animated.View
-        layout={LinearTransition.duration(200)}
-        entering={FadeInDown.duration(220).delay(120)}
-        className={cn("mt-3 rounded-2xl px-4", !isImmersive && "bg-surface")}
-        style={glass}
-      >
-        {accounts === undefined ? (
-          <View className="py-6">
-            <Text className="text-center text-sm text-muted" style={textSecondary}>
-              Cargando cuentas...
-            </Text>
-          </View>
-        ) : accounts.length === 0 ? (
-          <View className="items-center py-8">
-            <Ionicons name="business-outline" size={24} color={iconMuted} />
-            <Text className="mt-2 text-sm font-medium text-foreground" style={textPrimary}>
-              Sin cuentas todavía
-            </Text>
-            <Text className="mt-1 text-center text-xs text-muted" style={textSecondary}>
-              Agrega una CLABE para recibir pagos.
-            </Text>
-          </View>
-        ) : (
-          accounts.map((account, index) => (
-            <View key={account._id} className={index > 0 ? "border-t border-border" : undefined}>
-              <Pressable
-                onPress={() =>
-                  router.push({
-                    pathname: "/bank-account-status",
-                    params: { id: account._id },
-                  })
-                }
-                className="flex-row items-center gap-3 py-3"
-              >
-                <View className="h-9 w-9 items-center justify-center rounded-full bg-surface-secondary">
-                  <Ionicons name="card-outline" size={18} color={iconMuted} />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-sm font-medium text-foreground" style={textPrimary}>
-                    {account.institution ?? (account.accountType === "clabe" ? "CLABE" : "Tarjeta")}{" "}
-                    · {account.accountNumberMasked}
-                  </Text>
-                  <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
-                    {account.holderName}
-                  </Text>
-                </View>
-                <Chip
-                  size="sm"
-                  variant="soft"
-                  color={
-                    account.status === "verified"
-                      ? "success"
-                      : account.status === "rejected"
-                        ? "danger"
-                        : account.status === "pending"
-                          ? "warning"
-                          : "default"
-                  }
-                >
-                  <Chip.Label>{STATUS_LABELS[account.status] ?? account.status}</Chip.Label>
-                </Chip>
-                <Ionicons name="chevron-forward" size={16} color={iconMuted} />
-              </Pressable>
-
-              {account.status === "pending" ? (
+      {profile.accountType === "personal" ? (
+        <Animated.View
+          layout={LinearTransition.duration(200)}
+          entering={FadeInDown.duration(220).delay(120)}
+          className={cn("mt-3 rounded-2xl px-4", !isImmersive && "bg-surface")}
+          style={glass}
+        >
+          {accounts === undefined ? (
+            <View className="py-6">
+              <Text className="text-center text-sm text-muted" style={textSecondary}>
+                Cargando cuentas...
+              </Text>
+            </View>
+          ) : accounts.length === 0 ? (
+            <View className="items-center py-8">
+              <Ionicons name="business-outline" size={24} color={iconMuted} />
+              <Text className="mt-2 text-sm font-medium text-foreground" style={textPrimary}>
+                Sin cuentas todavía
+              </Text>
+              <Text className="mt-1 text-center text-xs text-muted" style={textSecondary}>
+                Agrega una CLABE para recibir pagos.
+              </Text>
+            </View>
+          ) : (
+            accounts.map((account, index) => (
+              <View key={account._id} className={index > 0 ? "border-t border-border" : undefined}>
                 <Pressable
                   onPress={() =>
                     router.push({
@@ -505,18 +438,60 @@ export default function ProfileScreen() {
                       params: { id: account._id },
                     })
                   }
-                  className="mb-3 flex-row items-center gap-2 rounded-xl bg-warning-soft px-3 py-2"
+                  className="flex-row items-center gap-3 py-3"
                 >
-                  <Ionicons name="time-outline" size={14} color={warning} />
-                  <Text className="flex-1 text-xs font-medium text-warning-soft-foreground">
-                    Activación CoDi con Banxico (1–5 días hábiles) · Toca para ver el progreso
-                  </Text>
+                  <View className="h-9 w-9 items-center justify-center rounded-full bg-surface-secondary">
+                    <Ionicons name="card-outline" size={18} color={iconMuted} />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-sm font-medium text-foreground" style={textPrimary}>
+                      {account.institution ??
+                        (account.accountType === "clabe" ? "CLABE" : "Tarjeta")}{" "}
+                      · {account.accountNumberMasked}
+                    </Text>
+                    <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
+                      {account.holderName}
+                    </Text>
+                  </View>
+                  <Chip
+                    size="sm"
+                    variant="soft"
+                    color={
+                      account.status === "verified"
+                        ? "success"
+                        : account.status === "rejected"
+                          ? "danger"
+                          : account.status === "pending"
+                            ? "warning"
+                            : "default"
+                    }
+                  >
+                    <Chip.Label>{STATUS_LABELS[account.status] ?? account.status}</Chip.Label>
+                  </Chip>
+                  <Ionicons name="chevron-forward" size={16} color={iconMuted} />
                 </Pressable>
-              ) : null}
-            </View>
-          ))
-        )}
-      </Animated.View>
+
+                {account.status === "pending" ? (
+                  <Pressable
+                    onPress={() =>
+                      router.push({
+                        pathname: "/bank-account-status",
+                        params: { id: account._id },
+                      })
+                    }
+                    className="mb-3 flex-row items-center gap-2 rounded-xl bg-warning-soft px-3 py-2"
+                  >
+                    <Ionicons name="time-outline" size={14} color={warning} />
+                    <Text className="flex-1 text-xs font-medium text-warning-soft-foreground">
+                      Activación CoDi con Banxico (1–5 días hábiles) · Toca para ver el progreso
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ))
+          )}
+        </Animated.View>
+      ) : null}
 
       <Pressable
         onPress={handleSignOut}

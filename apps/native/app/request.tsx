@@ -1,6 +1,7 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import { Ionicons } from "@expo/vector-icons";
 import { useAction, useMutation, useQuery } from "convex/react";
+import { selectionAsync } from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useToast } from "heroui-native";
@@ -23,6 +24,23 @@ import { useProfile } from "@/contexts/profile-context";
 import { parseAmountToCents } from "@/lib/money";
 import { firstParam } from "@/lib/search-params";
 
+const EXPIRY_OPTIONS = [
+  { label: "1 h", minutes: 60 },
+  { label: "24 h", minutes: 1440 },
+  { label: "3 días", minutes: 4320 },
+  { label: "7 días", minutes: 10_080 },
+  { label: "Nunca", minutes: 0 },
+];
+
+function formatExpiry(timestamp: number): string {
+  return new Date(timestamp).toLocaleDateString("es-MX", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default function RequestScreen() {
   const profile = useProfile();
   const router = useRouter();
@@ -39,6 +57,8 @@ export default function RequestScreen() {
   const [payer, setPayer] = useState(initialHandle?.replace(/^@/, "") ?? "");
   const [amountText, setAmountText] = useState("");
   const [note, setNote] = useState("");
+  const [expiryMinutes, setExpiryMinutes] = useState(1440);
+  const [expiryAt, setExpiryAt] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [handleFocused, setHandleFocused] = useState(false);
   const [suppressSuggestions, setSuppressSuggestions] = useState(false);
@@ -70,10 +90,11 @@ export default function RequestScreen() {
         payerHandle: cleanPayer || undefined,
         amountCents,
         note: note.trim() || undefined,
+        expiresInMinutes: expiryMinutes,
       });
 
       try {
-        await createPaymentLink({ orderId: order.orderId, expiresInMinutes: 1440 });
+        await createPaymentLink({ orderId: order.orderId, expiresInMinutes: expiryMinutes });
       } catch (error) {
         toast.show({
           variant: "danger",
@@ -194,6 +215,56 @@ export default function RequestScreen() {
               placeholder="Renta, comida, regalo..."
               value={note}
             />
+
+            <View style={{ gap: 10 }}>
+              <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: "600" }}>Vence</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {EXPIRY_OPTIONS.map((option) => {
+                  const selected = option.minutes === expiryMinutes;
+
+                  return (
+                    <Pressable
+                      key={option.label}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      onPress={() => {
+                        void selectionAsync();
+                        setExpiryMinutes(option.minutes);
+                        setExpiryAt(
+                          option.minutes === 0 ? null : Date.now() + option.minutes * 60 * 1000,
+                        );
+                      }}
+                      style={({ pressed }) => ({
+                        paddingHorizontal: 14,
+                        paddingVertical: 9,
+                        borderRadius: 999,
+                        backgroundColor: selected ? theme.ctaFill : theme.pillFill,
+                        borderWidth: 1,
+                        borderColor: selected ? theme.ctaFill : theme.pillBorder,
+                        opacity: pressed ? 0.82 : 1,
+                      })}
+                    >
+                      <Text
+                        style={{
+                          color: selected ? theme.ctaText : theme.text,
+                          fontSize: 13,
+                          fontWeight: "600",
+                        }}
+                      >
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={{ color: theme.caption, fontSize: 12, lineHeight: 18 }}>
+                {expiryMinutes === 0
+                  ? "El cobro no vence."
+                  : expiryAt
+                    ? `El cobro vence el ${formatExpiry(expiryAt)}.`
+                    : "El cobro vence 24 horas después de crearlo."}
+              </Text>
+            </View>
           </View>
 
           <View style={{ marginTop: "auto", paddingTop: 28 }}>

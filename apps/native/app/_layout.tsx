@@ -3,6 +3,7 @@ import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { useConvexAuth } from "convex/react";
 import { ConvexReactClient } from "convex/react";
 import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { HeroUINativeProvider, useThemeColor } from "heroui-native";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
@@ -10,9 +11,11 @@ import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 
+import { AccountOnboarding } from "@/components/account-onboarding";
 import { AppLockScreen } from "@/components/app-lock-screen";
 import { BusinessOnboarding } from "@/components/business-onboarding";
 import { Splash } from "@/components/splash";
+import { AccountsProvider } from "@/contexts/accounts-context";
 import { AppLockProvider, useAppLock } from "@/contexts/app-lock-context";
 import { AppThemeProvider, useAppTheme } from "@/contexts/app-theme-context";
 import { ProfileProvider, useProfile } from "@/contexts/profile-context";
@@ -40,11 +43,15 @@ function AppLockGate({ children }: { children: ReactNode }) {
   );
 }
 
-function BusinessOnboardingGate({ children }: { children: ReactNode }) {
+function AccountOnboardingGate({ children }: { children: ReactNode }) {
   const profile = useProfile();
 
-  if (profile.businessPromptState === "pending") {
-    return <BusinessOnboarding />;
+  if (profile.accountType === "personal" && !profile.onboardingCompleted) {
+    return <AccountOnboarding />;
+  }
+
+  if (profile.accountType === "business" && !profile.business) {
+    return <BusinessOnboarding businessAccount />;
   }
 
   return <>{children}</>;
@@ -55,7 +62,7 @@ function RootNavigator() {
   const [hasCheckedEphemeralSession, setHasCheckedEphemeralSession] = useState(false);
   const background = useThemeColor("background");
   const foreground = useThemeColor("foreground");
-  const { isImmersive, baseColor } = useAppTheme();
+  const { isImmersive, isLight, baseColor } = useAppTheme();
 
   useEffect(() => {
     let active = true;
@@ -102,6 +109,9 @@ function RootNavigator() {
       <Stack.Protected guard={isAuthenticated}>
         <Stack.Screen name="(app)" />
         <Stack.Screen name="profile" options={{ headerShown: false }} />
+        <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
+        <Stack.Screen name="accounts" options={{ headerShown: false }} />
+        <Stack.Screen name="add-account" options={{ headerShown: false }} />
         <Stack.Screen name="security" options={{ headerShown: false }} />
         <Stack.Screen
           name="bank-account-status"
@@ -150,15 +160,18 @@ function RootNavigator() {
 
   return (
     <ProfileProvider>
-      {isAuthenticated ? (
-        <AppLockProvider>
-          <AppLockGate>
-            <BusinessOnboardingGate>{navigator}</BusinessOnboardingGate>
-          </AppLockGate>
-        </AppLockProvider>
-      ) : (
-        navigator
-      )}
+      <StatusBar style={isLight ? "dark" : "light"} />
+      <AppLockProvider>
+        {isAuthenticated ? (
+          <AccountsProvider>
+            <AppLockGate>
+              <AccountOnboardingGate>{navigator}</AccountOnboardingGate>
+            </AppLockGate>
+          </AccountsProvider>
+        ) : (
+          navigator
+        )}
+      </AppLockProvider>
     </ProfileProvider>
   );
 }

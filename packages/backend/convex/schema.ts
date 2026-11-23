@@ -116,6 +116,8 @@ export default defineSchema({
     bio: v.optional(v.string()),
     // Solo existe en cuentas creadas después del onboarding de negocios.
     businessPromptState: v.optional(businessPromptStateValidator),
+    accountType: v.optional(v.union(v.literal("personal"), v.literal("business"))),
+    onboardingCompletedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

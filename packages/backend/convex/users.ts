@@ -7,6 +7,9 @@ import { isBusinessEmail } from "./lib/email";
 import { claimHandle } from "./lib/handles";
 import { HANDLE_PATTERN, handleBase, normalizeHandle } from "./lib/identifiers";
 
+// Cuentas anteriores al onboarding no lo ven; las nuevas sí.
+const ONBOARDING_LAUNCH_AT = Date.UTC(2026, 10, 22);
+
 async function requireAuthUserId(ctx: QueryCtx | MutationCtx): Promise<string> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
@@ -59,8 +62,10 @@ async function getReceivingAccounts(ctx: QueryCtx, userId: Id<"users">) {
  * aquí solo enlazamos `authUserId` y reservamos el @handle.
  */
 export const ensureProfile = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    accountType: v.optional(v.union(v.literal("personal"), v.literal("business"))),
+  },
+  handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new ConvexError("Inicia sesión para continuar");
@@ -90,6 +95,7 @@ export const ensureProfile = mutation({
       displayName: identity.name?.trim() || identity.email?.split("@")[0] || handle,
       phoneVerified: false,
       businessPromptState: isBusinessEmail(identity.email) ? "pending" : undefined,
+      accountType: args.accountType ?? "personal",
       createdAt: now,
       updatedAt: now,
     });
@@ -153,8 +159,9 @@ export const getMe = query({
       hasPendingBankAccount: bankAccounts.some(
         (account) => account.businessId === undefined && account.status === "pending",
       ),
-      businessPromptState: user.businessPromptState ?? null,
-      businessPromptDomain: identity.email?.split("@")[1] ?? null,
+      accountType: user.accountType ?? "personal",
+      onboardingCompleted:
+        user.onboardingCompletedAt !== undefined || user.createdAt < ONBOARDING_LAUNCH_AT,
       business: business
         ? {
             _id: business._id,
@@ -170,6 +177,38 @@ export const getMe = query({
   },
 });
 
+/** Etiquetas de las sesiones que el dispositivo ya tiene guardadas. */
+export const getAccountSummaries = query({
+  args: { authUserIds: v.array(v.string()) },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
+    const unique = Array.from(new Set(args.authUserIds)).slice(0, 20);
+    const users = await Promise.all(
+      unique.map((authUserId) =>
+        ctx.db
+          .query("users")
+          .withIndex("by_auth_user", (q) => q.eq("authUserId", authUserId))
+          .unique(),
+      ),
+    );
+
+    return users.flatMap((user) =>
+      user
+        ? [
+            {
+              authUserId: user.authUserId,
+              displayName: user.displayName,
+              accountType: user.accountType ?? "personal",
+            },
+          ]
+        : [],
+    );
+  },
+});
+
 /** "No, mi cuenta es personal": no volver a preguntar en esta cuenta. */
 export const dismissBusinessPrompt = mutation({
   args: {},
@@ -178,6 +217,23 @@ export const dismissBusinessPrompt = mutation({
     if (user?.businessPromptState === "pending") {
       await ctx.db.patch(user._id, {
         businessPromptState: "dismissed",
+        updatedAt: Date.now(),
+      });
+    }
+  },
+});
+
+/** Marca el onboarding de bienvenida como visto. */
+export const completeOnboarding = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await findUserByAuthId(ctx, await requireAuthUserId(ctx));
+    if (!user) {
+      throw new ConvexError("Completa tu perfil antes de continuar");
+    }
+    if (user.onboardingCompletedAt === undefined) {
+      await ctx.db.patch(user._id, {
+        onboardingCompletedAt: Date.now(),
         updatedAt: Date.now(),
       });
     }
