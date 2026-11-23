@@ -14,6 +14,7 @@ export type ActivityItem = {
   counterpartName: string;
   counterpartHandle: string | null;
   createdAt: number;
+  expiresAt: number | null;
 };
 
 const STATUS_LABELS = new Map([
@@ -32,8 +33,29 @@ function formatDate(timestamp: number): string {
   });
 }
 
-function activityVerb(item: ActivityItem): string {
-  const pending = item.status === "draft" || item.status === "awaiting_payment";
+function formatDateTime(timestamp: number): string {
+  return new Date(timestamp).toLocaleDateString("es-MX", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function effectiveStatus(item: ActivityItem): string {
+  if (
+    (item.status === "draft" || item.status === "awaiting_payment") &&
+    item.expiresAt !== null &&
+    item.expiresAt > 0 &&
+    item.expiresAt <= Date.now()
+  ) {
+    return "expired";
+  }
+  return item.status;
+}
+
+function activityVerb(item: ActivityItem, status: string): string {
+  const pending = status === "draft" || status === "awaiting_payment";
   if (item.kind === "request") {
     return item.direction === "in" ? "Cobro" : "Pago";
   }
@@ -48,7 +70,15 @@ export function ActivityRow({ item, onPress }: { item: ActivityItem; onPress?: (
   const muted = useThemeColor("muted");
   const incoming = item.direction === "in";
   const counterpart = item.counterpartHandle ? `@${item.counterpartHandle}` : item.counterpartName;
-  const verb = activityVerb(item);
+  const status = effectiveStatus(item);
+  const pending = status === "draft" || status === "awaiting_payment";
+  const verb = activityVerb(item, status);
+  const dateLabel =
+    pending || status === "expired"
+      ? item.expiresAt !== null && item.expiresAt > 0
+        ? `${status === "expired" ? "Venció" : "Vence"} ${formatDateTime(item.expiresAt)}`
+        : "Sin vencimiento"
+      : formatDate(item.createdAt);
 
   return (
     <Pressable onPress={onPress} className="flex-row items-center gap-3 py-3">
@@ -69,8 +99,7 @@ export function ActivityRow({ item, onPress }: { item: ActivityItem; onPress?: (
           {verb} {counterpart ? `· ${counterpart}` : ""}
         </Text>
         <Text className="mt-0.5 text-xs text-muted" numberOfLines={1}>
-          {item.note} · {STATUS_LABELS.get(item.status) ?? item.status} ·{" "}
-          {formatDate(item.createdAt)}
+          {item.note} · {STATUS_LABELS.get(status) ?? status} · {dateLabel}
         </Text>
       </View>
 

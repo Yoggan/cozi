@@ -2,7 +2,7 @@ import { api } from "@cozi/backend/convex/_generated/api";
 import type { Id } from "@cozi/backend/convex/_generated/dataModel";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery } from "convex/react";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useThemeColor, useToast } from "heroui-native";
 import { useRef, useState } from "react";
@@ -21,6 +21,7 @@ import { ThemeBackdrop } from "@/components/theme-backdrop";
 import { useAppTheme } from "@/contexts/app-theme-context";
 import type { Contact } from "@/lib/contacts";
 import { initials } from "@/lib/money";
+import { firstParam } from "@/lib/search-params";
 
 type ManagedContact = Contact & {
   contactId: Id<"contacts">;
@@ -40,7 +41,10 @@ export default function ContactsScreen() {
   const saveContact = useMutation(api.contacts.save);
   const removeContact = useMutation(api.contacts.remove);
 
-  const [handle, setHandle] = useState("");
+  const params = useLocalSearchParams<{ handle?: string }>();
+  // "Agrégame" links open Contactos with the handle prefilled.
+  const incomingHandle = firstParam(params.handle)?.replace(/^@/, "").trim().toLowerCase();
+  const [handle, setHandle] = useState(incomingHandle ?? "");
   const [nickname, setNickname] = useState("");
   const [editingHandle, setEditingHandle] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);

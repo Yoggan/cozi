@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { effectiveOrderStatus, expiryFromMinutes, orderDeadline } from "./lib/expiry";
 import { HANDLE_PATTERN, makePublicId, normalizeHandle } from "./lib/identifiers";
 import { findActivePayment } from "./pey/queries";
 
@@ -190,6 +191,7 @@ export const createRequest = mutation({
     payerHandle: v.optional(v.string()),
     amountCents: v.number(),
     note: v.optional(v.string()),
+    expiresInMinutes: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
@@ -205,6 +207,7 @@ export const createRequest = mutation({
     const amountCents = validateAmount(args.amountCents);
     const note = cleanNote(args.note);
     const now = Date.now();
+    const expiresAt = expiryFromMinutes(args.expiresInMinutes, now);
     const publicId = makePublicId();
 
     const orderId = await ctx.db.insert("orders", {
@@ -214,6 +217,7 @@ export const createRequest = mutation({
       channel: "p2p",
       p2pKind: "request",
       status: "draft",
+      expiresAt,
       items: [
         {
           name: note ?? "Cobro Cozi",
@@ -282,21 +286,24 @@ export const listActivity = query({
     }
 
     const orders = [...unique.values()].sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
+    const now = Date.now();
 
     // shortcut: una lectura de contraparte por fila; denormalizar si crece.
     return await Promise.all(
       orders.map(async (order) => {
         const counterpart = await resolveCounterpart(ctx, order, viewer.user._id);
+        const deadline = orderDeadline(order);
         return {
           publicId: order.publicId,
           amountCents: order.totalCents,
           note: order.note ?? order.items[0]?.name ?? "Pago Cozi",
-          status: order.status,
+          status: effectiveOrderStatus(order.status, deadline, now),
           kind: order.p2pKind ?? "send",
           direction: order.sellerId === viewer.user._id ? ("in" as const) : ("out" as const),
           counterpartName: counterpart.name,
           counterpartHandle: counterpart.handle,
           createdAt: order.createdAt,
+          expiresAt: deadline,
         };
       }),
     );
@@ -333,11 +340,13 @@ export const getOrder = query({
         ? latestPayment
         : await findActivePayment(ctx.db, order._id);
     const counterpart = await resolveCounterpart(ctx, order, viewer.user._id);
+    const deadline = orderDeadline(order);
 
     return {
       orderId: order._id,
       publicId: order.publicId,
-      status: order.status,
+      status: effectiveOrderStatus(order.status, deadline, Date.now()),
+      expiresAt: deadline,
       amountCents: order.totalCents,
       note: order.note ?? order.items[0]?.name ?? "Pago Cozi",
       kind: order.p2pKind ?? "send",

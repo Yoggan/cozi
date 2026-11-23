@@ -8,6 +8,7 @@ import type { ColorValue } from "react-native";
 
 import { GlassTabBar } from "@/components/glass-tab-bar";
 import { useAppTheme } from "@/contexts/app-theme-context";
+import { useProfile } from "@/contexts/profile-context";
 
 function MessagesTabIcon({
   color,
@@ -49,6 +50,8 @@ function MessagesTabIcon({
 }
 
 function AppTabs() {
+  const profile = useProfile();
+  const isBusiness = profile.accountType === "business";
   const { isImmersive, baseColor } = useAppTheme();
   const background = useThemeColor("background");
 
@@ -63,15 +66,47 @@ function AppTabs() {
         <Tabs.Screen
           name="index"
           options={{
-            title: "Inicio",
+            title: isBusiness ? "Negocio" : "Inicio",
+            tabBarIcon: ({ color, size, focused }) =>
+              isBusiness ? (
+                <Ionicons
+                  name={focused ? "storefront" : "storefront-outline"}
+                  size={size}
+                  color={color}
+                />
+              ) : (
+                <Ionicons name={focused ? "wallet" : "wallet-outline"} size={size} color={color} />
+              ),
+          }}
+        />
+        <Tabs.Screen
+          name="orders"
+          options={{
+            href: isBusiness ? undefined : null,
+            title: "Pedidos",
             tabBarIcon: ({ color, size, focused }) => (
-              <Ionicons name={focused ? "wallet" : "wallet-outline"} size={size} color={color} />
+              <Ionicons name={focused ? "receipt" : "receipt-outline"} size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="catalog"
+          options={{
+            href: isBusiness ? undefined : null,
+            title: "Catálogo",
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons
+                name={focused ? "pricetags" : "pricetags-outline"}
+                size={size}
+                color={color}
+              />
             ),
           }}
         />
         <Tabs.Screen
           name="activity"
           options={{
+            href: isBusiness ? null : undefined,
             title: "Actividad",
             tabBarIcon: ({ color, size, focused }) => (
               <Ionicons name={focused ? "receipt" : "receipt-outline"} size={size} color={color} />

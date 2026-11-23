@@ -1,5 +1,6 @@
 import { expoClient } from "@better-auth/expo/client";
 import { convexClient, crossDomainClient } from "@convex-dev/better-auth/client/plugins";
+import { multiSessionClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import Constants from "expo-constants";
 import { getItem, getItemAsync, setItem, setItemAsync } from "expo-secure-store";
@@ -14,6 +15,7 @@ export const authClient = createAuthClient({
   baseURL: ENV.EXPO_PUBLIC_CONVEX_SITE_URL,
   plugins: [
     convexClient(),
+    multiSessionClient(),
     Platform.OS === "web"
       ? crossDomainClient()
       : expoClient({

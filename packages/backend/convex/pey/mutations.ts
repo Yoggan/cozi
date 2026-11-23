@@ -260,6 +260,29 @@ export const attachProvider = internalMutation({
   },
 });
 
+/** Fija la vigencia local del cobro; `undefined` significa que no vence. */
+export const setOrderExpiry = internalMutation({
+  args: {
+    orderId: v.id("orders"),
+    expiresAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (
+      !order ||
+      order.status === "paid" ||
+      order.status === "fulfilled" ||
+      order.status === "cancelled"
+    ) {
+      return;
+    }
+    await ctx.db.patch(order._id, {
+      expiresAt: args.expiresAt,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
 /** Si Pey falla antes de crear el cobro, la orden queda reutilizable. */
 export const failPayment = internalMutation({
   args: {

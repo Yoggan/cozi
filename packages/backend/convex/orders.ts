@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { effectiveOrderStatus, orderDeadline } from "./lib/expiry";
 import { HANDLE_PATTERN, makePublicId, normalizeHandle } from "./lib/identifiers";
 import { findActivePayment } from "./pey/queries";
 import { orderStatusValidator } from "./schema";
@@ -327,6 +328,7 @@ export const getByPublicId = query({
       .withIndex("by_source_order", (q) => q.eq("sourceOrderId", order._id))
       .take(10);
     const activeSplit = splits.find((split) => split.status !== "cancelled") ?? null;
+    const deadline = orderDeadline(order);
 
     return {
       orderId: order._id,
@@ -334,7 +336,8 @@ export const getByPublicId = query({
       channel: order.channel,
       p2pKind: order.p2pKind ?? null,
       direction: isSeller ? ("in" as const) : ("out" as const),
-      status: order.status,
+      status: effectiveOrderStatus(order.status, deadline, Date.now()),
+      expiresAt: deadline,
       items: order.items,
       subtotalCents: order.subtotalCents,
       discountCents: order.discountCents,
@@ -392,33 +395,42 @@ export const listBusinessOrders = query({
 
     const limit = Math.min(Math.max(Math.floor(args.limit ?? 20), 1), 50);
     const statusFilter = args.status;
-    const rows = statusFilter
-      ? await ctx.db
-          .query("orders")
-          .withIndex("by_business_status_created", (q) =>
-            q.eq("businessId", business._id).eq("status", statusFilter),
-          )
-          .order("desc")
-          .take(limit)
-      : await ctx.db
-          .query("orders")
-          .withIndex("by_business_created", (q) => q.eq("businessId", business._id))
-          .order("desc")
-          .take(limit);
+    const rows =
+      statusFilter && statusFilter !== "expired"
+        ? await ctx.db
+            .query("orders")
+            .withIndex("by_business_status_created", (q) =>
+              q.eq("businessId", business._id).eq("status", statusFilter),
+            )
+            .order("desc")
+            .take(limit * 3)
+        : await ctx.db
+            .query("orders")
+            .withIndex("by_business_created", (q) => q.eq("businessId", business._id))
+            .order("desc")
+            .take(limit * 5);
 
-    return rows.map((order) => ({
-      orderId: order._id,
-      publicId: order.publicId,
-      status: order.status,
-      channel: order.channel,
-      totalCents: order.totalCents,
-      itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
-      customerName: order.customer.name ?? null,
-      customerHandle: order.customer.handle ?? null,
-      createdAt: order.createdAt,
-      paidAt: order.paidAt ?? null,
-      fulfilledAt: order.fulfilledAt ?? null,
-    }));
+    const now = Date.now();
+    return rows
+      .map((order) => {
+        const deadline = orderDeadline(order);
+        return {
+          orderId: order._id,
+          publicId: order.publicId,
+          status: effectiveOrderStatus(order.status, deadline, now),
+          expiresAt: deadline,
+          channel: order.channel,
+          totalCents: order.totalCents,
+          itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
+          customerName: order.customer.name ?? null,
+          customerHandle: order.customer.handle ?? null,
+          createdAt: order.createdAt,
+          paidAt: order.paidAt ?? null,
+          fulfilledAt: order.fulfilledAt ?? null,
+        };
+      })
+      .filter((order) => !statusFilter || order.status === statusFilter)
+      .slice(0, limit);
   },
 });
 

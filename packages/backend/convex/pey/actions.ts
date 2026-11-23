@@ -6,6 +6,7 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { action } from "../_generated/server";
 import type { ActionCtx } from "../_generated/server";
+import { expiryFromMinutes } from "../lib/expiry";
 import type { BankAccountStatus, PaymentStatus } from "../schema";
 import { getPaymentStatus, pey } from "./client";
 import type { PaymentHandle } from "./types";
@@ -120,15 +121,14 @@ export const createPaymentLink = action({
     expiresInMinutes: v.optional(v.number()),
   },
   handler: async (ctx, args): Promise<PaymentHandle> => {
-    if (
-      args.expiresInMinutes !== undefined &&
-      (args.expiresInMinutes < 5 || args.expiresInMinutes > 1440)
-    ) {
-      throw new ConvexError("La vigencia del link debe estar entre 5 y 1440 minutos");
-    }
+    const orderExpiresAt = expiryFromMinutes(args.expiresInMinutes, Date.now());
 
     const data = await loadChargeContext(ctx, args.orderId);
     if (data.activePayment) {
+      await ctx.runMutation(internal.pey.mutations.setOrderExpiry, {
+        orderId: args.orderId,
+        expiresAt: orderExpiresAt,
+      });
       return toHandle(data.activePayment, true);
     }
 
@@ -165,6 +165,10 @@ export const createPaymentLink = action({
         peyTransactionId: link.transactionId,
         checkoutUrl: link.url,
         expiresAt: link.expiresAt,
+      });
+      await ctx.runMutation(internal.pey.mutations.setOrderExpiry, {
+        orderId: args.orderId,
+        expiresAt: orderExpiresAt,
       });
 
       return toHandle(payment, false);

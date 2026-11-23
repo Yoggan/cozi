@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ImpactFeedbackStyle, impactAsync, selectionAsync } from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Text } from "heroui-native";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PropsWithChildren } from "react";
 import type { FlatList } from "react-native";
 import { Dimensions, Pressable, View } from "react-native";
@@ -247,10 +247,18 @@ export default function ThemePreviewScreen() {
     },
   });
 
+  const presetIdRef = useRef(preset.id);
+  useEffect(() => {
+    presetIdRef.current = preset.id;
+  }, [preset.id]);
+
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: Array<{ item: ThemePreset }> }) => {
       const first = viewableItems[0]?.item;
-      if (first) {
+      // Only apply a preset when the carousel lands on a different one; re-selecting
+      // the active preset would reset its custom accent/backdrop to the defaults.
+      if (first && first.id !== presetIdRef.current) {
+        presetIdRef.current = first.id;
         selectPreset(first.id);
       }
     },
@@ -349,7 +357,9 @@ export default function ThemePreviewScreen() {
               onOpenBackdropPicker={() => router.push("/theme-backdrop")}
               onSelect={() => {
                 void selectionAsync();
-                selectPreset(item.id);
+                if (item.id !== preset.id) {
+                  selectPreset(item.id);
+                }
                 listRef.current?.scrollToIndex({ index, animated: true });
               }}
             />

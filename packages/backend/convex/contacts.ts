@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { orderDeadline } from "./lib/expiry";
 import { HANDLE_PATTERN, normalizeHandle } from "./lib/identifiers";
 
 type ContactKind = "user" | "business";
@@ -200,8 +201,14 @@ export const suggestions = query({
         .take(30),
     ]);
 
+    const now = Date.now();
     const orders = [...asSeller, ...asBuyer]
-      .filter((order) => order.status !== "cancelled" && order.status !== "expired")
+      .filter(
+        (order) =>
+          order.status !== "cancelled" &&
+          order.status !== "expired" &&
+          (orderDeadline(order) === 0 || orderDeadline(order) > now),
+      )
       .sort((a, b) => b.createdAt - a.createdAt);
 
     const recent: Array<ContactItem> = [];

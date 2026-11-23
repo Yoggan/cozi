@@ -108,6 +108,7 @@ type GlassFieldProps = {
   | "autoCorrect"
   | "autoFocus"
   | "returnKeyType"
+  | "secureTextEntry"
 >;
 
 export function GlassField({

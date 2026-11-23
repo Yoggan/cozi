@@ -1,9 +1,13 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import { Ionicons } from "@expo/vector-icons";
+import type { BottomSheetBackgroundProps } from "@gorhom/bottom-sheet";
 import { useQuery } from "convex/react";
+import { createURL } from "expo-linking";
 import { useRouter } from "expo-router";
-import { Avatar, Text, useThemeColor } from "heroui-native";
-import { Pressable, Share, StyleSheet, View } from "react-native";
+import { Avatar, BottomSheet, Text, useThemeColor } from "heroui-native";
+import { useMemo, useState } from "react";
+import { Clipboard, Pressable, Share, StyleSheet, View } from "react-native";
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import Animated, {
   Easing,
   FadeInDown,
@@ -14,7 +18,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AccountsAvatar } from "@/components/accounts-avatar";
 import { ActivityRow } from "@/components/activity-row";
+import { BusinessModeHome } from "@/components/business-mode-home";
 import { ContactsStrip } from "@/components/contacts-strip";
 import { Container } from "@/components/container";
 import { ThemeBackdrop } from "@/components/theme-backdrop";
@@ -41,6 +47,95 @@ function usePressScale() {
       scale.value = withTiming(1, PRESS_TIMING);
     },
   };
+}
+
+// Opaque base + the theme's translucent card tint + a soft sheen: the frosted
+// look without relying on backdrop blur, which Android does not support.
+function createHandleSheetBackground(baseColor: string, cardColor: string, cardBorder: string) {
+  return function HandleSheetBackground({ style, pointerEvents }: BottomSheetBackgroundProps) {
+    return (
+      <View
+        pointerEvents={pointerEvents}
+        style={[
+          style,
+          {
+            overflow: "hidden",
+            backgroundColor: baseColor,
+            borderTopWidth: 1,
+            borderColor: cardBorder,
+          },
+        ]}
+      >
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: cardColor }]} />
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <Svg width="100%" height="100%">
+            <Defs>
+              <LinearGradient id="handle-sheet-sheen" x1="0%" y1="0%" x2="0%" y2="100%">
+                <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.1} />
+                <Stop offset="35%" stopColor="#FFFFFF" stopOpacity={0.03} />
+                <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+              </LinearGradient>
+            </Defs>
+            <Rect width="100%" height="100%" fill="url(#handle-sheet-sheen)" />
+          </Svg>
+        </View>
+      </View>
+    );
+  };
+}
+
+function HandleActionRow({
+  icon,
+  label,
+  hint,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  hint: string;
+  onPress: () => void;
+}) {
+  const { accent } = useAppTheme();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        padding: 12,
+        borderRadius: 18,
+        backgroundColor: "rgba(255, 255, 255, 0.07)",
+        borderWidth: 1,
+        borderColor: "rgba(255, 255, 255, 0.10)",
+        opacity: pressed ? 0.7 : 1,
+      })}
+    >
+      <View
+        style={{
+          width: 38,
+          height: 38,
+          borderRadius: 19,
+          backgroundColor: accent.softHex,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Ionicons name={icon} size={18} color={accent.hex} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: "#FFFFFF" }} className="text-sm font-semibold">
+          {label}
+        </Text>
+        <Text style={{ color: "rgba(255, 255, 255, 0.62)" }} className="mt-0.5 text-xs">
+          {hint}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.35)" />
+    </Pressable>
+  );
 }
 
 function GlassAction({
@@ -88,6 +183,16 @@ function GlassAction({
 
 export default function HomeScreen() {
   const profile = useProfile();
+
+  if (profile.accountType === "business") {
+    return <BusinessModeHome />;
+  }
+
+  return <PersonalHome />;
+}
+
+function PersonalHome() {
+  const profile = useProfile();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { isImmersive, backdrop, baseColor, cardColor, cardBorder, accent } = useAppTheme();
@@ -95,6 +200,11 @@ export default function HomeScreen() {
   const success = useThemeColor("success");
   const successForeground = useThemeColor("success-foreground");
   const foreground = useThemeColor("foreground");
+  const [isHandleSheetOpen, setIsHandleSheetOpen] = useState(false);
+  const handleSheetBackground = useMemo(
+    () => createHandleSheetBackground(baseColor, cardColor, cardBorder),
+    [baseColor, cardColor, cardBorder],
+  );
   const firstName = profile.displayName.split(/\s+/)[0] ?? profile.displayName;
 
   const scrollY = useSharedValue(0);
@@ -119,6 +229,34 @@ export default function HomeScreen() {
     await Share.share({ message: `Págame en Cozi: @${profile.handle}` });
   }
 
+  function copyHandle() {
+    if (!profile.handle) {
+      return;
+    }
+    Clipboard.setString(`@${profile.handle}`);
+  }
+
+  async function shareAddMeLink() {
+    if (!profile.handle) {
+      return;
+    }
+    const url = createURL("/contacts", { queryParams: { handle: profile.handle } });
+    await Share.share({ message: `Agrégame en Cozi: ${url}` });
+  }
+
+  function promptHandleActions() {
+    if (!profile.handle) {
+      return;
+    }
+    setIsHandleSheetOpen(true);
+  }
+
+  function runHandleAction(action: () => void | Promise<void>) {
+    setIsHandleSheetOpen(false);
+    // Let the sheet finish closing before presenting the native share sheet.
+    setTimeout(() => void action(), 200);
+  }
+
   if (isImmersive && backdrop) {
     return (
       <View style={{ flex: 1, backgroundColor: baseColor }}>
@@ -136,48 +274,12 @@ export default function HomeScreen() {
             </Animated.View>
 
             {/* Top bar */}
-            <View className="flex-row items-center gap-3 px-5">
-              <Pressable onPress={() => router.push("/profile")}>
-                <Avatar size="sm" color="success">
-                  <Avatar.Fallback>{initials(profile.displayName)}</Avatar.Fallback>
-                </Avatar>
-              </Pressable>
-
+            <View className="flex-row items-center px-5">
               <Pressable
-                onPress={shareHandle}
-                style={{
-                  flex: 1,
-                  height: 38,
-                  borderRadius: 19,
-                  backgroundColor: "rgba(0, 0, 0, 0.34)",
-                  borderWidth: 1,
-                  borderColor: "rgba(255, 255, 255, 0.16)",
-                  flexDirection: "row",
-                  alignItems: "center",
-                  paddingHorizontal: 14,
-                  gap: 8,
-                }}
+                accessibilityLabel="Perfil y cuentas"
+                onPress={() => router.push("/profile")}
               >
-                <Ionicons name="at" size={16} color="rgba(255,255,255,0.75)" />
-                <Text style={{ color: "rgba(255,255,255,0.88)" }} className="text-sm font-medium">
-                  {profile.handle ?? "cozi"}
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={shareHandle}
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 19,
-                  backgroundColor: "rgba(0, 0, 0, 0.34)",
-                  borderWidth: 1,
-                  borderColor: "rgba(255, 255, 255, 0.16)",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Ionicons name="share-outline" size={18} color="#FFFFFF" />
+                <AccountsAvatar size="sm" />
               </Pressable>
             </View>
 
@@ -186,13 +288,15 @@ export default function HomeScreen() {
               <Text style={{ color: "rgba(255,255,255,0.85)" }} className="text-sm font-medium">
                 Personal · MXN
               </Text>
-              <Text
-                style={{ color: "#FFFFFF" }}
-                className="mt-1 text-4xl font-bold tracking-tight"
-                numberOfLines={1}
-              >
-                @{profile.handle ?? "cozi"}
-              </Text>
+              <Pressable accessibilityLabel="Opciones del handle" onPress={promptHandleActions}>
+                <Text
+                  style={{ color: "#FFFFFF" }}
+                  className="mt-1 text-4xl font-bold tracking-tight"
+                  numberOfLines={1}
+                >
+                  @{profile.handle ?? "cozi"}
+                </Text>
+              </Pressable>
               <View className="mt-2 flex-row items-center gap-1.5">
                 <Ionicons
                   name="shield-checkmark-outline"
@@ -252,7 +356,7 @@ export default function HomeScreen() {
           <ContactsStrip />
 
           {/* Translucent Tinted Cards */}
-          <View className="gap-4 px-4">
+          <View className="mt-5 gap-4 px-4">
             {!profile.hasReceivingAccount ? (
               <Animated.View
                 entering={ENTER.delay(80)}
@@ -395,6 +499,50 @@ export default function HomeScreen() {
             </Animated.View>
           </View>
         </Animated.ScrollView>
+
+        <BottomSheet isOpen={isHandleSheetOpen} onOpenChange={setIsHandleSheetOpen}>
+          <BottomSheet.Portal>
+            <BottomSheet.Overlay />
+            <BottomSheet.Content backgroundComponent={handleSheetBackground}>
+              <View className="mb-6 items-center gap-2">
+                <BottomSheet.Title className="text-center">
+                  @{profile.handle ?? "cozi"}
+                </BottomSheet.Title>
+                <BottomSheet.Description className="text-center">
+                  ¿Qué quieres hacer con tu handle?
+                </BottomSheet.Description>
+              </View>
+
+              <View className="gap-3">
+                <HandleActionRow
+                  icon="copy-outline"
+                  label="Copiar"
+                  hint="Copia tu handle al portapapeles"
+                  onPress={() => runHandleAction(copyHandle)}
+                />
+                <HandleActionRow
+                  icon="share-outline"
+                  label="Compartir"
+                  hint="Comparte tu handle"
+                  onPress={() => runHandleAction(shareHandle)}
+                />
+                <HandleActionRow
+                  icon="person-add-outline"
+                  label="Enviar enlace"
+                  hint="Para que te agreguen en Cozi"
+                  onPress={() => runHandleAction(shareAddMeLink)}
+                />
+              </View>
+
+              <Pressable
+                onPress={() => setIsHandleSheetOpen(false)}
+                className="mt-4 items-center py-2"
+              >
+                <Text className="text-sm font-medium text-muted">Cancelar</Text>
+              </Pressable>
+            </BottomSheet.Content>
+          </BottomSheet.Portal>
+        </BottomSheet>
       </View>
     );
   }
@@ -422,9 +570,11 @@ export default function HomeScreen() {
             <Ionicons name="share-outline" size={18} color={successForeground} />
           </Pressable>
         </View>
-        <Text className="mt-1 text-3xl font-bold tracking-tight text-success-foreground">
-          @{profile.handle ?? "cozi"}
-        </Text>
+        <Pressable accessibilityLabel="Copiar handle" onPress={copyHandle}>
+          <Text className="mt-1 text-3xl font-bold tracking-tight text-success-foreground">
+            @{profile.handle ?? "cozi"}
+          </Text>
+        </Pressable>
         <Text className="mt-2 text-sm text-success-foreground opacity-80">
           Manda y recibe dinero sin compartir tu CLABE.
         </Text>
