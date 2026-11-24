@@ -507,19 +507,25 @@ export const setAvatar = mutation({
       throw new ConvexError("No encontramos la imagen");
     }
 
+    // Los rechazos vuelven como resultado, no como error: un throw revierte
+    // también el borrado y dejaría el archivo inservible en Storage.
     if (!file.contentType?.startsWith("image/")) {
-      throw new ConvexError("La foto debe ser una imagen");
+      await ctx.storage.delete(args.storageId);
+
+      return { status: "rejected" as const, message: "La foto debe ser una imagen" };
     }
 
     if (file.size > AVATAR_MAX_BYTES) {
-      throw new ConvexError("La foto no puede pasar de 5 MB");
+      await ctx.storage.delete(args.storageId);
+
+      return { status: "rejected" as const, message: "La foto no puede pasar de 5 MB" };
     }
 
     if (
       user.avatarStorageId !== args.storageId &&
       (await isStorageReferenced(ctx, args.storageId))
     ) {
-      throw new ConvexError("No encontramos la imagen");
+      return { status: "rejected" as const, message: "No encontramos la imagen" };
     }
 
     if (user.avatarStorageId && user.avatarStorageId !== args.storageId) {
@@ -531,7 +537,7 @@ export const setAvatar = mutation({
       updatedAt: Date.now(),
     });
 
-    return { avatarUrl: await ctx.storage.getUrl(args.storageId) };
+    return { status: "saved" as const, avatarUrl: await ctx.storage.getUrl(args.storageId) };
   },
 });
 
@@ -547,23 +553,5 @@ export const removeAvatar = mutation({
 
     await ctx.storage.delete(user.avatarStorageId);
     await ctx.db.patch(user._id, { avatarStorageId: undefined, updatedAt: Date.now() });
-  },
-});
-
-/** Borra una subida que nunca llegó a ser la foto de nadie. */
-export const discardAvatarUpload = mutation({
-  args: { storageId: v.id("_storage") },
-  handler: async (ctx, args) => {
-    await requireAuthUserId(ctx);
-
-    if (await isStorageReferenced(ctx, args.storageId)) {
-      return;
-    }
-
-    const file = await ctx.db.system.get("_storage", args.storageId);
-
-    if (file) {
-      await ctx.storage.delete(args.storageId);
-    }
   },
 });

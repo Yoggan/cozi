@@ -1,5 +1,4 @@
 import { api } from "@cozi/backend/convex/_generated/api";
-import type { Id } from "@cozi/backend/convex/_generated/dataModel";
 import { useMutation } from "convex/react";
 import { launchImageLibraryAsync, requestMediaLibraryPermissionsAsync } from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -31,7 +30,6 @@ export default function EditProfileScreen() {
   const generateAvatarUploadUrl = useMutation(api.users.generateAvatarUploadUrl);
   const setAvatar = useMutation(api.users.setAvatar);
   const removeAvatar = useMutation(api.users.removeAvatar);
-  const discardAvatarUpload = useMutation(api.users.discardAvatarUpload);
 
   const [displayName, setDisplayName] = useState(profile.displayName);
   const [handle, setHandle] = useState(profile.handle ?? "");
@@ -80,20 +78,20 @@ export default function EditProfileScreen() {
 
     setIsUploadingPhoto(true);
 
-    let uploadedId: Id<"_storage"> | null = null;
-
     try {
-      uploadedId = await uploadAvatar(asset.uri, () => generateAvatarUploadUrl({}));
+      const storageId = await uploadAvatar(asset.uri, () => generateAvatarUploadUrl({}));
 
-      const saved = await setAvatar({ expectedUserId: ownerId, storageId: uploadedId });
+      const saved = await setAvatar({ expectedUserId: ownerId, storageId });
+
+      if (saved.status === "rejected") {
+        toast.show({ variant: "danger", label: saved.message });
+
+        return;
+      }
 
       setAvatarUrl(saved.avatarUrl);
       toast.show({ variant: "success", label: "Foto actualizada" });
     } catch (error) {
-      if (uploadedId) {
-        await discardAvatarUpload({ storageId: uploadedId }).catch(() => {});
-      }
-
       toast.show({
         variant: "danger",
         label: error instanceof Error ? error.message : "No pudimos subir tu foto",
