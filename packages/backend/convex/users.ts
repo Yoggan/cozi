@@ -524,3 +524,26 @@ export const removeAvatar = mutation({
     await ctx.db.patch(user._id, { avatarStorageId: undefined, updatedAt: Date.now() });
   },
 });
+
+/** Borra una subida que nunca llegó a ser la foto de nadie. */
+export const discardAvatarUpload = mutation({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, args) => {
+    await requireAuthUserId(ctx);
+
+    const claimed = await ctx.db
+      .query("users")
+      .withIndex("by_avatar_storage", (q) => q.eq("avatarStorageId", args.storageId))
+      .first();
+
+    if (claimed) {
+      return;
+    }
+
+    const file = await ctx.db.system.get("_storage", args.storageId);
+
+    if (file) {
+      await ctx.storage.delete(args.storageId);
+    }
+  },
+});

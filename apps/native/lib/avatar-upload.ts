@@ -1,5 +1,8 @@
 import type { Id } from "@cozi/backend/convex/_generated/dataModel";
 
+/** Debe coincidir con el límite que valida `setAvatar`. */
+export const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+
 function isUploadResponse(value: unknown): value is { storageId: Id<"_storage"> } {
   return (
     typeof value === "object" &&

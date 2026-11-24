@@ -108,6 +108,33 @@ describe("E2E: foto de perfil", () => {
     expect(mine?.avatarUrl).toBeTruthy();
   });
 
+  test("borra una subida que nunca se guardó y respeta la foto de alguien más", async () => {
+    const t = createTestBackend();
+
+    const owner = await createUser(t, {
+      subject: "auth_avatar_discard_owner",
+      name: "Ana Ruiz",
+      email: "ana@gmail.com",
+      handle: "ana_r3",
+    });
+
+    const orphan = await t.run(async (ctx) => await ctx.storage.store(imageBlob()));
+
+    await owner.client.mutation(api.users.discardAvatarUpload, { storageId: orphan });
+
+    expect(await t.run(async (ctx) => await ctx.db.system.get("_storage", orphan))).toBeNull();
+
+    const saved = await t.run(async (ctx) => await ctx.storage.store(imageBlob()));
+
+    await owner.client.mutation(api.users.setAvatar, {
+      expectedUserId: owner.userId,
+      storageId: saved,
+    });
+    await owner.client.mutation(api.users.discardAvatarUpload, { storageId: saved });
+
+    expect(await t.run(async (ctx) => await ctx.db.system.get("_storage", saved))).not.toBeNull();
+  });
+
   test("rechaza una subida que empezó en otra cuenta", async () => {
     const t = createTestBackend();
 

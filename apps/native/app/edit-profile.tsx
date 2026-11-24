@@ -1,4 +1,5 @@
 import { api } from "@cozi/backend/convex/_generated/api";
+import type { Id } from "@cozi/backend/convex/_generated/dataModel";
 import { useMutation } from "convex/react";
 import { launchImageLibraryAsync, requestMediaLibraryPermissionsAsync } from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -18,7 +19,7 @@ import {
 import { ProfilePhoto } from "@/components/profile-photo";
 import { ThemeBackdrop } from "@/components/theme-backdrop";
 import { useProfile } from "@/contexts/profile-context";
-import { uploadAvatar } from "@/lib/avatar-upload";
+import { AVATAR_MAX_BYTES, uploadAvatar } from "@/lib/avatar-upload";
 
 export default function EditProfileScreen() {
   const profile = useProfile();
@@ -30,6 +31,7 @@ export default function EditProfileScreen() {
   const generateAvatarUploadUrl = useMutation(api.users.generateAvatarUploadUrl);
   const setAvatar = useMutation(api.users.setAvatar);
   const removeAvatar = useMutation(api.users.removeAvatar);
+  const discardAvatarUpload = useMutation(api.users.discardAvatarUpload);
 
   const [displayName, setDisplayName] = useState(profile.displayName);
   const [handle, setHandle] = useState(profile.handle ?? "");
@@ -68,16 +70,30 @@ export default function EditProfileScreen() {
       return;
     }
 
+    const asset = picked.assets[0];
+
+    if (asset.fileSize !== undefined && asset.fileSize > AVATAR_MAX_BYTES) {
+      toast.show({ variant: "danger", label: "La foto no puede pasar de 5 MB" });
+
+      return;
+    }
+
     setIsUploadingPhoto(true);
 
-    try {
-      const storageId = await uploadAvatar(picked.assets[0].uri, () => generateAvatarUploadUrl({}));
+    let uploadedId: Id<"_storage"> | null = null;
 
-      const saved = await setAvatar({ expectedUserId: ownerId, storageId });
+    try {
+      uploadedId = await uploadAvatar(asset.uri, () => generateAvatarUploadUrl({}));
+
+      const saved = await setAvatar({ expectedUserId: ownerId, storageId: uploadedId });
 
       setAvatarUrl(saved.avatarUrl);
       toast.show({ variant: "success", label: "Foto actualizada" });
     } catch (error) {
+      if (uploadedId) {
+        await discardAvatarUpload({ storageId: uploadedId }).catch(() => {});
+      }
+
       toast.show({
         variant: "danger",
         label: error instanceof Error ? error.message : "No pudimos subir tu foto",
@@ -161,7 +177,7 @@ export default function EditProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={{ width: "100%", maxWidth: 460, alignSelf: "center", gap: 22 }}>
-          <View style={{ alignItems: "center", gap: 14 }}>
+          <View style={{ alignItems: "center", gap: 16 }}>
             <ProfilePhoto
               borderColor={theme.isImmersive ? "rgba(255, 255, 255, 0.18)" : undefined}
               name={displayName || profile.displayName}
