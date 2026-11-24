@@ -13,6 +13,7 @@ const MAX_TIMESTAMP_DRIFT_SECONDS = 300;
  */
 export async function verifyPeySignature(rawBody: string, headers: Headers): Promise<boolean> {
   const secret = process.env.PEY_WEBHOOK_SECRET;
+
   if (!secret) {
     return false;
   }
@@ -23,15 +24,19 @@ export async function verifyPeySignature(rawBody: string, headers: Headers): Pro
 
   if (webhookId && webhookTimestamp && webhookSignature) {
     const ts = Number.parseInt(webhookTimestamp, 10);
+
     if (!Number.isFinite(ts)) {
       return false;
     }
+
     const nowSeconds = Math.floor(Date.now() / 1000);
+
     if (Math.abs(nowSeconds - ts) > MAX_TIMESTAMP_DRIFT_SECONDS) {
       return false;
     }
 
     const keyBytes = decodeWebhookSecret(secret);
+
     const key = await crypto.subtle.importKey(
       "raw",
       keyBytes,
@@ -39,7 +44,9 @@ export async function verifyPeySignature(rawBody: string, headers: Headers): Pro
       false,
       ["sign"],
     );
+
     const signedPayload = `${webhookId}.${webhookTimestamp}.${rawBody}`;
+
     const expected = new Uint8Array(
       await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(signedPayload)),
     );
@@ -59,12 +66,14 @@ export async function verifyPeySignature(rawBody: string, headers: Headers): Pro
   }
 
   const legacyHeader = headers.get("x-pey-signature") ?? headers.get("pey-signature");
+
   if (!legacyHeader) {
     return false;
   }
 
   const signature = legacyHeader.trim().replace(SIGNATURE_PREFIX, "");
   const encoder = new TextEncoder();
+
   const key = await crypto.subtle.importKey(
     "raw",
     encoder.encode(secret),
@@ -72,6 +81,7 @@ export async function verifyPeySignature(rawBody: string, headers: Headers): Pro
     false,
     ["sign"],
   );
+
   const expected = new Uint8Array(await crypto.subtle.sign("HMAC", key, encoder.encode(rawBody)));
 
   return decodeSignatureCandidates(signature).some(
@@ -83,19 +93,24 @@ function decodeWebhookSecret(secret: string): Uint8Array<ArrayBuffer> {
   if (WHSEC_PREFIX.test(secret)) {
     const raw = atob(secret.replace(WHSEC_PREFIX, ""));
     const bytes = new Uint8Array(new ArrayBuffer(raw.length));
+
     for (let i = 0; i < raw.length; i += 1) {
       bytes[i] = raw.charCodeAt(i);
     }
+
     return bytes;
   }
+
   const encoded = new TextEncoder().encode(secret);
   const bytes = new Uint8Array(new ArrayBuffer(encoded.length));
   bytes.set(encoded);
+
   return bytes;
 }
 
 export async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+
   return bytesToHex(new Uint8Array(digest));
 }
 
@@ -104,9 +119,11 @@ function decodeSignatureCandidates(value: string): Array<Uint8Array> {
 
   if (HEX.test(value) && value.length % 2 === 0) {
     const bytes = new Uint8Array(value.length / 2);
+
     for (let index = 0; index < bytes.length; index += 1) {
       bytes[index] = Number.parseInt(value.slice(index * 2, index * 2 + 2), 16);
     }
+
     candidates.push(bytes);
   }
 
@@ -121,9 +138,11 @@ function decodeSignatureCandidates(value: string): Array<Uint8Array> {
 
 function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
   let difference = 0;
+
   for (let index = 0; index < a.length; index += 1) {
     difference |= a[index] ^ b[index];
   }
+
   return difference === 0;
 }
 
@@ -143,11 +162,13 @@ export function parsePeyWebhook(
 ): NormalizedPeyWebhook {
   const root = isRecord(payload) ? payload : {};
   const data = isRecord(root.data) ? root.data : isRecord(root.payload) ? root.payload : root;
+
   const metadata = isRecord(data.metadata)
     ? data.metadata
     : isRecord(root.metadata)
       ? root.metadata
       : {};
+
   const externalMetadata = isRecord(metadata.externalMetadata) ? metadata.externalMetadata : {};
 
   // No usamos `root.id`: en algunos proveedores ese id es el del pago y
@@ -203,6 +224,7 @@ export function parsePeyWebhook(
   const explicitCents =
     firstInteger(data, ["amount_cents", "amountCents"]) ??
     firstInteger(root, ["amount_cents", "amountCents"]);
+
   const mxnAmount = firstFiniteNumber(data, ["amount"]) ?? firstFiniteNumber(root, ["amount"]);
 
   return {
@@ -217,6 +239,7 @@ export function parsePeyWebhook(
 
 function statusFromEventType(type: string): NormalizedPeyWebhook["status"] {
   const normalized = type.trim().toLowerCase();
+
   if (
     normalized === "codi.qr.payment_received" ||
     normalized === "codi.pn.payment_received" ||
@@ -226,15 +249,19 @@ function statusFromEventType(type: string): NormalizedPeyWebhook["status"] {
   ) {
     return "succeeded";
   }
+
   if (normalized.endsWith(".expired")) {
     return "expired";
   }
+
   if (normalized.endsWith(".failed") || normalized.endsWith(".cancelled")) {
     return "failed";
   }
+
   if (normalized.endsWith(".refunded")) {
     return "refunded";
   }
+
   return null;
 }
 
@@ -244,10 +271,12 @@ function firstFiniteNumber(
 ): number | undefined {
   for (const key of keys) {
     const value = record[key];
+
     if (typeof value === "number" && Number.isFinite(value)) {
       return value;
     }
   }
+
   return undefined;
 }
 
@@ -258,26 +287,31 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function firstString(record: Record<string, unknown>, keys: Array<string>): string | undefined {
   for (const key of keys) {
     const value = record[key];
+
     if (typeof value === "string" && value.trim().length > 0) {
       return value.trim();
     }
   }
+
   return undefined;
 }
 
 function firstInteger(record: Record<string, unknown>, keys: Array<string>): number | undefined {
   for (const key of keys) {
     const value = record[key];
+
     if (typeof value === "number" && Number.isInteger(value)) {
       return value;
     }
   }
+
   return undefined;
 }
 
 function pickStrings(record: Record<string, unknown>, keys: Array<string>): Array<string> {
   return keys.flatMap((key) => {
     const value = record[key];
+
     return typeof value === "string" && value.trim().length > 0 ? [value.trim()] : [];
   });
 }

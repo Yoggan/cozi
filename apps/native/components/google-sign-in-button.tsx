@@ -17,6 +17,7 @@ const GENERIC_MESSAGE = "No pudimos iniciar sesión con Google. Inténtalo de nu
 
 function messageFor(error: { message?: string } | null | undefined): string {
   const raw = error?.message?.toLowerCase() ?? "";
+
   if (
     raw.includes("provider") ||
     raw.includes("client") ||
@@ -25,6 +26,7 @@ function messageFor(error: { message?: string } | null | undefined): string {
   ) {
     return UNCONFIGURED_MESSAGE;
   }
+
   return GENERIC_MESSAGE;
 }
 
@@ -86,6 +88,7 @@ export function GoogleSignInButton({ onError }: GoogleSignInButtonProps) {
         provider: "google",
         callbackURL: "/",
       });
+
       if (result.error) {
         report(messageFor(result.error));
       }

@@ -268,9 +268,11 @@ export function PrimaryPillButton({
 }) {
   const theme = usePaymentTheme();
   const scale = useSharedValue(1);
+
   const pressStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
+
   const inactive = isDisabled || isSubmitting;
 
   return (

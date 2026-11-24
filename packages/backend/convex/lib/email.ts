@@ -89,6 +89,7 @@ const INSTITUTIONAL_SUFFIXES = [".edu", ".edu.mx", ".gob.mx", ".gov", ".gov.mx",
  */
 export function isBusinessEmail(email: string | null | undefined): boolean {
   const domain = email?.trim().toLowerCase().split("@")[1];
+
   if (!domain) {
     return false;
   }

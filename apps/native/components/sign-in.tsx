@@ -37,15 +37,19 @@ function getErrorMessage(error: unknown): string | null {
   if (Array.isArray(error)) {
     for (const issue of error) {
       const message = getErrorMessage(issue);
+
       if (message) {
         return message;
       }
     }
+
     return null;
   }
 
   if (typeof error === "object" && error !== null) {
+    // SAFETY: solo se lee `message`, y se comprueba su tipo antes de usarlo.
     const maybeError = error as { message?: unknown };
+
     if (typeof maybeError.message === "string") {
       return maybeError.message;
     }
@@ -126,6 +130,7 @@ export function SignIn() {
       }
 
       setRememberMe(saved.rememberMe);
+
       if (saved.email) {
         form.setFieldValue("email", saved.email);
       }

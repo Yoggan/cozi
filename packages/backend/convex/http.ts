@@ -27,11 +27,13 @@ function firstText(
   for (const record of records) {
     for (const key of keys) {
       const value = record[key];
+
       if (typeof value === "string" && value.trim().length > 0) {
         return value.trim();
       }
     }
   }
+
   return undefined;
 }
 
@@ -47,6 +49,7 @@ function parseBankAccountUpdate(payload: unknown) {
   const type = firstText(records, ["type", "event_type", "eventType"]) ?? "";
   const codiStatus = firstText(records, ["codiStatus", "codi_status"]);
   const id = firstText(records, ["bankAccountId", "bank_account_id", "id"]);
+
   const hasPaymentRef = Boolean(
     firstText(records, [
       "transactionId",
@@ -99,6 +102,7 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     if (!process.env.PEY_WEBHOOK_SECRET) {
       console.error("PEY_WEBHOOK_SECRET no configurado");
+
       return new Response("Webhook no configurado", { status: 503 });
     }
 
@@ -109,6 +113,7 @@ http.route({
     }
 
     let payload: unknown;
+
     try {
       payload = JSON.parse(rawBody);
     } catch {
@@ -116,6 +121,7 @@ http.route({
     }
 
     const bankUpdate = parseBankAccountUpdate(payload);
+
     if (bankUpdate) {
       try {
         await ctx.runMutation(internal.pey.mutations.updateBankAccountStatus, {
@@ -124,9 +130,11 @@ http.route({
           providerStatus: bankUpdate.providerStatus,
           errorMessage: bankUpdate.errorMessage,
         });
+
         return jsonResponse({ ok: true, outcome: "bank_account_updated" }, 200);
       } catch (error) {
         console.error("Error procesando webhook de cuenta bancaria", error);
+
         return new Response("Error interno", { status: 500 });
       }
     }
@@ -151,12 +159,14 @@ http.route({
 
       if (result.outcome === "mismatch") {
         console.error("Webhook de Pey no conciliado", { eventId: event.eventId });
+
         return jsonResponse({ ok: false, outcome: result.outcome }, 200);
       }
 
       return jsonResponse({ ok: true, outcome: result.outcome }, 200);
     } catch (error) {
       console.error("Error procesando webhook de Pey", error);
+
       return new Response("Error interno", { status: 500 });
     }
   }),

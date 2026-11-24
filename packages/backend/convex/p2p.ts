@@ -12,28 +12,35 @@ const MAX_AMOUNT_CENTS = 2_000_000;
 
 function validateAmount(amountCents: number): number {
   const normalized = Math.round(amountCents);
+
   if (!Number.isInteger(normalized) || normalized < MIN_AMOUNT_CENTS) {
     throw new ConvexError("El monto mínimo es de $10 MXN");
   }
+
   if (normalized > MAX_AMOUNT_CENTS) {
     throw new ConvexError("El monto máximo es de $20,000 MXN");
   }
+
   return normalized;
 }
 
 function cleanNote(note: string | undefined): string | undefined {
   const value = note?.trim();
+
   if (!value) {
     return undefined;
   }
+
   if (value.length > 140) {
     throw new ConvexError("La nota no puede pasar de 140 caracteres");
   }
+
   return value;
 }
 
 async function getViewer(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
+
   if (!identity) {
     throw new ConvexError("Inicia sesión para continuar");
   }
@@ -42,6 +49,7 @@ async function getViewer(ctx: QueryCtx | MutationCtx) {
     .query("users")
     .withIndex("by_auth_user", (q) => q.eq("authUserId", identity.subject))
     .unique();
+
   if (!user) {
     throw new ConvexError("Completa tu perfil antes de continuar");
   }
@@ -56,6 +64,7 @@ async function getViewer(ctx: QueryCtx | MutationCtx) {
 
 async function resolveUserHandle(ctx: QueryCtx | MutationCtx, rawHandle: string) {
   const handle = normalizeHandle(rawHandle);
+
   if (!HANDLE_PATTERN.test(handle)) {
     throw new ConvexError("Escribe un @handle válido");
   }
@@ -70,6 +79,7 @@ async function resolveUserHandle(ctx: QueryCtx | MutationCtx, rawHandle: string)
   }
 
   const user = await ctx.db.get(handleDocument.userId);
+
   if (!user) {
     throw new ConvexError("No encontramos ese @handle");
   }
@@ -97,6 +107,7 @@ async function resolveCounterpart(
         .withIndex("by_business", (q) => q.eq("businessId", order.businessId))
         .first(),
     ]);
+
     if (business) {
       return {
         name: business.name,
@@ -106,6 +117,7 @@ async function resolveCounterpart(
   }
 
   const seller = await ctx.db.get(order.sellerId);
+
   const handle = await ctx.db
     .query("handles")
     .withIndex("by_user", (q) => q.eq("userId", order.sellerId))
@@ -126,11 +138,13 @@ export const createTransfer = mutation({
   },
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
+
     if (!viewer.handle) {
       throw new ConvexError("Completa tu perfil antes de enviar dinero");
     }
 
     const recipient = await resolveUserHandle(ctx, args.recipientHandle);
+
     if (recipient.user._id === viewer.user._id) {
       throw new ConvexError("No puedes enviarte dinero a ti mismo");
     }
@@ -177,6 +191,7 @@ export const createTransfer = mutation({
         q.eq("ownerId", viewer.user._id).eq("handleId", recipient.handleId),
       )
       .unique();
+
     if (savedContact) {
       await ctx.db.patch(savedContact._id, { lastUsedAt: now, updatedAt: now });
     }
@@ -195,11 +210,13 @@ export const createRequest = mutation({
   },
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
+
     if (!viewer.handle) {
       throw new ConvexError("Completa tu perfil antes de cobrar");
     }
 
     const payer = args.payerHandle ? await resolveUserHandle(ctx, args.payerHandle) : null;
+
     if (payer?.user._id === viewer.user._id) {
       throw new ConvexError("No puedes cobrarte a ti mismo");
     }
@@ -251,6 +268,7 @@ export const createRequest = mutation({
           q.eq("ownerId", viewer.user._id).eq("handleId", payer.handleId),
         )
         .unique();
+
       if (savedContact) {
         await ctx.db.patch(savedContact._id, { lastUsedAt: now, updatedAt: now });
       }
@@ -281,6 +299,7 @@ export const listActivity = query({
     ]);
 
     const unique = new Map<Id<"orders">, Doc<"orders">>();
+
     for (const order of [...incoming, ...outgoing]) {
       unique.set(order._id, order);
     }
@@ -293,6 +312,7 @@ export const listActivity = query({
       orders.map(async (order) => {
         const counterpart = await resolveCounterpart(ctx, order, viewer.user._id);
         const deadline = orderDeadline(order);
+
         return {
           publicId: order.publicId,
           amountCents: order.totalCents,
@@ -315,6 +335,7 @@ export const getOrder = query({
   args: { publicId: v.string() },
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
+
     const order = await ctx.db
       .query("orders")
       .withIndex("by_public_id", (q) => q.eq("publicId", args.publicId))
@@ -323,8 +344,10 @@ export const getOrder = query({
     if (!order) {
       return null;
     }
+
     const isSeller = order.sellerId === viewer.user._id;
     const isBuyer = order.buyerId === viewer.user._id;
+
     if (!isSeller && !isBuyer) {
       return null;
     }
@@ -334,11 +357,13 @@ export const getOrder = query({
       .withIndex("by_order", (q) => q.eq("orderId", order._id))
       .order("desc")
       .first();
+
     // Un intento fallido no debe reaparecer como link pagable.
     const payment =
       order.status === "paid" || order.status === "fulfilled"
         ? latestPayment
         : await findActivePayment(ctx.db, order._id);
+
     const counterpart = await resolveCounterpart(ctx, order, viewer.user._id);
     const deadline = orderDeadline(order);
 

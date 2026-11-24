@@ -16,6 +16,7 @@ const IMMERSIVE_DIVIDER = { borderTopWidth: 1, borderTopColor: "rgba(255,255,255
 function formatThreadDate(timestamp: number): string {
   const date = new Date(timestamp);
   const today = new Date();
+
   const isToday =
     date.getDate() === today.getDate() &&
     date.getMonth() === today.getMonth() &&
@@ -79,6 +80,7 @@ export default function MessagesScreen() {
               : thread.business
                 ? thread.business.name
                 : "Conversación";
+
             const counterpart = thread.counterpartHandle
               ? `@${thread.counterpartHandle}`
               : thread.counterpartName;

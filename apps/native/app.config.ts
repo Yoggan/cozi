@@ -26,29 +26,36 @@ const withAndroidReleaseSigning: ConfigPlugin = (expoConfig) => {
 
     if (!contents.includes("COZI_UPLOAD_STORE_FILE")) {
       const signingConfigsPattern = /(signingConfigs\s*\{\s*debug\s*\{[\s\S]*?\n\s*\})/;
+
       if (!signingConfigsPattern.test(contents)) {
         throw new Error("Could not find signingConfigs.debug block in android/app/build.gradle");
       }
+
       contents = contents.replace(signingConfigsPattern, `$1\n${RELEASE_SIGNING_CONFIG}`);
 
       const releaseBuildTypePattern =
         /(buildTypes\s*\{[\s\S]*?\brelease\s*\{[\s\S]*?)signingConfig\s+signingConfigs\.debug/;
+
       if (!releaseBuildTypePattern.test(contents)) {
         throw new Error(
           "Could not find buildTypes.release signingConfig in android/app/build.gradle",
         );
       }
+
       contents = contents.replace(releaseBuildTypePattern, `$1${RELEASE_SIGNING_ASSIGNMENT}`);
     }
 
     gradleConfig.modResults.contents = contents;
+
     return gradleConfig;
   });
 };
 
 function readEnv(key: string): string | undefined {
+  // SAFETY: `process.env` solo existe en Node; el acceso es opcional y se comprueba antes de leer.
   const runtime = globalThis as { process?: { env?: Record<string, string | undefined> } };
   const value = runtime.process?.env?.[key];
+
   return typeof value === "string" ? value : undefined;
 }
 
@@ -56,10 +63,13 @@ function parseVersionCode(raw: string | undefined): number {
   if (!raw) {
     return 1;
   }
+
   const parsed = Number.parseInt(raw, 10);
+
   if (!Number.isInteger(parsed) || parsed < 1) {
     throw new Error(`Invalid ANDROID_VERSION_CODE: "${raw}". Expected a positive integer.`);
   }
+
   return parsed;
 }
 

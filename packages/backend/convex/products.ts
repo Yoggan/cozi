@@ -9,6 +9,7 @@ const MAX_PRICE_CENTS = 10_000_000;
 
 async function requireUser(ctx: QueryCtx | MutationCtx): Promise<Doc<"users">> {
   const identity = await ctx.auth.getUserIdentity();
+
   if (!identity) {
     throw new ConvexError("Inicia sesión para continuar");
   }
@@ -17,9 +18,11 @@ async function requireUser(ctx: QueryCtx | MutationCtx): Promise<Doc<"users">> {
     .query("users")
     .withIndex("by_auth_user", (q) => q.eq("authUserId", identity.subject))
     .unique();
+
   if (!user) {
     throw new ConvexError("Completa tu perfil antes de continuar");
   }
+
   return user;
 }
 
@@ -29,17 +32,21 @@ async function requireOwnedBusiness(
   ownerId: Id<"users">,
 ): Promise<Doc<"businesses">> {
   const business = await ctx.db.get(businessId);
+
   if (!business || business.ownerId !== ownerId) {
     throw new ConvexError("Negocio no encontrado");
   }
+
   return business;
 }
 
 function readProductName(value: string): string {
   const name = value.trim();
+
   if (name.length < 1 || name.length > 80) {
     throw new ConvexError("El nombre del producto debe tener entre 1 y 80 caracteres");
   }
+
   return name;
 }
 
@@ -51,21 +58,27 @@ function readOptionalText(
   if (value === undefined) {
     return undefined;
   }
+
   const trimmed = value.trim();
+
   if (trimmed.length > maxLength) {
     throw new ConvexError(`${label} no puede pasar de ${maxLength} caracteres`);
   }
+
   return trimmed || undefined;
 }
 
 function readPriceCents(priceCents: number): number {
   const normalized = Math.round(priceCents);
+
   if (!Number.isInteger(normalized) || normalized < MIN_PRICE_CENTS) {
     throw new ConvexError("El precio mínimo es de $1 MXN");
   }
+
   if (normalized > MAX_PRICE_CENTS) {
     throw new ConvexError("El precio máximo es de $100,000 MXN");
   }
+
   return normalized;
 }
 
@@ -73,9 +86,11 @@ function readStock(stock: number | null | undefined): number | undefined {
   if (stock === undefined || stock === null) {
     return undefined;
   }
+
   if (!Number.isInteger(stock) || stock < 0) {
     throw new ConvexError("El inventario debe ser un entero mayor o igual a 0");
   }
+
   return stock;
 }
 
@@ -148,35 +163,45 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
     const product = await ctx.db.get(args.productId);
+
     if (!product) {
       throw new ConvexError("Producto no encontrado");
     }
+
     await requireOwnedBusiness(ctx, product.businessId, user._id);
 
     const patch: ProductPatch = { updatedAt: Date.now() };
+
     if (args.name !== undefined) {
       patch.name = readProductName(args.name);
     }
+
     if (args.description !== undefined) {
       patch.description = readOptionalText(args.description, 240, "La descripción");
     }
+
     if (args.priceCents !== undefined) {
       patch.priceCents = readPriceCents(args.priceCents);
     }
+
     if (args.sku !== undefined) {
       patch.sku = readOptionalText(args.sku, 40, "El SKU");
     }
+
     if (args.category !== undefined) {
       patch.category = readOptionalText(args.category, 40, "La categoría");
     }
+
     if (args.stock !== undefined) {
       patch.stock = readStock(args.stock);
     }
+
     if (args.active !== undefined) {
       patch.active = args.active;
     }
 
     await ctx.db.patch(product._id, patch);
+
     return { ok: true as const };
   },
 });
@@ -190,19 +215,23 @@ export const listByBusiness = query({
   },
   handler: async (ctx, args) => {
     const business = await ctx.db.get(args.businessId);
+
     if (!business) {
       return [];
     }
 
     const limit = Math.min(Math.max(Math.floor(args.limit ?? 50), 1), 100);
     let showInactive = false;
+
     if (args.includeInactive) {
       const identity = await ctx.auth.getUserIdentity();
+
       if (identity) {
         const viewer = await ctx.db
           .query("users")
           .withIndex("by_auth_user", (q) => q.eq("authUserId", identity.subject))
           .unique();
+
         showInactive = viewer?._id === business.ownerId;
       }
     }

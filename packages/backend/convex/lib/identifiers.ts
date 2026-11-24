@@ -3,6 +3,7 @@ export const HANDLE_PATTERN = /^[a-z0-9_]{3,20}$/;
 /** Genera un identificador público aleatorio en hex de 32 caracteres. */
 export function makePublicId(): string {
   const bytes = new Uint8Array(16);
+
   if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
     crypto.getRandomValues(bytes);
   } else {
@@ -10,6 +11,7 @@ export function makePublicId(): string {
       bytes[index] = Math.floor(Math.random() * 256);
     }
   }
+
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
@@ -26,6 +28,7 @@ export function normalizeHandle(value: string): string {
 /** Propone un handle legible a partir del nombre o correo. */
 export function handleBase(name?: string | null, email?: string | null): string {
   const source = name?.trim() || email?.split("@")[0] || "cozi";
+
   const base = normalizeHandle(source)
     .replaceAll(/_+/g, "_")
     .replaceAll(/^_+|_+$/g, "");

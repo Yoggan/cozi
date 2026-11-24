@@ -47,10 +47,12 @@ export function AccountsProvider({ children }: PropsWithChildren) {
   const activeSessionId = sessionData?.session?.id ?? null;
 
   const userIds = useMemo(() => sessions.map((item) => item.user.id), [sessions]);
+
   const summaries = useQuery(
     api.users.getAccountSummaries,
     userIds.length > 0 ? { authUserIds: userIds } : "skip",
   );
+
   const summaryByAuthId = useMemo(
     () => new Map((summaries ?? []).map((item) => [item.authUserId, item])),
     [summaries],
@@ -61,10 +63,12 @@ export function AccountsProvider({ children }: PropsWithChildren) {
   const personalSession = useMemo(() => {
     if (profile.accountType === "personal") {
       const active = sessions.find((item) => item.session.id === activeSessionId);
+
       if (active) {
         return active;
       }
     }
+
     return (
       sessions.find((item) => summaryByAuthId.get(item.user.id)?.accountType === "personal") ?? null
     );
@@ -74,9 +78,11 @@ export function AccountsProvider({ children }: PropsWithChildren) {
 
   const refresh = useCallback(async () => {
     const result = await authClient.multiSession.listDeviceSessions();
+
     if (!result.error) {
       setSessions(result.data ?? []);
     }
+
     setIsSessionsLoading(false);
   }, []);
 
@@ -84,14 +90,18 @@ export function AccountsProvider({ children }: PropsWithChildren) {
     let active = true;
     void (async () => {
       const result = await authClient.multiSession.listDeviceSessions();
+
       if (!active) {
         return;
       }
+
       if (!result.error) {
         setSessions(result.data ?? []);
       }
+
       setIsSessionsLoading(false);
     })();
+
     return () => {
       active = false;
     };
@@ -103,6 +113,7 @@ export function AccountsProvider({ children }: PropsWithChildren) {
         void refresh();
       }
     });
+
     return () => {
       subscription.remove();
     };
@@ -112,7 +123,9 @@ export function AccountsProvider({ children }: PropsWithChildren) {
     if (enforcedPersonal.current || !hasLoaded || isLoading) {
       return;
     }
+
     enforcedPersonal.current = true;
+
     if (
       profile.accountType === "business" &&
       personalSession &&
@@ -128,9 +141,11 @@ export function AccountsProvider({ children }: PropsWithChildren) {
   const isBusinessSession = useCallback(
     (sessionToken: string) => {
       const session = sessions.find((item) => item.session.token === sessionToken);
+
       if (!session) {
         return false;
       }
+
       return (summaryByAuthId.get(session.user.id)?.accountType ?? "business") === "business";
     },
     [sessions, summaryByAuthId],
@@ -139,16 +154,20 @@ export function AccountsProvider({ children }: PropsWithChildren) {
   const switchTo = useCallback(
     async (sessionToken: string): Promise<void> => {
       const target = sessions.find((item) => item.session.token === sessionToken);
+
       if (!target || target.session.id === activeSessionId) {
         return;
       }
 
       setIsSwitching(true);
+
       try {
         const result = await authClient.multiSession.setActive({ sessionToken });
+
         if (result.error) {
           throw new Error(result.error.message ?? "No pudimos cambiar de cuenta");
         }
+
         await refresh();
       } finally {
         setIsSwitching(false);
@@ -185,8 +204,10 @@ export function AccountsProvider({ children }: PropsWithChildren) {
 
 export function useAccounts() {
   const context = useContext(AccountsContext);
+
   if (!context) {
     throw new Error("useAccounts debe usarse dentro de AccountsProvider");
   }
+
   return context;
 }

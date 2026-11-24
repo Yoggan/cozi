@@ -16,15 +16,19 @@ export function ContactSuggestions({
 }) {
   const theme = usePaymentTheme();
   const normalized = query.trim().toLowerCase();
+
   const matches = contacts
     .filter((contact) => {
       if (contact.kind !== "user" || contact.handle === normalized) {
         return false;
       }
+
       if (normalized.length === 0) {
         return true;
       }
+
       const name = (contact.nickname ?? contact.displayName).toLowerCase();
+
       return contact.handle.startsWith(normalized) || name.includes(normalized);
     })
     .slice(0, 4);

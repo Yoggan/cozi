@@ -29,6 +29,7 @@ const orderItemInputValidator = v.object({
 
 async function getViewer(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
+
   if (!identity) {
     throw new ConvexError("Inicia sesión para continuar");
   }
@@ -37,6 +38,7 @@ async function getViewer(ctx: QueryCtx | MutationCtx) {
     .query("users")
     .withIndex("by_auth_user", (q) => q.eq("authUserId", identity.subject))
     .unique();
+
   if (!user) {
     throw new ConvexError("Completa tu perfil antes de continuar");
   }
@@ -51,6 +53,7 @@ async function getViewer(ctx: QueryCtx | MutationCtx) {
 
 async function resolveUserByHandle(ctx: MutationCtx, rawHandle: string) {
   const normalized = normalizeHandle(rawHandle);
+
   if (!HANDLE_PATTERN.test(normalized)) {
     throw new ConvexError("Escribe un @handle válido");
   }
@@ -59,11 +62,13 @@ async function resolveUserByHandle(ctx: MutationCtx, rawHandle: string) {
     .query("handles")
     .withIndex("by_handle", (q) => q.eq("handle", normalized))
     .unique();
+
   if (!handleDoc || handleDoc.ownerType !== "user" || !handleDoc.userId) {
     throw new ConvexError("No encontramos ese @handle");
   }
 
   const user = await ctx.db.get(handleDoc.userId);
+
   if (!user) {
     throw new ConvexError("No encontramos ese @handle");
   }
@@ -73,12 +78,15 @@ async function resolveUserByHandle(ctx: MutationCtx, rawHandle: string) {
 
 function cleanOptionalNote(note: string | undefined, maxLength = 140): string | undefined {
   const trimmed = note?.trim();
+
   if (!trimmed) {
     return undefined;
   }
+
   if (trimmed.length > maxLength) {
     throw new ConvexError(`La nota no puede pasar de ${maxLength} caracteres`);
   }
+
   return trimmed;
 }
 
@@ -102,38 +110,47 @@ export const createBusinessOrder = mutation({
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
     const business = await ctx.db.get(args.businessId);
+
     if (!business) {
       throw new ConvexError("Negocio no encontrado");
     }
+
     if (business.status !== "active" || !business.acceptingOrders) {
       throw new ConvexError("El negocio no está aceptando pedidos");
     }
 
     const isSeller = business.ownerId === viewer.user._id;
+
     if (args.items.length === 0) {
       throw new ConvexError("Agrega al menos un artículo a la orden");
     }
+
     if (args.items.length > MAX_ITEMS_PER_ORDER) {
       throw new ConvexError(`Máximo ${MAX_ITEMS_PER_ORDER} artículos por orden`);
     }
 
     let buyer: { user: Doc<"users">; handle: string | null } | null = null;
+
     if (isSeller) {
       if (args.buyerHandle) {
         const resolved = await resolveUserByHandle(ctx, args.buyerHandle);
+
         if (resolved.user._id === viewer.user._id) {
           throw new ConvexError("No puedes crearte una orden de negocio a ti mismo");
         }
+
         buyer = resolved;
       }
     } else {
       if (args.buyerHandle && normalizeHandle(args.buyerHandle) !== viewer.handle) {
         throw new ConvexError("Solo el negocio puede asignar otro comprador");
       }
+
       buyer = viewer;
     }
 
     const productQuantities = new Map<Id<"products">, number>();
+
     const snapshotItems: Array<{
       productId?: Id<"products">;
       name: string;
@@ -156,17 +173,21 @@ export const createBusinessOrder = mutation({
 
       if (rawItem.productId) {
         const product = await ctx.db.get(rawItem.productId);
+
         if (!product || product.businessId !== business._id) {
           throw new ConvexError("Producto no encontrado en este negocio");
         }
+
         if (!product.active) {
           throw new ConvexError(`El producto "${product.name}" no está disponible`);
         }
 
         const nextQty = (productQuantities.get(product._id) ?? 0) + rawItem.quantity;
+
         if (product.stock !== undefined && nextQty > product.stock) {
           throw new ConvexError(`No hay suficiente inventario para "${product.name}"`);
         }
+
         productQuantities.set(product._id, nextQty);
 
         snapshotItems.push({
@@ -181,11 +202,15 @@ export const createBusinessOrder = mutation({
         if (!isSeller) {
           throw new ConvexError("Solo el negocio puede agregar conceptos personalizados");
         }
+
         const name = rawItem.name?.trim() ?? "";
+
         if (name.length < 1 || name.length > 80) {
           throw new ConvexError("Escribe el nombre del concepto (1-80 caracteres)");
         }
+
         const unitPriceCents = rawItem.unitPriceCents;
+
         if (
           unitPriceCents === undefined ||
           !Number.isInteger(unitPriceCents) ||
@@ -208,28 +233,35 @@ export const createBusinessOrder = mutation({
     const subtotalCents = snapshotItems.reduce((sum, item) => sum + item.totalCents, 0);
 
     const discountCents = args.discountCents ?? 0;
+
     if (!Number.isInteger(discountCents) || discountCents < 0) {
       throw new ConvexError("El descuento debe ser un monto entero positivo");
     }
+
     if (discountCents > 0 && !isSeller) {
       throw new ConvexError("Solo el negocio puede aplicar descuentos");
     }
+
     if (discountCents >= subtotalCents) {
       throw new ConvexError("El descuento no puede igualar o superar el subtotal");
     }
 
     const tipCents = args.tipCents ?? 0;
+
     if (!Number.isInteger(tipCents) || tipCents < 0) {
       throw new ConvexError("La propina debe ser un monto entero positivo");
     }
+
     if (tipCents > 0 && !business.tipsEnabled) {
       throw new ConvexError("Este negocio no acepta propinas");
     }
 
     const totalCents = subtotalCents - discountCents + tipCents;
+
     if (totalCents < MIN_ORDER_CENTS) {
       throw new ConvexError("El monto mínimo de la orden es de $1 MXN");
     }
+
     if (totalCents > MAX_ORDER_CENTS) {
       throw new ConvexError("El monto máximo de la orden es de $100,000 MXN");
     }
@@ -279,6 +311,7 @@ export const getByPublicId = query({
   args: { publicId: v.string() },
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
+
     const order = await ctx.db
       .query("orders")
       .withIndex("by_public_id", (q) => q.eq("publicId", args.publicId))
@@ -290,6 +323,7 @@ export const getByPublicId = query({
 
     const isSeller = order.sellerId === viewer.user._id;
     const isBuyer = order.buyerId === viewer.user._id;
+
     if (!isSeller && !isBuyer) {
       return null;
     }
@@ -299,6 +333,7 @@ export const getByPublicId = query({
       .withIndex("by_order", (q) => q.eq("orderId", order._id))
       .order("desc")
       .first();
+
     const payment =
       order.status === "paid" || order.status === "fulfilled"
         ? latestPayment
@@ -306,6 +341,7 @@ export const getByPublicId = query({
 
     let businessSummary: { _id: Id<"businesses">; name: string; handle: string | null } | null =
       null;
+
     if (order.businessId) {
       const [business, businessHandle] = await Promise.all([
         ctx.db.get(order.businessId),
@@ -314,6 +350,7 @@ export const getByPublicId = query({
           .withIndex("by_business", (q) => q.eq("businessId", order.businessId))
           .first(),
       ]);
+
       if (business) {
         businessSummary = {
           _id: business._id,
@@ -327,6 +364,7 @@ export const getByPublicId = query({
       .query("billSplits")
       .withIndex("by_source_order", (q) => q.eq("sourceOrderId", order._id))
       .take(10);
+
     const activeSplit = splits.find((split) => split.status !== "cancelled") ?? null;
     const deadline = orderDeadline(order);
 
@@ -389,12 +427,14 @@ export const listBusinessOrders = query({
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
     const business = await ctx.db.get(args.businessId);
+
     if (!business || business.ownerId !== viewer.user._id) {
       throw new ConvexError("Negocio no encontrado");
     }
 
     const limit = Math.min(Math.max(Math.floor(args.limit ?? 20), 1), 50);
     const statusFilter = args.status;
+
     const rows =
       statusFilter && statusFilter !== "expired"
         ? await ctx.db
@@ -411,9 +451,11 @@ export const listBusinessOrders = query({
             .take(limit * 5);
 
     const now = Date.now();
+
     return rows
       .map((order) => {
         const deadline = orderDeadline(order);
+
         return {
           orderId: order._id,
           publicId: order.publicId,
@@ -440,12 +482,15 @@ export const fulfill = mutation({
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
     const order = await ctx.db.get(args.orderId);
+
     if (!order || !order.businessId || order.sellerId !== viewer.user._id) {
       throw new ConvexError("Orden no encontrada");
     }
+
     if (order.status === "fulfilled") {
       return { ok: true as const, status: "fulfilled" as const };
     }
+
     if (order.status !== "paid") {
       throw new ConvexError("Solo puedes completar órdenes que ya fueron pagadas");
     }
@@ -467,12 +512,15 @@ export const cancel = mutation({
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
     const order = await ctx.db.get(args.orderId);
+
     if (!order || (order.sellerId !== viewer.user._id && order.buyerId !== viewer.user._id)) {
       throw new ConvexError("Orden no encontrada");
     }
+
     if (order.status === "cancelled") {
       return { ok: true as const, status: "cancelled" as const };
     }
+
     if (order.status !== "draft" && order.status !== "awaiting_payment") {
       throw new ConvexError("No puedes cancelar una orden ya pagada o cerrada");
     }

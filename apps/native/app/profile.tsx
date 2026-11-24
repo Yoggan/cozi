@@ -79,6 +79,7 @@ export default function ProfileScreen() {
   const glass = isImmersive
     ? { backgroundColor: cardColor, borderColor: cardBorder, borderWidth: 1 }
     : undefined;
+
   const textPrimary = isImmersive ? { color: "#FFFFFF" } : undefined;
   const textSecondary = isImmersive ? { color: "rgba(255,255,255,0.70)" } : undefined;
   const iconMuted = isImmersive ? "rgba(255,255,255,0.70)" : muted;
@@ -91,12 +92,15 @@ export default function ProfileScreen() {
 
   async function handleLink() {
     const digits = accountNumber.replaceAll(/[\s-]/g, "");
+
     if (!digits) {
       toast.show({ variant: "danger", label: "Escribe el número de cuenta" });
+
       return;
     }
 
     setIsLinking(true);
+
     try {
       const result = await linkBankAccount({
         accountType,
@@ -104,8 +108,10 @@ export default function ProfileScreen() {
         holderName: holderName.trim(),
         setDefault: true,
       });
+
       setAccountNumber("");
       setShowForm(false);
+
       if (result.status === "pending") {
         router.push({
           pathname: "/bank-account-status",

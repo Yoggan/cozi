@@ -20,9 +20,11 @@ export async function clearPendingAccountType() {
 export async function consumePendingAccountType(): Promise<AccountType> {
   try {
     const value = await getItemAsync(PENDING_ACCOUNT_TYPE_KEY);
+
     if (value === "business") {
       return "business";
     }
+
     return "personal";
   } catch {
     return "personal";

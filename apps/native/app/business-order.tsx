@@ -71,10 +71,12 @@ export default function BusinessOrderScreen() {
   const { toast } = useToast();
   const createBusinessOrder = useMutation(api.orders.createBusinessOrder);
   const createPaymentLink = useAction(api.pey.actions.createPaymentLink);
+
   const products = useQuery(
     api.products.listByBusiness,
     business ? { businessId: business._id } : "skip",
   );
+
   const businessProfile = useQuery(
     api.businesses.getByHandle,
     business?.handle ? { handle: business.handle } : "skip",
@@ -87,17 +89,21 @@ export default function BusinessOrderScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const selected = (products ?? []).filter((product) => (quantities[product._id] ?? 0) > 0);
+
   const subtotalCents = selected.reduce(
     (sum, product) => sum + product.priceCents * (quantities[product._id] ?? 0),
     0,
   );
+
   const tipCents = tipText.trim() ? parseAmountToCents(tipText) : 0;
   const totalCents = subtotalCents + (tipCents ?? 0);
+
   const orderBlocked =
     businessProfile !== undefined &&
     (businessProfile === null ||
       businessProfile.status !== "active" ||
       !businessProfile.acceptingOrders);
+
   const canSubmit =
     selected.length > 0 &&
     subtotalCents >= 100 &&
@@ -116,6 +122,7 @@ export default function BusinessOrderScreen() {
     setQuantities((current) => {
       const next = Math.max(0, (current[productId] ?? 0) + delta);
       const capped = stock === null ? next : Math.min(next, stock);
+
       return { ...current, [productId]: capped };
     });
   }
@@ -131,6 +138,7 @@ export default function BusinessOrderScreen() {
     }));
 
     setIsSubmitting(true);
+
     try {
       const order = await createBusinessOrder({
         businessId: business._id,

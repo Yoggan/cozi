@@ -9,6 +9,7 @@ import { routeTree } from "./routeTree.gen";
 
 export function getRouter() {
   const convexUrl = ENV.VITE_CONVEX_URL;
+
   if (!convexUrl) {
     throw new Error("VITE_CONVEX_URL is not set");
   }
@@ -23,6 +24,7 @@ export function getRouter() {
       },
     },
   });
+
   convexQueryClient.connect(queryClient);
 
   const router = createTanStackRouter({

@@ -27,12 +27,15 @@ async function settlePayment(
   if (status === "pending" || status === "processing") {
     return;
   }
+
   if (payment.status === status) {
     return;
   }
+
   if (payment.status === "refunded") {
     return;
   }
+
   if (payment.status === "succeeded" && status !== "refunded") {
     return;
   }
@@ -62,9 +65,11 @@ async function settlePayment(
       updatedAt: now,
     });
     await decrementInventory(ctx, order);
+
     if (order.billSplitId) {
       await reconcileBillSplit(ctx, order.billSplitId, options.paidAt ?? now);
     }
+
     return;
   }
 
@@ -84,6 +89,7 @@ async function settlePayment(
 
 async function reconcileBillSplit(ctx: MutationCtx, billSplitId: Id<"billSplits">, now: number) {
   const split = await ctx.db.get(billSplitId);
+
   if (!split || split.status === "cancelled") {
     return;
   }
@@ -96,6 +102,7 @@ async function reconcileBillSplit(ctx: MutationCtx, billSplitId: Id<"billSplits"
   const paidOrders = shareOrders.filter(
     (item) => item.status === "paid" || item.status === "fulfilled",
   );
+
   const paidParticipantCount = paidOrders.length;
   const collectedCents = paidOrders.reduce((sum, item) => sum + item.totalCents, 0);
 
@@ -122,9 +129,11 @@ async function decrementInventory(ctx: MutationCtx, order: Doc<"orders">) {
     }
 
     const product = await ctx.db.get(item.productId);
+
     if (!product || product.stock === undefined) {
       continue;
     }
+
     if (product.businessId !== order.businessId) {
       continue;
     }
@@ -149,15 +158,19 @@ export const beginPayment = internalMutation({
   },
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
+
     if (!order) {
       throw new ConvexError("Orden no encontrada");
     }
+
     if (order.totalCents !== args.amountCents) {
       throw new ConvexError("El monto no coincide con la orden");
     }
+
     if (!Number.isInteger(args.amountCents) || args.amountCents <= 0) {
       throw new ConvexError("Monto inválido");
     }
+
     if (order.status !== "draft" && order.status !== "awaiting_payment") {
       throw new ConvexError("La orden no está abierta para cobro");
     }
@@ -166,16 +179,19 @@ export const beginPayment = internalMutation({
       .query("payments")
       .withIndex("by_attempt_id", (q) => q.eq("attemptId", args.attemptId))
       .unique();
+
     if (byAttempt) {
       return { existing: true, payment: byAttempt };
     }
 
     const active = await findActivePayment(ctx.db, args.orderId);
+
     if (active) {
       return { existing: true, payment: active };
     }
 
     const now = Date.now();
+
     const paymentId = await ctx.db.insert("payments", {
       orderId: args.orderId,
       businessId: order.businessId,
@@ -195,6 +211,7 @@ export const beginPayment = internalMutation({
     });
 
     const payment = await ctx.db.get(paymentId);
+
     if (!payment) {
       throw new Error("No se pudo crear el intento de pago");
     }
@@ -220,9 +237,11 @@ export const attachProvider = internalMutation({
   },
   handler: async (ctx, args) => {
     const payment = await ctx.db.get(args.paymentId);
+
     if (!payment) {
       throw new ConvexError("Pago no encontrado");
     }
+
     if (payment.status === "succeeded" || payment.status === "refunded") {
       return payment;
     }
@@ -243,6 +262,7 @@ export const attachProvider = internalMutation({
     });
 
     const updated = await ctx.db.get(payment._id);
+
     if (!updated) {
       throw new Error("No se pudo actualizar el pago");
     }
@@ -250,9 +270,11 @@ export const attachProvider = internalMutation({
     if (args.status !== "pending" && args.status !== "processing") {
       await settlePayment(ctx, updated, args.status);
       const settled = await ctx.db.get(payment._id);
+
       if (!settled) {
         throw new Error("No se pudo conciliar el pago");
       }
+
       return settled;
     }
 
@@ -268,6 +290,7 @@ export const setOrderExpiry = internalMutation({
   },
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
+
     if (
       !order ||
       order.status === "paid" ||
@@ -276,6 +299,7 @@ export const setOrderExpiry = internalMutation({
     ) {
       return;
     }
+
     await ctx.db.patch(order._id, {
       expiresAt: args.expiresAt,
       updatedAt: Date.now(),
@@ -291,9 +315,11 @@ export const failPayment = internalMutation({
   },
   handler: async (ctx, args) => {
     const payment = await ctx.db.get(args.paymentId);
+
     if (!payment) {
       throw new ConvexError("Pago no encontrado");
     }
+
     if (payment.status === "succeeded" || payment.status === "refunded") {
       return { paymentId: payment._id };
     }
@@ -306,6 +332,7 @@ export const failPayment = internalMutation({
     });
 
     const order = await ctx.db.get(payment.orderId);
+
     if (
       order?.paymentId === payment._id &&
       (order.status === "awaiting_payment" || order.status === "draft")
@@ -332,6 +359,7 @@ export const applyProviderStatus = internalMutation({
   },
   handler: async (ctx, args) => {
     const payment = await ctx.db.get(args.paymentId);
+
     if (!payment) {
       throw new ConvexError("Pago no encontrado");
     }
@@ -346,6 +374,7 @@ export const applyProviderStatus = internalMutation({
     });
 
     const updated = await ctx.db.get(payment._id);
+
     return { paymentId: payment._id, status: updated?.status ?? args.status };
   },
 });
@@ -368,6 +397,7 @@ export const saveBankAccount = internalMutation({
   handler: async (ctx, args) => {
     if (args.businessId) {
       const business = await ctx.db.get(args.businessId);
+
       if (!business || business.ownerId !== args.userId) {
         throw new ConvexError("No tienes acceso a este negocio");
       }
@@ -377,10 +407,12 @@ export const saveBankAccount = internalMutation({
       .query("bankAccounts")
       .withIndex("by_pey_account", (q) => q.eq("peyBankAccountId", args.peyBankAccountId))
       .first();
+
     if (existing) {
       if (existing.userId !== args.userId) {
         throw new ConvexError("Esta cuenta ya está vinculada a otro usuario");
       }
+
       return { bankAccountId: existing._id };
     }
 
@@ -397,6 +429,7 @@ export const saveBankAccount = internalMutation({
     const accounts = args.businessId
       ? allAccounts
       : allAccounts.filter((account) => account.businessId === undefined);
+
     const makeDefault = args.setDefault ?? accounts.length === 0;
     const now = Date.now();
 
@@ -482,6 +515,7 @@ async function findPaymentByReferences(db: DatabaseReader, references: Array<str
       .query("payments")
       .withIndex("by_pey_reference", (q) => q.eq("peyReference", reference))
       .first();
+
     if (byReference) {
       return byReference;
     }
@@ -490,6 +524,7 @@ async function findPaymentByReferences(db: DatabaseReader, references: Array<str
       .query("payments")
       .withIndex("by_pey_payment_id", (q) => q.eq("peyPaymentId", reference))
       .first();
+
     if (byPaymentId) {
       return byPaymentId;
     }
@@ -498,6 +533,7 @@ async function findPaymentByReferences(db: DatabaseReader, references: Array<str
       .query("payments")
       .withIndex("by_pey_link_id", (q) => q.eq("peyPaymentLinkId", reference))
       .first();
+
     if (byLinkId) {
       return byLinkId;
     }
@@ -506,6 +542,7 @@ async function findPaymentByReferences(db: DatabaseReader, references: Array<str
       .query("payments")
       .withIndex("by_pey_codi_id", (q) => q.eq("peyCodiId", reference))
       .first();
+
     if (byCodiId) {
       return byCodiId;
     }
@@ -514,6 +551,7 @@ async function findPaymentByReferences(db: DatabaseReader, references: Array<str
       .query("payments")
       .withIndex("by_pey_transaction_id", (q) => q.eq("peyTransactionId", reference))
       .first();
+
     if (byTransactionId) {
       return byTransactionId;
     }
@@ -524,18 +562,22 @@ async function findPaymentByReferences(db: DatabaseReader, references: Array<str
       .query("orders")
       .withIndex("by_public_id", (q) => q.eq("publicId", reference))
       .unique();
+
     if (order) {
       if (order.paymentId) {
         const payment = await db.get(order.paymentId);
+
         if (payment) {
           return payment;
         }
       }
+
       const latest = await db
         .query("payments")
         .withIndex("by_order", (q) => q.eq("orderId", order._id))
         .order("desc")
         .first();
+
       if (latest) {
         return latest;
       }
@@ -561,6 +603,7 @@ export const ingestWebhookEvent = internalMutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
+
     const existing = await ctx.db
       .query("peyWebhookEvents")
       .withIndex("by_event_id", (q) => q.eq("eventId", args.eventId))
@@ -571,6 +614,7 @@ export const ingestWebhookEvent = internalMutation({
     }
 
     let eventDocumentId: Id<"peyWebhookEvents">;
+
     if (existing) {
       await ctx.db.patch(existing._id, {
         type: args.type,
@@ -600,6 +644,7 @@ export const ingestWebhookEvent = internalMutation({
         error: "event_without_payment_status",
         processedAt: now,
       });
+
       return { outcome: "ignored" as const };
     }
 
@@ -609,15 +654,18 @@ export const ingestWebhookEvent = internalMutation({
         error: "missing_reference",
         processedAt: now,
       });
+
       return { outcome: "ignored" as const };
     }
 
     const payment = await findPaymentByReferences(ctx.db, args.references);
+
     if (!payment) {
       // La acción pudo no haber guardado aún las referencias. Pey reintenta.
       await ctx.db.patch(eventDocumentId, {
         error: "payment_not_found",
       });
+
       return { outcome: "retry" as const };
     }
 
@@ -631,6 +679,7 @@ export const ingestWebhookEvent = internalMutation({
         error: "amount_mismatch",
         processedAt: now,
       });
+
       return { outcome: "mismatch" as const };
     }
 
@@ -644,6 +693,7 @@ export const ingestWebhookEvent = internalMutation({
         error: "currency_mismatch",
         processedAt: now,
       });
+
       return { outcome: "mismatch" as const };
     }
 
@@ -654,6 +704,7 @@ export const ingestWebhookEvent = internalMutation({
       error: undefined,
       processedAt: now,
     });
+
     return { outcome: "processed" as const };
   },
 });

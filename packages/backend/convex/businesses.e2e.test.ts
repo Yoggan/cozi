@@ -13,6 +13,7 @@ describe("E2E: Business receiving accounts and catalog", () => {
       email: "renata@cafeorigen.mx",
       handle: "renata_origen",
     });
+
     const stranger = await createUser(t, {
       subject: "auth_stranger_cafe_origen",
       name: "Pablo Núñez",
@@ -78,6 +79,7 @@ describe("E2E: Business receiving accounts and catalog", () => {
       businessId: shop.businessId,
       includeInactive: true,
     });
+
     expect(menu[0]?.stock).toBeNull();
   });
 });

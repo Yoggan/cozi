@@ -28,11 +28,13 @@ export function BusinessOnboarding({ businessAccount = false }: { businessAccoun
   const glass = isImmersive
     ? { backgroundColor: cardColor, borderColor: cardBorder, borderWidth: 1 }
     : undefined;
+
   const textPrimary = isImmersive ? { color: "#FFFFFF" } : undefined;
   const textSecondary = isImmersive ? { color: "rgba(255,255,255,0.70)" } : undefined;
 
   function handleNameChange(value: string) {
     setName(value);
+
     if (!handleEdited) {
       setHandle(value.trim() ? handleBase(value) : "");
     }
@@ -41,10 +43,12 @@ export function BusinessOnboarding({ businessAccount = false }: { businessAccoun
   async function handleCreate() {
     if (name.trim().length < 2) {
       toast.show({ variant: "danger", label: "Escribe el nombre de tu negocio" });
+
       return;
     }
 
     setIsCreating(true);
+
     try {
       await createBusiness({
         name: name.trim(),

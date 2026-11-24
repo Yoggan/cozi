@@ -108,6 +108,7 @@ export function AuthSubmitButton({
   onPress: () => void;
 }) {
   const scale = useSharedValue(1);
+
   const pressStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));

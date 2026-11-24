@@ -51,17 +51,21 @@ function effectiveStatus(item: ActivityItem): string {
   ) {
     return "expired";
   }
+
   return item.status;
 }
 
 function activityVerb(item: ActivityItem, status: string): string {
   const pending = status === "draft" || status === "awaiting_payment";
+
   if (item.kind === "request") {
     return item.direction === "in" ? "Cobro" : "Pago";
   }
+
   if (item.direction === "in") {
     return pending ? "Te quiere enviar" : "Te envió";
   }
+
   return "Enviaste";
 }
 
@@ -73,6 +77,7 @@ export function ActivityRow({ item, onPress }: { item: ActivityItem; onPress?: (
   const status = effectiveStatus(item);
   const pending = status === "draft" || status === "awaiting_payment";
   const verb = activityVerb(item, status);
+
   const dateLabel =
     pending || status === "expired"
       ? item.expiresAt !== null && item.expiresAt > 0

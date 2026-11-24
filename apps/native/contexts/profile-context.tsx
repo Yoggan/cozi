@@ -45,6 +45,7 @@ export function ProfileProvider({ children }: PropsWithChildren) {
   const runEnsure = useCallback(async () => {
     setError(null);
     setEnsuring(true);
+
     try {
       const accountType = await consumePendingAccountType();
       await ensureProfile({ accountType });
@@ -58,11 +59,14 @@ export function ProfileProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (!isAuthenticated) {
       attempted.current = false;
+
       return;
     }
+
     if (me !== null || attempted.current) {
       return;
     }
+
     attempted.current = true;
     void runEnsure();
   }, [isAuthenticated, me, runEnsure]);
@@ -70,6 +74,7 @@ export function ProfileProvider({ children }: PropsWithChildren) {
   if (!isAuthenticated) {
     return <>{children}</>;
   }
+
   if (me) {
     return <ProfileContext.Provider value={me}>{children}</ProfileContext.Provider>;
   }
@@ -96,8 +101,10 @@ export function ProfileProvider({ children }: PropsWithChildren) {
 
 export function useProfile(): Profile {
   const value = useContext(ProfileContext);
+
   if (!value) {
     throw new Error("useProfile debe usarse dentro de ProfileProvider");
   }
+
   return value;
 }

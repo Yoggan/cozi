@@ -41,9 +41,11 @@ function getRecipientStatus(
   if (cleanHandle.length < 3 || lookup === undefined) {
     return null;
   }
+
   if (lookup === null) {
     return { tone: "danger", icon: "alert-circle", label: "No encontramos ese @handle" };
   }
+
   if (lookup.isSelf) {
     return {
       tone: "warning",
@@ -51,6 +53,7 @@ function getRecipientStatus(
       label: "Ese eres tú. Escribe otro @handle.",
     };
   }
+
   if (!lookup.canReceive) {
     return {
       tone: "danger",
@@ -58,6 +61,7 @@ function getRecipientStatus(
       label: `${lookup.displayName} aún no puede recibir pagos`,
     };
   }
+
   return {
     tone: "success",
     icon: "checkmark-circle",
@@ -67,6 +71,7 @@ function getRecipientStatus(
 
 function RecipientBadge({ status }: { status: RecipientStatus }) {
   const theme = usePaymentTheme();
+
   const palette = {
     success: { fill: theme.successFill, border: theme.successBorder, text: theme.successText },
     warning: { fill: theme.warningFill, border: theme.warningBorder, text: theme.warningText },
@@ -119,13 +124,16 @@ export default function SendScreen() {
 
   const amountCents = parseAmountToCents(amountText);
   const cleanRecipient = recipient.replace(/^@/, "").replaceAll(/\s/g, "").toLowerCase();
+
   const recipientLookup = useQuery(
     api.users.findByHandle,
     cleanRecipient.length >= 3 ? { handle: cleanRecipient } : "skip",
   );
+
   const status = getRecipientStatus(cleanRecipient, recipientLookup);
   const savedContact = contactData?.saved.find((contact) => contact.handle === cleanRecipient);
   const showSuggestions = handleFocused && !suppressSuggestions && contacts.length > 0;
+
   const canSubmit =
     Boolean(recipientLookup?.canReceive) &&
     !recipientLookup?.isSelf &&
@@ -149,6 +157,7 @@ export default function SendScreen() {
     }
 
     setIsSavingContact(true);
+
     try {
       await saveContact({ handle: cleanRecipient });
       toast.show({ variant: "success", label: "Contacto guardado" });
@@ -168,6 +177,7 @@ export default function SendScreen() {
     }
 
     setIsSubmitting(true);
+
     try {
       const order = await createTransfer({
         recipientHandle: cleanRecipient,

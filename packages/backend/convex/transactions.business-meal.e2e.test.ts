@@ -47,6 +47,7 @@ describe("E2E: User paying a meal business", () => {
     const directoryView = await diner.client.query(api.businesses.getByHandle, {
       handle: "@taqueria_el_sol",
     });
+
     expect(directoryView).not.toBeNull();
     expect(directoryView?.name).toBe("Taquería El Sol");
     expect(directoryView?.hasReceivingAccount).toBe(true);
@@ -81,6 +82,7 @@ describe("E2E: User paying a meal business", () => {
       orderId: createdOrder.orderId,
       method: "qr",
     });
+
     expect(charge.method).toBe("codi_qr");
     expect(charge.status).toBe("pending");
     expect(charge.amountCents).toBe(36_300);
@@ -91,12 +93,14 @@ describe("E2E: User paying a meal business", () => {
       orderId: createdOrder.orderId,
       method: "qr",
     });
+
     expect(reusedCharge.paymentId).toBe(charge.paymentId);
     expect(reusedCharge.reused).toBe(true);
 
     const pendingOrder = await diner.client.query(api.orders.getByPublicId, {
       publicId: createdOrder.publicId,
     });
+
     expect(pendingOrder?.status).toBe("awaiting_payment");
     expect(pendingOrder?.payment?.peyReference).toBeTruthy();
     const codiQrId = pendingOrder?.payment?.peyReference ?? "";
@@ -112,6 +116,7 @@ describe("E2E: User paying a meal business", () => {
         status: "paid",
       },
     });
+
     expect(webhookRes.status).toBe(200);
     expect(webhookRes.body).toEqual({ ok: true, outcome: "processed" });
 
@@ -119,6 +124,7 @@ describe("E2E: User paying a meal business", () => {
     const paidOrder = await diner.client.query(api.orders.getByPublicId, {
       publicId: createdOrder.publicId,
     });
+
     expect(paidOrder?.status).toBe("paid");
     expect(paidOrder?.paidAt).not.toBeNull();
     expect(paidOrder?.payment?.status).toBe("succeeded");
@@ -126,6 +132,7 @@ describe("E2E: User paying a meal business", () => {
     const updatedMenu = await diner.client.query(api.products.listByBusiness, {
       businessId: taqueria.businessId,
     });
+
     expect(updatedMenu.find((p) => p._id === tacos.productId)?.stock).toBe(8);
     expect(updatedMenu.find((p) => p._id === horchata.productId)?.stock).toBe(3);
 
@@ -144,12 +151,14 @@ describe("E2E: User paying a meal business", () => {
       },
       { webhookId: webhookRes.webhookId },
     );
+
     expect(duplicateRes.status).toBe(200);
     expect(duplicateRes.body).toEqual({ ok: true, outcome: "duplicate" });
 
     const menuAfterDup = await diner.client.query(api.products.listByBusiness, {
       businessId: taqueria.businessId,
     });
+
     expect(menuAfterDup.find((p) => p._id === tacos.productId)?.stock).toBe(8);
 
     // 8. La actividad del usuario muestra el nombre y @handle del negocio, no el personal del dueño.
@@ -164,17 +173,20 @@ describe("E2E: User paying a meal business", () => {
       businessId: taqueria.businessId,
       status: "paid",
     });
+
     expect(businessOrders).toHaveLength(1);
     expect(businessOrders[0]?.orderId).toBe(createdOrder.orderId);
 
     const fulfilled = await owner.client.mutation(api.orders.fulfill, {
       orderId: createdOrder.orderId,
     });
+
     expect(fulfilled.status).toBe("fulfilled");
 
     const finalOrder = await diner.client.query(api.orders.getByPublicId, {
       publicId: createdOrder.publicId,
     });
+
     expect(finalOrder?.status).toBe("fulfilled");
     expect(finalOrder?.fulfilledAt).not.toBeNull();
   });
@@ -188,6 +200,7 @@ describe("E2E: User paying a meal business", () => {
       email: "sofia@bistromx.com",
       handle: "sofia_bistro",
     });
+
     const diner = await createUser(t, {
       subject: "auth_diner_beto",
       name: "Beto García",
@@ -212,6 +225,7 @@ describe("E2E: User paying a meal business", () => {
       discountCents: 2000,
       note: "Descuento cliente frecuente",
     });
+
     expect(order.subtotalCents).toBe(18_000);
     expect(order.discountCents).toBe(2000);
     expect(order.totalCents).toBe(16_000);
@@ -221,6 +235,7 @@ describe("E2E: User paying a meal business", () => {
       orderId: order.orderId,
       expiresInMinutes: 60,
     });
+
     expect(link.method).toBe("payment_link");
     expect(link.checkoutUrl).toContain(`/pay/${order.publicId}`);
 
@@ -228,11 +243,13 @@ describe("E2E: User paying a meal business", () => {
     const refreshed = await diner.client.action(api.pey.actions.refreshPayment, {
       paymentId: link.paymentId,
     });
+
     expect(refreshed.status).toBe("succeeded");
 
     const settledOrder = await diner.client.query(api.orders.getByPublicId, {
       publicId: order.publicId,
     });
+
     expect(settledOrder?.status).toBe("paid");
     expect(settledOrder?.totalCents).toBe(16_000);
   });
@@ -246,6 +263,7 @@ describe("E2E: User paying a meal business", () => {
       email: "luis@cafeluz.mx",
       handle: "luis_cafe",
     });
+
     const diner = await createUser(t, {
       subject: "auth_diner_clara",
       name: "Clara Díaz",
@@ -264,6 +282,7 @@ describe("E2E: User paying a meal business", () => {
       businessId: cafe.businessId,
       items: [{ productId: cafe.products[0].productId, quantity: 1 }],
     });
+
     await diner.client.action(api.pey.actions.createCodiCharge, {
       orderId: order.orderId,
       method: "qr",
@@ -272,6 +291,7 @@ describe("E2E: User paying a meal business", () => {
     const pending = await diner.client.query(api.orders.getByPublicId, {
       publicId: order.publicId,
     });
+
     const ref = pending?.payment?.peyReference ?? "";
 
     // Firma inválida -> 401.
@@ -283,6 +303,7 @@ describe("E2E: User paying a meal business", () => {
       },
       { overrideSignature: "v1,aW52YWxpZF9zaWduYXR1cmU=" },
     );
+
     expect(badSig.status).toBe(401);
 
     // Firma válida pero monto distinto ($100 en vez de $145) -> mismatch, orden sigue sin pagarse.
@@ -290,17 +311,20 @@ describe("E2E: User paying a meal business", () => {
       type: "codi.qr.payment_received",
       data: { codiQrId: ref, amount: 100, currency: "MXN" },
     });
+
     expect(mismatch.status).toBe(200);
     expect(mismatch.body).toEqual({ ok: false, outcome: "mismatch" });
 
     const stillPending = await diner.client.query(api.orders.getByPublicId, {
       publicId: order.publicId,
     });
+
     expect(stillPending?.status).toBe("awaiting_payment");
 
     const products = await diner.client.query(api.products.listByBusiness, {
       businessId: cafe.businessId,
     });
+
     expect(products[0]?.stock).toBe(4);
   });
 
@@ -313,12 +337,14 @@ describe("E2E: User paying a meal business", () => {
       email: "elena@cocinaverde.mx",
       handle: "elena_cocina",
     });
+
     const buyer = await createUser(t, {
       subject: "auth_buyer_guard",
       name: "Diego Ramos",
       email: "diego@gmail.com",
       handle: "diego_ramos",
     });
+
     const stranger = await createUser(t, {
       subject: "auth_stranger_guard",
       name: "Marco Silva",
@@ -334,6 +360,7 @@ describe("E2E: User paying a meal business", () => {
       acceptingOrders: false,
       menu: [{ name: "Ensalada César", priceCents: 13_000, stock: 2 }],
     });
+
     const salad = kitchen.products[0];
 
     // No acepta pedidos todavía.
@@ -400,6 +427,7 @@ describe("E2E: User paying a meal business", () => {
     const strangerView = await stranger.client.query(api.orders.getByPublicId, {
       publicId: order.publicId,
     });
+
     expect(strangerView).toBeNull();
 
     await expect(
@@ -412,6 +440,7 @@ describe("E2E: User paying a meal business", () => {
     const cancelled = await buyer.client.mutation(api.orders.cancel, {
       orderId: order.orderId,
     });
+
     expect(cancelled.status).toBe("cancelled");
 
     await expect(

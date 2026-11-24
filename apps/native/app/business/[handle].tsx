@@ -22,6 +22,7 @@ type BadgeTone = "success" | "warning" | "neutral";
 
 function Badge({ label, tone }: { label: string; tone: BadgeTone }) {
   const theme = usePaymentTheme();
+
   const palette =
     tone === "success"
       ? { fill: theme.successFill, border: theme.successBorder, text: theme.successText }
@@ -57,6 +58,7 @@ function QuantityControl({
   onChange: (quantity: number) => void;
 }) {
   const theme = usePaymentTheme();
+
   const pill = {
     backgroundColor: theme.pillFill,
     borderColor: theme.pillBorder,
@@ -215,14 +217,18 @@ export default function BusinessProfileScreen() {
   }
 
   const current = business;
+
   const selected = current.products.flatMap((product) => {
     const quantity = quantities[product._id] ?? 0;
+
     return quantity > 0 ? [{ product, quantity }] : [];
   });
+
   const subtotalCents = selected.reduce(
     (sum, item) => sum + item.product.priceCents * item.quantity,
     0,
   );
+
   const tipCents = Math.round((subtotalCents * tipPercent) / 100);
   const totalCents = subtotalCents + tipCents;
 
@@ -234,6 +240,7 @@ export default function BusinessProfileScreen() {
         : !current.hasReceivingAccount
           ? "Este negocio aún no puede recibir pagos en Cozi."
           : null;
+
   const canOrder = availabilityMessage === null;
 
   async function handleSubmit() {
@@ -242,6 +249,7 @@ export default function BusinessProfileScreen() {
     }
 
     setIsSubmitting(true);
+
     try {
       const order = await createBusinessOrder({
         businessId: current._id,
@@ -278,6 +286,7 @@ export default function BusinessProfileScreen() {
 
   async function handleOpenThread() {
     setIsOpeningThread(true);
+
     try {
       const { threadId } = await openBusinessThread({ businessId: current._id });
       router.push({ pathname: "/messages/[threadId]", params: { threadId } });
@@ -450,6 +459,7 @@ export default function BusinessProfileScreen() {
                     product.stock === null
                       ? MAX_ITEM_QUANTITY
                       : Math.min(product.stock, MAX_ITEM_QUANTITY);
+
                   const soldOut = product.stock === 0;
                   const quantity = quantities[product._id] ?? 0;
 

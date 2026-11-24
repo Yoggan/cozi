@@ -13,9 +13,11 @@ import type { PaymentHandle } from "./types";
 
 async function getAuthUserId(ctx: ActionCtx): Promise<string> {
   const identity = await ctx.auth.getUserIdentity();
+
   if (!identity) {
     throw new ConvexError("Inicia sesión para continuar");
   }
+
   return identity.subject;
 }
 
@@ -28,6 +30,7 @@ async function loadChargeContext(ctx: ActionCtx, orderId: Id<"orders">) {
 
 function chargeDescription(order: Doc<"orders">, business: Doc<"businesses"> | null): string {
   const reference = order.publicId.slice(0, 8).toUpperCase();
+
   return business ? `${business.name} · ${reference}` : `Cozi P2P · ${reference}`;
 }
 
@@ -61,11 +64,13 @@ export const createCodiCharge = action({
     }
 
     const data = await loadChargeContext(ctx, args.orderId);
+
     if (data.activePayment) {
       return toHandle(data.activePayment, true);
     }
 
     const bankAccountId = data.bankAccount.peyBankAccountId;
+
     if (!bankAccountId) {
       throw new ConvexError("La cuenta receptora aún no está registrada en Pey");
     }
@@ -76,6 +81,7 @@ export const createCodiCharge = action({
       attemptId: crypto.randomUUID(),
       amountCents: data.order.totalCents,
     });
+
     if (started.existing) {
       return toHandle(started.payment, true);
     }
@@ -124,15 +130,18 @@ export const createPaymentLink = action({
     const orderExpiresAt = expiryFromMinutes(args.expiresInMinutes, Date.now());
 
     const data = await loadChargeContext(ctx, args.orderId);
+
     if (data.activePayment) {
       await ctx.runMutation(internal.pey.mutations.setOrderExpiry, {
         orderId: args.orderId,
         expiresAt: orderExpiresAt,
       });
+
       return toHandle(data.activePayment, true);
     }
 
     const bankAccountId = data.bankAccount.peyBankAccountId;
+
     if (!bankAccountId) {
       throw new ConvexError("La cuenta receptora aún no está registrada en Pey");
     }
@@ -143,6 +152,7 @@ export const createPaymentLink = action({
       attemptId: crypto.randomUUID(),
       amountCents: data.order.totalCents,
     });
+
     if (started.existing) {
       return toHandle(started.payment, true);
     }
@@ -166,6 +176,7 @@ export const createPaymentLink = action({
         checkoutUrl: link.url,
         expiresAt: link.expiresAt,
       });
+
       await ctx.runMutation(internal.pey.mutations.setOrderExpiry, {
         orderId: args.orderId,
         expiresAt: orderExpiresAt,
@@ -203,6 +214,7 @@ export const refreshPayment = action({
       console.error("Error consultando pago en Pey", error);
       throw new ConvexError("No se pudo consultar el pago con Pey");
     });
+
     const result = await ctx.runMutation(internal.pey.mutations.applyProviderStatus, {
       paymentId: payment._id,
       status: remote.status,
@@ -239,17 +251,21 @@ export const linkBankAccount = action({
     providerStatus: string | null;
   }> => {
     const digits = args.accountNumber.replaceAll(/[\s-]/g, "");
+
     if (!/^\d+$/.test(digits)) {
       throw new ConvexError("El número de cuenta solo debe contener dígitos");
     }
+
     if (args.accountType === "clabe" && digits.length !== 18) {
       throw new ConvexError("La CLABE debe tener 18 dígitos");
     }
+
     if (args.accountType === "card" && (digits.length < 15 || digits.length > 19)) {
       throw new ConvexError("El número de tarjeta no es válido");
     }
 
     const holderName = args.holderName.trim();
+
     if (holderName.length < 3) {
       throw new ConvexError("Escribe el nombre del titular");
     }
@@ -257,6 +273,7 @@ export const linkBankAccount = action({
     const viewer = await ctx.runQuery(internal.pey.queries.getViewer, {
       authUserId: await getAuthUserId(ctx),
     });
+
     if (!viewer) {
       throw new ConvexError("Completa tu perfil antes de vincular una cuenta");
     }
@@ -266,6 +283,7 @@ export const linkBankAccount = action({
         businessId: args.businessId,
         ownerId: viewer._id,
       });
+
       if (!business) {
         throw new ConvexError("No tienes acceso a este negocio");
       }

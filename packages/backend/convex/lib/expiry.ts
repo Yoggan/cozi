@@ -6,6 +6,7 @@ import type { OrderStatus } from "../schema";
 // y un pago tardío todavía se concilia. Migrar a CoDi QR o a soporte de Pey.
 export const DEFAULT_EXPIRY_MINUTES = 24 * 60;
 export const MAX_EXPIRY_MINUTES = 7 * 24 * 60;
+
 /** Guardado en `orders.expiresAt` para los cobros que no vencen. */
 export const NEVER_EXPIRES = 0;
 
@@ -14,12 +15,15 @@ export function expiryFromMinutes(minutes: number | undefined, now: number): num
   if (minutes === undefined) {
     return now + DEFAULT_EXPIRY_MINUTES * 60 * 1000;
   }
+
   if (minutes === 0) {
     return NEVER_EXPIRES;
   }
+
   if (!Number.isFinite(minutes) || minutes < 5 || minutes > MAX_EXPIRY_MINUTES) {
     throw new ConvexError("La vigencia del cobro debe estar entre 5 minutos y 7 días");
   }
+
   return now + Math.round(minutes) * 60 * 1000;
 }
 
@@ -36,9 +40,11 @@ export function orderDeadline(order: {
   if (order.expiresAt !== undefined) {
     return order.expiresAt;
   }
+
   if (order.p2pKind === "request") {
     return order.createdAt + DEFAULT_EXPIRY_MINUTES * 60 * 1000;
   }
+
   return NEVER_EXPIRES;
 }
 
@@ -54,5 +60,6 @@ export function effectiveOrderStatus(
   ) {
     return "expired";
   }
+
   return status;
 }
