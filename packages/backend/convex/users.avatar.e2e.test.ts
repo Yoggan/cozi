@@ -64,4 +64,34 @@ describe("E2E: foto de perfil", () => {
     );
     expect(await user.client.query(api.users.getMe, {})).toMatchObject({ avatarUrl: null });
   });
+
+  test("no deja reclamar la foto de otra cuenta", async () => {
+    const t = createTestBackend();
+
+    const owner = await createUser(t, {
+      subject: "auth_avatar_owner_two",
+      name: "Ana Ruiz",
+      email: "ana@gmail.com",
+      handle: "ana_r",
+    });
+
+    const intruder = await createUser(t, {
+      subject: "auth_avatar_intruder",
+      name: "Luis Paz",
+      email: "luis@gmail.com",
+      handle: "luis_p",
+    });
+
+    const storageId = await t.run(async (ctx) => await ctx.storage.store(imageBlob()));
+
+    await owner.client.mutation(api.users.setAvatar, { storageId });
+
+    await expect(intruder.client.mutation(api.users.setAvatar, { storageId })).rejects.toThrow(
+      /imagen/,
+    );
+
+    const mine = await owner.client.query(api.users.getMe, {});
+
+    expect(mine?.avatarUrl).toBeTruthy();
+  });
 });

@@ -4,7 +4,7 @@ import { launchImageLibraryAsync, requestMediaLibraryPermissionsAsync } from "ex
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Text, useToast } from "heroui-native";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -37,12 +37,22 @@ export default function EditProfileScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
+  // La cuenta puede cambiar mientras la foto viaja a Storage; sin esto la
+  // respuesta aterrizaría en la cuenta que quedó activa.
+  const activeProfileId = useRef(profile._id);
+
+  useEffect(() => {
+    activeProfileId.current = profile._id;
+  }, [profile._id]);
+
   const canSave = displayName.trim().length > 0 && handle.trim().length > 0 && !isSaving;
 
   async function handlePickPhoto() {
     if (isUploadingPhoto) {
       return;
     }
+
+    const ownerId = profile._id;
 
     const permission = await requestMediaLibraryPermissionsAsync();
 
@@ -70,6 +80,12 @@ export default function EditProfileScreen() {
 
     try {
       const storageId = await uploadAvatar(picked.assets[0].uri, () => generateAvatarUploadUrl({}));
+
+      if (activeProfileId.current !== ownerId) {
+        toast.show({ variant: "danger", label: "Cambiaste de cuenta; intenta de nuevo" });
+
+        return;
+      }
 
       const saved = await setAvatar({ storageId });
 

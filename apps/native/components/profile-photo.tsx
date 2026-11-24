@@ -3,6 +3,7 @@ import { Text } from "heroui-native";
 import { useState } from "react";
 import { Image, Pressable, View } from "react-native";
 
+import { useAppTheme } from "@/contexts/app-theme-context";
 import { initials } from "@/lib/money";
 
 export function ProfilePhoto({
@@ -18,8 +19,9 @@ export function ProfilePhoto({
   onPress?: () => void;
   borderColor?: string;
 }) {
-  const [failed, setFailed] = useState(false);
-  const showImage = Boolean(uri) && !failed;
+  const { accent } = useAppTheme();
+  const [failedUri, setFailedUri] = useState<string | null>(null);
+  const showImage = Boolean(uri) && failedUri !== uri;
   const badgeSize = Math.round(size * 0.34);
 
   const content = (
@@ -30,7 +32,7 @@ export function ProfilePhoto({
         borderRadius: size / 2,
         borderWidth: borderColor ? 2 : 0,
         borderColor,
-        backgroundColor: "rgba(34, 197, 94, 0.28)",
+        backgroundColor: accent.softHex,
         alignItems: "center",
         justifyContent: "center",
         overflow: "hidden",
@@ -38,12 +40,12 @@ export function ProfilePhoto({
     >
       {showImage ? (
         <Image
-          onError={() => setFailed(true)}
+          onError={() => setFailedUri(uri)}
           source={{ uri: uri ?? undefined }}
           style={{ width: size, height: size }}
         />
       ) : (
-        <Text style={{ color: "#4ADE80", fontSize: size * 0.32, fontWeight: "700" }}>
+        <Text style={{ color: accent.hex, fontSize: size * 0.32, fontWeight: "700" }}>
           {initials(name) || "?"}
         </Text>
       )}
@@ -65,14 +67,14 @@ export function ProfilePhoto({
           width: badgeSize,
           height: badgeSize,
           borderRadius: badgeSize / 2,
-          backgroundColor: "#22C55E",
+          backgroundColor: accent.hex,
           borderWidth: 2,
           borderColor: borderColor ?? "transparent",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <Ionicons color="#0B0F0D" name="camera" size={Math.round(badgeSize * 0.58)} />
+        <Ionicons color={accent.foreground} name="camera" size={Math.round(badgeSize * 0.58)} />
       </View>
     </Pressable>
   );

@@ -129,7 +129,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_auth_user", ["authUserId"])
-    .index("by_phone", ["phone"]),
+    .index("by_phone", ["phone"])
+    .index("by_avatar_storage", ["avatarStorageId"]),
 
   /**
    * Registro único de handles para que `@usuario` y `@negocio` compartan

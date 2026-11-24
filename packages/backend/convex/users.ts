@@ -482,6 +482,15 @@ export const setAvatar = mutation({
       throw new ConvexError("La foto no puede pasar de 5 MB");
     }
 
+    const claimed = await ctx.db
+      .query("users")
+      .withIndex("by_avatar_storage", (q) => q.eq("avatarStorageId", args.storageId))
+      .first();
+
+    if (claimed && claimed._id !== user._id) {
+      throw new ConvexError("No encontramos la imagen");
+    }
+
     if (user.avatarStorageId && user.avatarStorageId !== args.storageId) {
       await ctx.storage.delete(user.avatarStorageId);
     }
