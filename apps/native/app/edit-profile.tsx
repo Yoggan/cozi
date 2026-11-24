@@ -1,10 +1,11 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import { useMutation } from "convex/react";
+import { launchImageLibraryAsync, requestMediaLibraryPermissionsAsync } from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useToast } from "heroui-native";
+import { Text, useToast } from "heroui-native";
 import { useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -14,8 +15,10 @@ import {
   PrimaryPillButton,
   usePaymentTheme,
 } from "@/components/payment-controls";
+import { ProfilePhoto } from "@/components/profile-photo";
 import { ThemeBackdrop } from "@/components/theme-backdrop";
 import { useProfile } from "@/contexts/profile-context";
+import { uploadAvatar } from "@/lib/avatar-upload";
 
 export default function EditProfileScreen() {
   const profile = useProfile();
@@ -24,12 +27,84 @@ export default function EditProfileScreen() {
   const theme = usePaymentTheme();
   const { toast } = useToast();
   const updateProfile = useMutation(api.users.updateProfile);
+  const generateAvatarUploadUrl = useMutation(api.users.generateAvatarUploadUrl);
+  const setAvatar = useMutation(api.users.setAvatar);
+  const removeAvatar = useMutation(api.users.removeAvatar);
 
   const [displayName, setDisplayName] = useState(profile.displayName);
   const [handle, setHandle] = useState(profile.handle ?? "");
+  const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const canSave = displayName.trim().length > 0 && handle.trim().length > 0 && !isSaving;
+
+  async function handlePickPhoto() {
+    if (isUploadingPhoto) {
+      return;
+    }
+
+    const permission = await requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      toast.show({
+        variant: "danger",
+        label: "Necesitamos acceso a tus fotos para cambiar tu foto de perfil",
+      });
+
+      return;
+    }
+
+    const picked = await launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      mediaTypes: ["images"],
+      quality: 0.7,
+    });
+
+    if (picked.canceled) {
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+
+    try {
+      const storageId = await uploadAvatar(picked.assets[0].uri, () => generateAvatarUploadUrl({}));
+
+      const saved = await setAvatar({ storageId });
+
+      setAvatarUrl(saved.avatarUrl);
+      toast.show({ variant: "success", label: "Foto actualizada" });
+    } catch (error) {
+      toast.show({
+        variant: "danger",
+        label: error instanceof Error ? error.message : "No pudimos subir tu foto",
+      });
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  }
+
+  async function handleRemovePhoto() {
+    if (isUploadingPhoto) {
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+
+    try {
+      await removeAvatar({});
+      setAvatarUrl(null);
+      toast.show({ variant: "success", label: "Foto eliminada" });
+    } catch (error) {
+      toast.show({
+        variant: "danger",
+        label: error instanceof Error ? error.message : "No pudimos quitar tu foto",
+      });
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  }
 
   async function handleSave() {
     if (!canSave) {
@@ -84,6 +159,30 @@ export default function EditProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={{ width: "100%", maxWidth: 460, alignSelf: "center", gap: 22 }}>
+          <View style={{ alignItems: "center", gap: 14 }}>
+            <ProfilePhoto
+              borderColor={theme.isImmersive ? "rgba(255, 255, 255, 0.18)" : undefined}
+              name={displayName || profile.displayName}
+              onPress={handlePickPhoto}
+              size={96}
+              uri={avatarUrl}
+            />
+
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 20 }}>
+              <Pressable disabled={isUploadingPhoto} hitSlop={8} onPress={handlePickPhoto}>
+                <Text style={{ color: theme.text, fontSize: 14, fontWeight: "600" }}>
+                  {isUploadingPhoto ? "Subiendo…" : avatarUrl ? "Cambiar foto" : "Subir foto"}
+                </Text>
+              </Pressable>
+
+              {avatarUrl ? (
+                <Pressable disabled={isUploadingPhoto} hitSlop={8} onPress={handleRemovePhoto}>
+                  <Text style={{ color: theme.caption, fontSize: 14 }}>Quitar</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+
           <GlassField
             autoCapitalize="words"
             icon="person-outline"

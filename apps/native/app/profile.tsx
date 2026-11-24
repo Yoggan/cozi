@@ -3,7 +3,6 @@ import type { BankAccountStatus } from "@cozi/backend/convex/schema";
 import { useAction, useQuery } from "convex/react";
 import { useState } from "react";
 import {
-  Avatar,
   Button,
   Chip,
   cn,
@@ -23,12 +22,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AccountsAvatar } from "@/components/accounts-avatar";
 import { Container } from "@/components/container";
+import { ProfilePhoto } from "@/components/profile-photo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAppLock } from "@/contexts/app-lock-context";
 import { useAppTheme } from "@/contexts/app-theme-context";
 import { useProfile } from "@/contexts/profile-context";
 import { authClient } from "@/lib/auth-client";
-import { initials } from "@/lib/money";
 
 type AccountType = "clabe" | "card";
 
@@ -156,9 +155,13 @@ export default function ProfileScreen() {
         className={cn("flex-row items-center gap-4 rounded-3xl p-5", !isImmersive && "bg-surface")}
         style={glass}
       >
-        <Avatar size="lg" color="success">
-          <Avatar.Fallback>{initials(profile.displayName)}</Avatar.Fallback>
-        </Avatar>
+        <ProfilePhoto
+          borderColor={isImmersive ? "rgba(255, 255, 255, 0.18)" : undefined}
+          name={profile.displayName}
+          onPress={() => router.push("/edit-profile")}
+          size={56}
+          uri={profile.avatarUrl}
+        />
         <View className="flex-1">
           <Text className="text-lg font-semibold text-foreground" style={textPrimary}>
             {profile.displayName}

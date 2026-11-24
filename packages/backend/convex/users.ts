@@ -445,3 +445,67 @@ export const updateProfile = mutation({
     return { ok: true as const };
   },
 });
+
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+
+/** URL efímera para subir la foto de perfil directo a Convex Storage. */
+export const generateAvatarUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAuthUserId(ctx);
+
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/** Guarda la foto recién subida y borra la que reemplaza. */
+export const setAvatar = mutation({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, args) => {
+    const user = await findUserByAuthId(ctx, await requireAuthUserId(ctx));
+
+    if (!user) {
+      throw new ConvexError("Completa tu perfil antes de editarlo");
+    }
+
+    const file = await ctx.db.system.get("_storage", args.storageId);
+
+    if (!file) {
+      throw new ConvexError("No encontramos la imagen");
+    }
+
+    if (!file.contentType?.startsWith("image/")) {
+      throw new ConvexError("La foto debe ser una imagen");
+    }
+
+    if (file.size > AVATAR_MAX_BYTES) {
+      throw new ConvexError("La foto no puede pasar de 5 MB");
+    }
+
+    if (user.avatarStorageId && user.avatarStorageId !== args.storageId) {
+      await ctx.storage.delete(user.avatarStorageId);
+    }
+
+    await ctx.db.patch(user._id, {
+      avatarStorageId: args.storageId,
+      updatedAt: Date.now(),
+    });
+
+    return { avatarUrl: await ctx.storage.getUrl(args.storageId) };
+  },
+});
+
+/** Quitar la foto y volver a las iniciales. */
+export const removeAvatar = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await findUserByAuthId(ctx, await requireAuthUserId(ctx));
+
+    if (!user?.avatarStorageId) {
+      return;
+    }
+
+    await ctx.storage.delete(user.avatarStorageId);
+    await ctx.db.patch(user._id, { avatarStorageId: undefined, updatedAt: Date.now() });
+  },
+});
