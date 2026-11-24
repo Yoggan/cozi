@@ -163,7 +163,11 @@ export default function ProfileScreen() {
           uri={profile.avatarUrl}
         />
         <View className="flex-1">
-          <Text className="text-lg font-semibold text-foreground" style={textPrimary}>
+          <Text
+            className="text-lg font-semibold text-foreground"
+            style={textPrimary}
+            testID="profile-name"
+          >
             {profile.displayName}
           </Text>
           <Text className="mt-0.5 text-sm text-muted" style={textSecondary}>
@@ -175,7 +179,12 @@ export default function ProfileScreen() {
             </Text>
           ) : null}
         </View>
-        <Button size="sm" variant="secondary" onPress={() => router.push("/edit-profile")}>
+        <Button
+          size="sm"
+          testID="profile-edit"
+          variant="secondary"
+          onPress={() => router.push("/edit-profile")}
+        >
           <Button.Label>Editar</Button.Label>
         </Button>
       </Animated.View>

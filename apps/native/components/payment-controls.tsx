@@ -98,6 +98,7 @@ type GlassFieldProps = {
   hint?: string;
   multiline?: boolean;
   onFocusChange?: (focused: boolean) => void;
+  testID?: string;
 } & Pick<
   TextInputProps,
   | "value"
@@ -260,11 +261,13 @@ export function PrimaryPillButton({
   isDisabled,
   isSubmitting,
   onPress,
+  testID,
 }: {
   label: string;
   isDisabled: boolean;
   isSubmitting: boolean;
   onPress: () => void;
+  testID?: string;
 }) {
   const theme = usePaymentTheme();
   const scale = useSharedValue(1);
@@ -292,6 +295,7 @@ export function PrimaryPillButton({
         scale.value = withTiming(1, PRESS_TIMING);
       }}
       style={{ opacity: isDisabled && !isSubmitting ? 0.45 : 1 }}
+      testID={testID}
     >
       <Animated.View style={[styles.cta, { backgroundColor: theme.ctaFill }, pressStyle]}>
         {isSubmitting ? (

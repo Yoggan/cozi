@@ -19,6 +19,7 @@ type AuthFieldProps = {
   label: string;
   inputRef?: Ref<TextInput>;
   secure?: boolean;
+  testID?: string;
 } & Pick<
   TextInputProps,
   | "value"
@@ -102,10 +103,12 @@ export function AuthSubmitButton({
   label,
   isSubmitting,
   onPress,
+  testID,
 }: {
   label: string;
   isSubmitting: boolean;
   onPress: () => void;
+  testID?: string;
 }) {
   const scale = useSharedValue(1);
 
@@ -119,6 +122,7 @@ export function AuthSubmitButton({
       accessibilityRole="button"
       accessibilityState={{ busy: isSubmitting, disabled: isSubmitting }}
       disabled={isSubmitting}
+      testID={testID}
       onPress={() => {
         void impactAsync(ImpactFeedbackStyle.Light);
         onPress();

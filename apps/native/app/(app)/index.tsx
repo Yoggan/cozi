@@ -142,10 +142,12 @@ function GlassAction({
   icon,
   label,
   onPress,
+  testID,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
+  testID?: string;
 }) {
   const press = usePressScale();
 
@@ -156,6 +158,7 @@ function GlassAction({
       onPressOut={press.onPressOut}
       className="items-center gap-2"
       style={{ width: 72 }}
+      testID={testID}
     >
       <Animated.View
         style={[
@@ -353,6 +356,7 @@ function PersonalHome() {
               <GlassAction
                 icon="business-outline"
                 label="Cuenta"
+                testID="home-account"
                 onPress={() =>
                   router.push(profile.hasPendingBankAccount ? "/bank-account-status" : "/profile")
                 }

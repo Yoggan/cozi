@@ -12,12 +12,14 @@ export function ProfilePhoto({
   size = 72,
   onPress,
   borderColor,
+  testID,
 }: {
   name: string;
   uri: string | null;
   size?: number;
   onPress?: () => void;
   borderColor?: string;
+  testID?: string;
 }) {
   const { accent } = useAppTheme();
   const [failedUri, setFailedUri] = useState<string | null>(null);
@@ -57,7 +59,12 @@ export function ProfilePhoto({
   }
 
   return (
-    <Pressable accessibilityLabel="Cambiar foto de perfil" hitSlop={8} onPress={onPress}>
+    <Pressable
+      accessibilityLabel="Cambiar foto de perfil"
+      hitSlop={8}
+      onPress={onPress}
+      testID={testID}
+    >
       {content}
       <View
         style={{

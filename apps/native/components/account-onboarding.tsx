@@ -106,7 +106,12 @@ export function AccountOnboarding() {
           <Text style={[styles.stepLabel, { color: mutedColor }]}>
             Paso {step + 1} de {STEPS.length}
           </Text>
-          <Pressable accessibilityRole="button" onPress={() => void finish()} hitSlop={10}>
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={() => void finish()}
+            testID="onboarding-skip"
+          >
             <Text style={[styles.skip, { color: titleColor }]}>Saltar</Text>
           </Pressable>
         </View>

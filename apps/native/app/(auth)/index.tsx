@@ -69,6 +69,7 @@ function ModeSwitcher({ mode, onChange }: { mode: Mode; onChange: (mode: Mode) =
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
             key={segment.value}
+            testID={`auth-mode-${segment.value}`}
             onPress={() => {
               if (active) {
                 return;

@@ -180,6 +180,7 @@ export default function EditProfileScreen() {
               borderColor={theme.isImmersive ? "rgba(255, 255, 255, 0.18)" : undefined}
               name={displayName || profile.displayName}
               onPress={handlePickPhoto}
+              testID="edit-profile-photo"
               size={96}
               uri={avatarUrl}
             />
@@ -205,6 +206,7 @@ export default function EditProfileScreen() {
             label="Nombre"
             onChangeText={setDisplayName}
             placeholder="Tu nombre"
+            testID="edit-profile-name"
             value={displayName}
           />
 
@@ -224,6 +226,7 @@ export default function EditProfileScreen() {
               isDisabled={!canSave}
               isSubmitting={isSaving}
               label="Guardar cambios"
+              testID="edit-profile-save"
               onPress={handleSave}
             />
           </View>
