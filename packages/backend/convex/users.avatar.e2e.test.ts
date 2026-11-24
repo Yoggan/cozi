@@ -135,6 +135,58 @@ describe("E2E: foto de perfil", () => {
     expect(await t.run(async (ctx) => await ctx.db.system.get("_storage", saved))).not.toBeNull();
   });
 
+  test("no borra ni adopta una imagen que ya usa un negocio", async () => {
+    const t = createTestBackend();
+
+    const owner = await createUser(t, {
+      subject: "auth_avatar_product",
+      name: "Ana Ruiz",
+      email: "ana@gmail.com",
+      handle: "ana_r4",
+    });
+
+    const productImage = await t.run(async (ctx) => {
+      const storageId = await ctx.storage.store(imageBlob());
+
+      const businessId = await ctx.db.insert("businesses", {
+        ownerId: owner.userId,
+        name: "Fonda Ana",
+        status: "active",
+        acceptingOrders: true,
+        tipsEnabled: false,
+        channels: {},
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+
+      await ctx.db.insert("products", {
+        businessId,
+        name: "Café de olla",
+        priceCents: 3500,
+        imageStorageId: storageId,
+        active: true,
+        source: "manual",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+
+      return storageId;
+    });
+
+    await owner.client.mutation(api.users.discardAvatarUpload, { storageId: productImage });
+
+    expect(
+      await t.run(async (ctx) => await ctx.db.system.get("_storage", productImage)),
+    ).not.toBeNull();
+
+    await expect(
+      owner.client.mutation(api.users.setAvatar, {
+        expectedUserId: owner.userId,
+        storageId: productImage,
+      }),
+    ).rejects.toThrow(/imagen/);
+  });
+
   test("rechaza una subida que empezó en otra cuenta", async () => {
     const t = createTestBackend();
 

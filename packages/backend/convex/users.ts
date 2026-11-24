@@ -448,6 +448,33 @@ export const updateProfile = mutation({
 
 const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 
+/**
+ * Un archivo puede pertenecer a una foto de perfil, al logo de un negocio o a
+ * la imagen de un producto; ninguna de estas mutaciones debe tocarlo si ya es
+ * de alguien.
+ */
+async function isStorageReferenced(
+  ctx: QueryCtx | MutationCtx,
+  storageId: Id<"_storage">,
+): Promise<boolean> {
+  const [avatar, logo, productImage] = await Promise.all([
+    ctx.db
+      .query("users")
+      .withIndex("by_avatar_storage", (q) => q.eq("avatarStorageId", storageId))
+      .first(),
+    ctx.db
+      .query("businesses")
+      .withIndex("by_logo_storage", (q) => q.eq("logoStorageId", storageId))
+      .first(),
+    ctx.db
+      .query("products")
+      .withIndex("by_image_storage", (q) => q.eq("imageStorageId", storageId))
+      .first(),
+  ]);
+
+  return Boolean(avatar ?? logo ?? productImage);
+}
+
 /** URL efímera para subir la foto de perfil directo a Convex Storage. */
 export const generateAvatarUploadUrl = mutation({
   args: {},
@@ -488,12 +515,10 @@ export const setAvatar = mutation({
       throw new ConvexError("La foto no puede pasar de 5 MB");
     }
 
-    const claimed = await ctx.db
-      .query("users")
-      .withIndex("by_avatar_storage", (q) => q.eq("avatarStorageId", args.storageId))
-      .first();
-
-    if (claimed && claimed._id !== user._id) {
+    if (
+      user.avatarStorageId !== args.storageId &&
+      (await isStorageReferenced(ctx, args.storageId))
+    ) {
       throw new ConvexError("No encontramos la imagen");
     }
 
@@ -531,12 +556,7 @@ export const discardAvatarUpload = mutation({
   handler: async (ctx, args) => {
     await requireAuthUserId(ctx);
 
-    const claimed = await ctx.db
-      .query("users")
-      .withIndex("by_avatar_storage", (q) => q.eq("avatarStorageId", args.storageId))
-      .first();
-
-    if (claimed) {
+    if (await isStorageReferenced(ctx, args.storageId)) {
       return;
     }
 
