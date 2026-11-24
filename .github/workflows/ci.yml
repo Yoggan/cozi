@@ -32,12 +32,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm exec oxlint
-
-      - name: Check formatting
-        run: pnpm exec oxfmt --check
-
+      # The web build generates the gitignored routeTree.gen.ts, and lint needs
+      # those route types to resolve. check-types runs the web build first, so
+      # it must precede lint on a clean checkout.
       - name: Check types
         run: pnpm check-types
         env:
@@ -47,6 +44,12 @@ jobs:
           VITE_CONVEX_SITE_URL: https://ci-placeholder.convex.site
           EXPO_PUBLIC_CONVEX_URL: https://ci-placeholder.convex.cloud
           EXPO_PUBLIC_CONVEX_SITE_URL: https://ci-placeholder.convex.site
+
+      - name: Lint
+        run: pnpm exec oxlint
+
+      - name: Check formatting
+        run: pnpm exec oxfmt --check
 
       - name: Test
         run: pnpm test
