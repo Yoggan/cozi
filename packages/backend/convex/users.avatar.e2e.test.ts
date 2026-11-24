@@ -23,7 +23,11 @@ describe("E2E: foto de perfil", () => {
     expect(uploadUrl).toMatch(/^https?:\/\//);
 
     const firstId = await t.run(async (ctx) => await ctx.storage.store(imageBlob()));
-    const saved = await user.client.mutation(api.users.setAvatar, { storageId: firstId });
+
+    const saved = await user.client.mutation(api.users.setAvatar, {
+      expectedUserId: user.userId,
+      storageId: firstId,
+    });
 
     expect(saved.avatarUrl).toBeTruthy();
 
@@ -33,7 +37,10 @@ describe("E2E: foto de perfil", () => {
 
     const secondId = await t.run(async (ctx) => await ctx.storage.store(imageBlob("image/jpeg")));
 
-    await user.client.mutation(api.users.setAvatar, { storageId: secondId });
+    await user.client.mutation(api.users.setAvatar, {
+      expectedUserId: user.userId,
+      storageId: secondId,
+    });
 
     expect(await t.run(async (ctx) => await ctx.db.system.get("_storage", firstId))).toBeNull();
 
@@ -59,9 +66,9 @@ describe("E2E: foto de perfil", () => {
       async (ctx) => await ctx.storage.store(imageBlob("application/pdf")),
     );
 
-    await expect(user.client.mutation(api.users.setAvatar, { storageId })).rejects.toThrow(
-      /imagen/,
-    );
+    await expect(
+      user.client.mutation(api.users.setAvatar, { expectedUserId: user.userId, storageId }),
+    ).rejects.toThrow(/imagen/);
     expect(await user.client.query(api.users.getMe, {})).toMatchObject({ avatarUrl: null });
   });
 
@@ -84,14 +91,50 @@ describe("E2E: foto de perfil", () => {
 
     const storageId = await t.run(async (ctx) => await ctx.storage.store(imageBlob()));
 
-    await owner.client.mutation(api.users.setAvatar, { storageId });
+    await owner.client.mutation(api.users.setAvatar, {
+      expectedUserId: owner.userId,
+      storageId,
+    });
 
-    await expect(intruder.client.mutation(api.users.setAvatar, { storageId })).rejects.toThrow(
-      /imagen/,
-    );
+    await expect(
+      intruder.client.mutation(api.users.setAvatar, {
+        expectedUserId: intruder.userId,
+        storageId,
+      }),
+    ).rejects.toThrow(/imagen/);
 
     const mine = await owner.client.query(api.users.getMe, {});
 
     expect(mine?.avatarUrl).toBeTruthy();
+  });
+
+  test("rechaza una subida que empezó en otra cuenta", async () => {
+    const t = createTestBackend();
+
+    const owner = await createUser(t, {
+      subject: "auth_avatar_stale_owner",
+      name: "Ana Ruiz",
+      email: "ana@gmail.com",
+      handle: "ana_r2",
+    });
+
+    const other = await createUser(t, {
+      subject: "auth_avatar_stale_other",
+      name: "Luis Paz",
+      email: "luis@gmail.com",
+      handle: "luis_p2",
+    });
+
+    const storageId = await t.run(async (ctx) => await ctx.storage.store(imageBlob()));
+
+    await expect(
+      other.client.mutation(api.users.setAvatar, {
+        expectedUserId: owner.userId,
+        storageId,
+      }),
+    ).rejects.toThrow(/Cambiaste de cuenta/);
+
+    expect(await owner.client.query(api.users.getMe, {})).toMatchObject({ avatarUrl: null });
+    expect(await other.client.query(api.users.getMe, {})).toMatchObject({ avatarUrl: null });
   });
 });

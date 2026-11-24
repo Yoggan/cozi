@@ -460,12 +460,18 @@ export const generateAvatarUploadUrl = mutation({
 
 /** Guarda la foto recién subida y borra la que reemplaza. */
 export const setAvatar = mutation({
-  args: { storageId: v.id("_storage") },
+  args: { storageId: v.id("_storage"), expectedUserId: v.id("users") },
   handler: async (ctx, args) => {
     const user = await findUserByAuthId(ctx, await requireAuthUserId(ctx));
 
     if (!user) {
       throw new ConvexError("Completa tu perfil antes de editarlo");
+    }
+
+    // El actor sigue saliendo de la identidad; esto solo detecta una subida
+    // que arrancó en una cuenta y terminó cuando ya estaba activa otra.
+    if (user._id !== args.expectedUserId) {
+      throw new ConvexError("Cambiaste de cuenta; intenta de nuevo");
     }
 
     const file = await ctx.db.system.get("_storage", args.storageId);
