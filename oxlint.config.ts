@@ -10,7 +10,24 @@ export default defineConfig({
     "apps/native/uniwind-types.d.ts",
     "apps/web/src/routeTree.gen.ts",
     "packages/backend/convex/_generated/**",
+    "tools/oxlint/anti-slop/**",
   ],
+  jsPlugins: [
+    ...(cloudflare.jsPlugins ?? []),
+    { name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" },
+  ],
+  // The preset's `quality` plugin already vendors 12 of anti-slop's 18 rules, so only
+  // the rules it lacks are enabled here. Enabling the duplicates would double-report.
+  // `no-runtime-typeof` and `no-unknown-parameters` stay off: they fire on the boundary
+  // parsers in this repo and on `catch (error: unknown)` handlers, which are the
+  // intended pattern for unparsed input rather than a defect.
+  rules: {
+    ...cloudflare.rules,
+    "anti-slop/no-module-mocking": "error",
+    "anti-slop/no-shape-in-symbol-names": "error",
+    "anti-slop/require-readable-spacing": "error",
+    "anti-slop/require-safety-comment-for-type-assertion": "error",
+  },
   overrides: [
     ...(cloudflare.overrides ?? []),
 
