@@ -30,7 +30,7 @@ return (
 **Correct (a single function instance passed to each item):**
 
 ```typescript
-const onPress = useCallback(() => handlePress(item.id), [handlePress, item.id])
+const onPress = useCallback((id: string) => handlePress(id), [handlePress])
 
 return (
   <LegendList
@@ -40,5 +40,8 @@ return (
   />
 )
 ```
+
+`Item` calls `onPress(item.id)` from its own handler, so one callback instance is
+created for the whole list while each row still knows its own id.
 
 Reference: [Link to documentation or resource](https://example.com)
