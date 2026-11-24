@@ -12,9 +12,11 @@ const ONBOARDING_LAUNCH_AT = Date.UTC(2026, 10, 22);
 
 async function requireAuthUserId(ctx: QueryCtx | MutationCtx): Promise<string> {
   const identity = await ctx.auth.getUserIdentity();
+
   if (!identity) {
     throw new ConvexError("Inicia sesión para continuar");
   }
+
   return identity.subject;
 }
 
@@ -36,6 +38,7 @@ async function readHandle(
     .query("handles")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .first();
+
   return handle?.handle ?? null;
 }
 
@@ -67,13 +70,16 @@ export const ensureProfile = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
+
     if (!identity) {
       throw new ConvexError("Inicia sesión para continuar");
     }
 
     const existing = await findUserByAuthId(ctx, identity.subject);
+
     if (existing) {
       const currentHandle = await readHandle(ctx, existing._id);
+
       if (currentHandle) {
         return { userId: existing._id, handle: currentHandle, created: false };
       }
@@ -85,11 +91,13 @@ export const ensureProfile = mutation({
         userId: existing._id,
         createdAt: Date.now(),
       });
+
       return { userId: existing._id, handle, created: false };
     }
 
     const now = Date.now();
     const handle = await claimHandle(ctx, handleBase(identity.name, identity.email));
+
     const userId = await ctx.db.insert("users", {
       authUserId: identity.subject,
       displayName: identity.name?.trim() || identity.email?.split("@")[0] || handle,
@@ -116,11 +124,13 @@ export const getMe = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
+
     if (!identity) {
       return null;
     }
 
     const user = await findUserByAuthId(ctx, identity.subject);
+
     if (!user) {
       return null;
     }
@@ -140,11 +150,13 @@ export const getMe = query({
     ]);
 
     let businessHandle: string | null = null;
+
     if (business) {
       const handleRow = await ctx.db
         .query("handles")
         .withIndex("by_business", (q) => q.eq("businessId", business._id))
         .first();
+
       businessHandle = handleRow?.handle ?? null;
     }
 
@@ -182,10 +194,13 @@ export const getAccountSummaries = query({
   args: { authUserIds: v.array(v.string()) },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
+
     if (!identity) {
       return [];
     }
+
     const unique = Array.from(new Set(args.authUserIds)).slice(0, 20);
+
     const users = await Promise.all(
       unique.map((authUserId) =>
         ctx.db
@@ -214,6 +229,7 @@ export const dismissBusinessPrompt = mutation({
   args: {},
   handler: async (ctx) => {
     const user = await findUserByAuthId(ctx, await requireAuthUserId(ctx));
+
     if (user?.businessPromptState === "pending") {
       await ctx.db.patch(user._id, {
         businessPromptState: "dismissed",
@@ -228,9 +244,11 @@ export const completeOnboarding = mutation({
   args: {},
   handler: async (ctx) => {
     const user = await findUserByAuthId(ctx, await requireAuthUserId(ctx));
+
     if (!user) {
       throw new ConvexError("Completa tu perfil antes de continuar");
     }
+
     if (user.onboardingCompletedAt === undefined) {
       await ctx.db.patch(user._id, {
         onboardingCompletedAt: Date.now(),
@@ -245,11 +263,13 @@ export const findByHandle = query({
   args: { handle: v.string() },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
+
     if (!identity) {
       throw new ConvexError("Inicia sesión para continuar");
     }
 
     const normalized = normalizeHandle(args.handle);
+
     if (!HANDLE_PATTERN.test(normalized)) {
       return null;
     }
@@ -264,6 +284,7 @@ export const findByHandle = query({
     }
 
     const user = await ctx.db.get(handle.userId);
+
     if (!user) {
       return null;
     }
@@ -272,6 +293,7 @@ export const findByHandle = query({
       .query("bankAccounts")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
+
     const canReceive = accounts.some(
       (account) =>
         account.businessId === undefined &&
@@ -293,6 +315,7 @@ export const listBankAccounts = query({
   args: {},
   handler: async (ctx) => {
     const user = await findUserByAuthId(ctx, await requireAuthUserId(ctx));
+
     if (!user) {
       return [];
     }
@@ -339,11 +362,13 @@ export const updateProfile = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
+
     if (!identity) {
       throw new ConvexError("Inicia sesión para continuar");
     }
 
     const user = await findUserByAuthId(ctx, identity.subject);
+
     if (!user) {
       throw new ConvexError("Completa tu perfil antes de editarlo");
     }
@@ -352,30 +377,37 @@ export const updateProfile = mutation({
 
     if (args.displayName !== undefined) {
       const displayName = args.displayName.trim();
+
       if (displayName.length < 2 || displayName.length > 50) {
         throw new ConvexError("El nombre debe tener entre 2 y 50 caracteres");
       }
+
       patch.displayName = displayName;
     }
 
     if (args.phone !== undefined) {
       const phone = normalizePhone(args.phone);
+
       if (phone.length > 0 && !/^\+?\d{10,15}$/.test(phone)) {
         throw new ConvexError("Escribe un teléfono válido");
       }
+
       patch.phone = phone || undefined;
     }
 
     if (args.bio !== undefined) {
       const bio = args.bio.trim();
+
       if (bio.length > 160) {
         throw new ConvexError("La bio no puede pasar de 160 caracteres");
       }
+
       patch.bio = bio || undefined;
     }
 
     if (args.handle !== undefined) {
       const next = normalizeHandle(args.handle);
+
       if (!HANDLE_PATTERN.test(next)) {
         throw new ConvexError("El @handle debe tener 3-20 letras, números o guiones bajos");
       }
@@ -390,6 +422,7 @@ export const updateProfile = mutation({
           .query("handles")
           .withIndex("by_handle", (q) => q.eq("handle", next))
           .unique();
+
         if (taken && taken.userId !== user._id) {
           throw new ConvexError("Ese @handle ya está ocupado");
         }
@@ -408,6 +441,7 @@ export const updateProfile = mutation({
     }
 
     await ctx.db.patch(user._id, patch);
+
     return { ok: true as const };
   },
 });

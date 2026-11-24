@@ -15,6 +15,7 @@ const convexModules = import.meta.glob([
 export const TEST_WEBHOOK_SECRET = "whsec_dGVzdF9zZWNyZXRfZm9yX2NvemlfZTJlX3Rlc3Rz";
 
 export type BackendTest = TestConvex<typeof schema>;
+
 export type AuthedClient = ReturnType<BackendTest["withIdentity"]>;
 
 /** Configura el entorno determinista para pruebas E2E con Pey en modo mock y webhooks firmados. */
@@ -27,6 +28,7 @@ export function configureTestEnv() {
 
 export function createTestBackend(): BackendTest {
   configureTestEnv();
+
   return convexTest(schema, convexModules);
 }
 
@@ -47,6 +49,7 @@ export async function signStandardWebhook(
   const timestamp = String(options.timestamp ?? Math.floor(Date.now() / 1000));
   const rawSecret = secret.startsWith("whsec_") ? atob(secret.slice("whsec_".length)) : secret;
   const keyBytes = new Uint8Array(rawSecret.length);
+
   for (let i = 0; i < rawSecret.length; i += 1) {
     keyBytes[i] = rawSecret.charCodeAt(i);
   }
@@ -58,12 +61,15 @@ export async function signStandardWebhook(
     false,
     ["sign"],
   );
+
   const signedPayload = `${options.webhookId}.${timestamp}.${rawBody}`;
+
   const signature = new Uint8Array(
     await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(signedPayload)),
   );
 
   let binary = "";
+
   for (const byte of signature) {
     binary += String.fromCharCode(byte);
   }
@@ -94,6 +100,7 @@ export type PeyWebhookResponseBody = { ok: boolean; outcome: string } | string;
 function parseWebhookBody(text: string): PeyWebhookResponseBody {
   try {
     const parsed: unknown = JSON.parse(text);
+
     if (
       typeof parsed === "object" &&
       parsed !== null &&
@@ -104,6 +111,7 @@ function parseWebhookBody(text: string): PeyWebhookResponseBody {
     ) {
       return { ok: parsed.ok, outcome: parsed.outcome };
     }
+
     return text;
   } catch {
     return text;
@@ -123,6 +131,7 @@ export async function sendSignedPeyWebhook(
 ) {
   const rawBody = JSON.stringify(payload);
   const webhookId = options.webhookId ?? `msg_${crypto.randomUUID().replaceAll("-", "")}`;
+
   const headers = await signStandardWebhook(rawBody, {
     webhookId,
     timestamp: options.timestamp,
@@ -230,16 +239,19 @@ export async function setupMealBusiness(
   });
 
   let bankAccountId: Id<"bankAccounts"> | null = null;
+
   if (input.clabe !== undefined) {
     const linked = await linkReceivingClabe(ownerClient, {
       clabe: input.clabe,
       holderName: input.holderName ?? input.name,
       businessId: created.businessId,
     });
+
     bankAccountId = linked.bankAccountId;
   }
 
   const products: Array<{ productId: Id<"products">; name: string; priceCents: number }> = [];
+
   for (const item of input.menu ?? []) {
     const { productId } = await ownerClient.mutation(api.products.create, {
       businessId: created.businessId,
@@ -249,6 +261,7 @@ export async function setupMealBusiness(
       category: item.category ?? "Comida",
       description: item.description,
     });
+
     products.push({ productId, name: item.name, priceCents: item.priceCents });
   }
 

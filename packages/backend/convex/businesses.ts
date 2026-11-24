@@ -9,6 +9,7 @@ import { HANDLE_PATTERN, handleBase, normalizeHandle } from "./lib/identifiers";
 
 async function requireUser(ctx: QueryCtx | MutationCtx): Promise<Doc<"users">> {
   const identity = await ctx.auth.getUserIdentity();
+
   if (!identity) {
     throw new ConvexError("Inicia sesión para continuar");
   }
@@ -17,25 +18,31 @@ async function requireUser(ctx: QueryCtx | MutationCtx): Promise<Doc<"users">> {
     .query("users")
     .withIndex("by_auth_user", (q) => q.eq("authUserId", identity.subject))
     .unique();
+
   if (!user) {
     throw new ConvexError("Completa tu perfil antes de continuar");
   }
+
   return user;
 }
 
 function readName(value: string): string {
   const name = value.trim();
+
   if (name.length < 2 || name.length > 50) {
     throw new ConvexError("El nombre debe tener entre 2 y 50 caracteres");
   }
+
   return name;
 }
 
 function readCategory(value: string): string | undefined {
   const category = value.trim();
+
   if (category.length > 40) {
     throw new ConvexError("La categoría no puede pasar de 40 caracteres");
   }
+
   return category || undefined;
 }
 
@@ -56,6 +63,7 @@ export const create = mutation({
       .query("businesses")
       .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
       .first();
+
     if (existing) {
       throw new ConvexError("Ya tienes un negocio");
     }
@@ -65,23 +73,28 @@ export const create = mutation({
 
     let handle: string;
     const requested = normalizeHandle(args.handle ?? "");
+
     if (requested) {
       if (!HANDLE_PATTERN.test(requested)) {
         throw new ConvexError("El @handle debe tener 3-20 letras, números o guiones bajos");
       }
+
       const taken = await ctx.db
         .query("handles")
         .withIndex("by_handle", (q) => q.eq("handle", requested))
         .unique();
+
       if (taken) {
         throw new ConvexError("Ese @handle ya está ocupado");
       }
+
       handle = requested;
     } else {
       handle = await claimHandle(ctx, handleBase(name));
     }
 
     const now = Date.now();
+
     const businessId = await ctx.db.insert("businesses", {
       ownerId: user._id,
       name,
@@ -131,6 +144,7 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
     const business = await ctx.db.get(args.businessId);
+
     if (!business || business.ownerId !== user._id) {
       throw new ConvexError("Negocio no encontrado");
     }
@@ -140,20 +154,25 @@ export const update = mutation({
     if (args.name !== undefined) {
       patch.name = readName(args.name);
     }
+
     if (args.category !== undefined) {
       patch.category = readCategory(args.category);
     }
+
     if (args.status !== undefined) {
       patch.status = args.status;
     }
+
     if (args.acceptingOrders !== undefined) {
       patch.acceptingOrders = args.acceptingOrders;
     }
+
     if (args.tipsEnabled !== undefined) {
       patch.tipsEnabled = args.tipsEnabled;
     }
 
     await ctx.db.patch(business._id, patch);
+
     return { ok: true as const };
   },
 });
@@ -163,6 +182,7 @@ export const getByHandle = query({
   args: { handle: v.string() },
   handler: async (ctx, args) => {
     const normalized = normalizeHandle(args.handle);
+
     if (!HANDLE_PATTERN.test(normalized)) {
       return null;
     }
@@ -171,11 +191,13 @@ export const getByHandle = query({
       .query("handles")
       .withIndex("by_handle", (q) => q.eq("handle", normalized))
       .unique();
+
     if (!handleDoc || handleDoc.ownerType !== "business" || !handleDoc.businessId) {
       return null;
     }
 
     const business = await ctx.db.get(handleDoc.businessId);
+
     if (!business) {
       return null;
     }
@@ -222,6 +244,7 @@ export const listBankAccounts = query({
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
     const business = await ctx.db.get(args.businessId);
+
     if (!business || business.ownerId !== user._id) {
       throw new ConvexError("Negocio no encontrado");
     }

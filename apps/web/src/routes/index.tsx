@@ -16,10 +16,13 @@ function HomePage() {
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalized = normalizeHandle(handle);
+
     if (normalized.length < 3) {
       setError("Escribe un @handle válido (3 a 20 letras, números o guiones bajos).");
+
       return;
     }
+
     void navigate({ to: "/b/$handle", params: { handle: normalized } });
   }
 

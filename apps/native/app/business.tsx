@@ -25,7 +25,9 @@ import { useAppTheme } from "@/contexts/app-theme-context";
 import { useProfile } from "@/contexts/profile-context";
 
 type Status = "active" | "paused";
+
 type AccountType = "clabe" | "card";
+
 type SaleToggle = "acceptingOrders" | "tipsEnabled";
 
 const STATUS_LABELS: Record<BankAccountStatus, string> = {
@@ -62,10 +64,12 @@ export default function BusinessScreen() {
   const router = useRouter();
   const updateBusiness = useMutation(api.businesses.update);
   const linkBankAccount = useAction(api.pey.actions.linkBankAccount);
+
   const accounts = useQuery(
     api.businesses.listBankAccounts,
     business ? { businessId: business._id } : "skip",
   );
+
   const { toast } = useToast();
   const { accent, isImmersive, cardColor, cardBorder } = useAppTheme();
   const muted = useThemeColor("muted");
@@ -85,6 +89,7 @@ export default function BusinessScreen() {
   const glass = isImmersive
     ? { backgroundColor: cardColor, borderColor: cardBorder, borderWidth: 1 }
     : undefined;
+
   const textPrimary = isImmersive ? { color: "#FFFFFF" } : undefined;
   const textSecondary = isImmersive ? { color: "rgba(255,255,255,0.70)" } : undefined;
   const iconMuted = isImmersive ? "rgba(255,255,255,0.70)" : muted;
@@ -95,6 +100,7 @@ export default function BusinessScreen() {
     }
 
     setIsSaving(true);
+
     try {
       await updateBusiness({
         businessId: business._id,
@@ -119,6 +125,7 @@ export default function BusinessScreen() {
     }
 
     setPendingToggle(field);
+
     try {
       await updateBusiness(
         field === "acceptingOrders"
@@ -152,12 +159,15 @@ export default function BusinessScreen() {
     }
 
     const digits = accountNumber.replaceAll(/[\s-]/g, "");
+
     if (!digits) {
       toast.show({ variant: "danger", label: "Escribe el número de cuenta" });
+
       return;
     }
 
     setIsLinking(true);
+
     try {
       const result = await linkBankAccount({
         accountType,
@@ -166,8 +176,10 @@ export default function BusinessScreen() {
         businessId: business._id,
         setDefault: true,
       });
+
       setAccountNumber("");
       setShowAccountForm(false);
+
       if (result.status === "pending") {
         router.push({
           pathname: "/bank-account-status",

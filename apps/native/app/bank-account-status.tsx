@@ -138,10 +138,12 @@ export default function BankAccountStatusScreen() {
   const profile = useProfile();
   const businessId = profile.business?._id;
   const personalAccounts = useQuery(api.users.listBankAccounts);
+
   const businessAccounts = useQuery(
     api.businesses.listBankAccounts,
     businessId ? { businessId } : "skip",
   );
+
   const refreshBankAccount = useAction(api.pey.actions.refreshBankAccount);
   const router = useRouter();
   const { toast } = useToast();
@@ -173,6 +175,7 @@ export default function BankAccountStatusScreen() {
   }
 
   const allAccounts = [...(personalAccounts ?? []), ...(businessAccounts ?? [])];
+
   const account =
     (id ? allAccounts.find((item) => item._id === id) : undefined) ??
     personalAccounts?.find((item) => item.status === "pending") ??
@@ -224,6 +227,7 @@ export default function BankAccountStatusScreen() {
     : isRejected
       ? "bg-danger-soft"
       : "bg-warning-soft";
+
   const bannerTextClassName = isVerified
     ? "text-success-soft-foreground"
     : isRejected
@@ -232,8 +236,10 @@ export default function BankAccountStatusScreen() {
 
   async function handleRefresh() {
     setIsRefreshing(true);
+
     try {
       const result = await refreshBankAccount({ bankAccountId: account._id });
+
       if (result.status === "verified") {
         toast.show({ variant: "success", label: "¡Tu cuenta ya está verificada!" });
       } else if (result.status === "rejected") {

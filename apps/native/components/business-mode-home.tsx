@@ -17,22 +17,29 @@ export function BusinessModeHome() {
   const insets = useSafeAreaInsets();
   const profile = useProfile();
   const businessId = profile.business?._id;
+
   const orders = useQuery(
     api.orders.listBusinessOrders,
     businessId ? { businessId, limit: 50 } : "skip",
   );
+
   const { accent, isImmersive, cardColor, cardBorder } = useAppTheme();
+
   const glass = isImmersive
     ? { backgroundColor: cardColor, borderColor: cardBorder, borderWidth: 1 }
     : undefined;
+
   const textPrimary = isImmersive ? { color: "#FFFFFF" } : undefined;
   const textSecondary = isImmersive ? { color: "rgba(255,255,255,0.70)" } : undefined;
+
   const paidOrders = (orders ?? []).filter(
     (order) => order.status === "paid" || order.status === "fulfilled",
   );
+
   const pendingOrders = (orders ?? []).filter(
     (order) => order.status === "draft" || order.status === "awaiting_payment",
   );
+
   const paidTotal = paidOrders.reduce((sum, order) => sum + order.totalCents, 0);
   const pendingTotal = pendingOrders.reduce((sum, order) => sum + order.totalCents, 0);
 

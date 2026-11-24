@@ -37,10 +37,12 @@ type CatalogProduct = {
 export default function BusinessCatalogScreen() {
   const profile = useProfile();
   const business = profile.business;
+
   const products = useQuery(
     api.products.listByBusiness,
     business ? { businessId: business._id, includeInactive: true, limit: 100 } : "skip",
   );
+
   const createProduct = useMutation(api.products.create);
   const updateProduct = useMutation(api.products.update);
   const { toast } = useToast();
@@ -60,6 +62,7 @@ export default function BusinessCatalogScreen() {
   const glass = isImmersive
     ? { backgroundColor: cardColor, borderColor: cardBorder, borderWidth: 1 }
     : undefined;
+
   const textPrimary = isImmersive ? { color: "#FFFFFF" } : undefined;
   const textSecondary = isImmersive ? { color: "rgba(255,255,255,0.70)" } : undefined;
   const iconMuted = isImmersive ? "rgba(255,255,255,0.70)" : muted;
@@ -95,29 +98,38 @@ export default function BusinessCatalogScreen() {
     }
 
     const priceCents = parseAmountToCents(price);
+
     if (!name.trim()) {
       toast.show({ variant: "danger", label: "Escribe el nombre del producto" });
+
       return;
     }
+
     if (priceCents === null || priceCents < 100) {
       toast.show({ variant: "danger", label: "Escribe un precio válido (mínimo $1 MXN)" });
+
       return;
     }
 
     let stockValue: number | null = null;
+
     if (stock.trim()) {
       const parsed = Number(stock.trim());
+
       if (!Number.isInteger(parsed) || parsed < 0) {
         toast.show({
           variant: "danger",
           label: "El inventario debe ser un entero mayor o igual a 0",
         });
+
         return;
       }
+
       stockValue = parsed;
     }
 
     setIsSaving(true);
+
     try {
       if (editingId) {
         await updateProduct({
@@ -140,6 +152,7 @@ export default function BusinessCatalogScreen() {
         });
         toast.show({ variant: "success", label: "Producto agregado" });
       }
+
       closeForm();
     } catch (error) {
       toast.show({
@@ -153,6 +166,7 @@ export default function BusinessCatalogScreen() {
 
   async function handleToggle(product: CatalogProduct) {
     setTogglingId(product._id);
+
     try {
       await updateProduct({ productId: product._id, active: !product.active });
     } catch (error) {

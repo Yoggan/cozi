@@ -82,6 +82,7 @@ export function GlassTabBar({
 
   const visibleRoutes = state.routes.filter((route) => !descriptors[route.key].options.hidden);
   const focusedKey = state.routes[state.index]?.key;
+
   const activeIndex = Math.max(
     0,
     visibleRoutes.findIndex((route) => route.key === focusedKey),
@@ -165,6 +166,7 @@ export function GlassTabBar({
               const { options } = descriptors[route.key];
               const focused = route.key === focusedKey;
               const color = focused ? palette.activeIcon : palette.inactive;
+
               const label =
                 typeof options.tabBarLabel === "string"
                   ? options.tabBarLabel
@@ -172,11 +174,13 @@ export function GlassTabBar({
 
               const onPress = () => {
                 void selectionAsync();
+
                 const event = emitter.emit({
                   type: "tabPress",
                   target: route.key,
                   canPreventDefault: true,
                 });
+
                 if (!focused && !event.defaultPrevented) {
                   navigateToTab(route.key);
                 }

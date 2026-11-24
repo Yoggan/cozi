@@ -28,6 +28,7 @@ const PIN_LENGTH = 4;
 const FOREST = getBackdropById("forest");
 const KEY_TIMING = { duration: 90, easing: Easing.out(Easing.quad) };
 const DOT_TIMING = { duration: 120, easing: Easing.out(Easing.cubic) };
+
 const DIGIT_ROWS: Array<Array<string>> = [
   ["1", "2", "3"],
   ["4", "5", "6"],
@@ -67,6 +68,7 @@ export function PinEntryDots({
     if (errorSignal === 0) {
       return;
     }
+
     shake.value = withSequence(
       withTiming(-12, { duration: 45 }),
       withTiming(12, { duration: 55 }),
@@ -80,6 +82,7 @@ export function PinEntryDots({
   const rowStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: shake.value }],
   }));
+
   const glowStyle = useAnimatedStyle(() => ({ opacity: flash.value }));
 
   return (
@@ -111,6 +114,7 @@ function KeyButton({
   onPress: () => void;
 }) {
   const scale = useSharedValue(1);
+
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
@@ -218,6 +222,7 @@ export function PinKeypad({
 export function AppLockScreen() {
   const insets = useSafeAreaInsets();
   const { backdrop } = useAppTheme();
+
   const {
     biometricAvailable,
     biometricEnabled,
@@ -239,7 +244,9 @@ export function AppLockScreen() {
     if (biometricBusy) {
       return;
     }
+
     setBiometricBusy(true);
+
     try {
       await authenticateWithBiometrics();
     } finally {
@@ -251,10 +258,13 @@ export function AppLockScreen() {
     if (biometricAttempted.current || !biometricAvailable || !biometricEnabled) {
       return;
     }
+
     biometricAttempted.current = true;
+
     const timer = setTimeout(() => {
       void handleBiometric();
     }, 400);
+
     return () => clearTimeout(timer);
   }, [biometricAvailable, biometricEnabled, handleBiometric]);
 
@@ -267,8 +277,10 @@ export function AppLockScreen() {
       if (verifyPin(entry)) {
         void notificationAsync(NotificationFeedbackType.Success);
         unlock();
+
         return;
       }
+
       void notificationAsync(NotificationFeedbackType.Error);
       setErrors((count) => count + 1);
       setTimeout(() => setEntry((current) => (current.length === PIN_LENGTH ? "" : current)), 260);
@@ -283,6 +295,7 @@ export function AppLockScreen() {
     } catch {
       // The escape hatch must work even if the user is offline.
     }
+
     await disableLock();
   }
 
@@ -342,6 +355,7 @@ export function AppLockScreen() {
               if (errors > 0) {
                 setErrors(0);
               }
+
               setEntry((current) => (current.length < PIN_LENGTH ? current + digit : current));
             }}
           />

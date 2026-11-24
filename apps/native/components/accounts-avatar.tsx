@@ -21,9 +21,11 @@ export function AccountsAvatar({ size = "sm" }: { size?: "sm" | "md" }) {
     if (a.session.id === activeSessionId) {
       return -1;
     }
+
     if (b.session.id === activeSessionId) {
       return 1;
     }
+
     return 0;
   });
 

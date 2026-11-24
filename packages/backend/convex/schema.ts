@@ -71,12 +71,19 @@ export const billSplitStatusValidator = v.union(
 );
 
 export type OrderChannel = Infer<typeof orderChannelValidator>;
+
 export type OrderStatus = Infer<typeof orderStatusValidator>;
+
 export type PaymentMethod = Infer<typeof paymentMethodValidator>;
+
 export type PaymentStatus = Infer<typeof paymentStatusValidator>;
+
 export type BankAccountType = Infer<typeof bankAccountTypeValidator>;
+
 export type BankAccountStatus = Infer<typeof bankAccountStatusValidator>;
+
 export type BillSplitMode = Infer<typeof billSplitModeValidator>;
+
 export type BillSplitStatus = Infer<typeof billSplitStatusValidator>;
 
 /** Snapshot de precio: la orden no cambia si el producto cambia después. */

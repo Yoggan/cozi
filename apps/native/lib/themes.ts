@@ -276,6 +276,7 @@ export function getBackdropById(id: string | null | undefined): BackdropOption |
   if (!id) {
     return null;
   }
+
   return BACKDROP_OPTIONS.find((backdrop) => backdrop.id === id) ?? null;
 }
 

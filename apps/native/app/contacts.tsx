@@ -71,8 +71,10 @@ export default function ContactsScreen() {
         pathname: "/business/[handle]",
         params: { handle: contact.handle },
       });
+
       return;
     }
+
     startEdit(contact);
   }
 
@@ -85,11 +87,13 @@ export default function ContactsScreen() {
     const trimmedNickname = nickname.trim();
 
     setIsSaving(true);
+
     try {
       const result = await saveContact({
         handle: targetHandle,
         nickname: editingHandle ? trimmedNickname : trimmedNickname || undefined,
       });
+
       toast.show({
         variant: "success",
         label: editingHandle
@@ -274,6 +278,7 @@ export default function ContactsScreen() {
                   contacts.map((contact, index) => {
                     const managed = contact;
                     const isBusiness = managed.kind === "business";
+
                     const subtitle = isBusiness
                       ? `@${managed.handle} · Negocio`
                       : `@${managed.handle}${managed.canReceive ? "" : " · aún no recibe pagos"}`;

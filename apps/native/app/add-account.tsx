@@ -42,6 +42,7 @@ export default function AddAccountScreen() {
   const businessSignup = signup && accountType === "business";
   const businessBlocked = businessSignup && !isEnabled;
   const businessPinValid = !businessSignup || (pin.length === 4 && verifyPin(pin));
+
   const canSubmit =
     !isSubmitting &&
     !businessBlocked &&
@@ -56,14 +57,17 @@ export default function AddAccountScreen() {
     }
 
     setIsSubmitting(true);
+
     try {
       if (signup) {
         await setPendingAccountType(accountType);
+
         const result = await authClient.signUp.email({
           name: name.trim(),
           email: email.trim(),
           password,
         });
+
         if (result.error) {
           throw new Error(result.error.message ?? "No pudimos crear la cuenta");
         }
@@ -72,6 +76,7 @@ export default function AddAccountScreen() {
           email: email.trim(),
           password,
         });
+
         if (result.error) {
           throw new Error(result.error.message ?? "No pudimos entrar a la cuenta");
         }
@@ -83,6 +88,7 @@ export default function AddAccountScreen() {
       if (signup) {
         await clearPendingAccountType();
       }
+
       toast.show({
         variant: "danger",
         label: error instanceof Error ? error.message : "No pudimos agregar la cuenta",
@@ -123,6 +129,7 @@ export default function AddAccountScreen() {
           <View style={{ flexDirection: "row", gap: 8 }}>
             {(["signin", "signup"] as const).map((value) => {
               const selected = mode === value;
+
               return (
                 <Pressable
                   key={value}
@@ -158,6 +165,7 @@ export default function AddAccountScreen() {
                 ] as const
               ).map((option) => {
                 const selected = accountType === option.value;
+
                 return (
                   <Pressable
                     key={option.value}

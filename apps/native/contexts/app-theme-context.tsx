@@ -56,9 +56,11 @@ export const AppThemeProvider = ({ children }: { children: React.ReactNode }) =>
       .then((raw) => {
         if (!active || !raw) {
           Uniwind.setTheme(initialPreset.defaultMode);
+
           return;
         }
-        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Lo guardado lo escribe esta app; los campos se validan abajo.
+
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- SAFETY: lo guardado lo escribe esta app; los campos se validan abajo.
         const parsed = JSON.parse(raw) as Partial<PersistedTheme>;
         const loadedPreset = getPresetById(parsed.presetId ?? DEFAULT_PRESET_ID);
         setPresetId(loadedPreset.id);
@@ -66,15 +68,18 @@ export const AppThemeProvider = ({ children }: { children: React.ReactNode }) =>
           parsed.backdropId !== undefined ? parsed.backdropId : loadedPreset.backdropId,
         );
         setAccentId(parsed.accentId ?? loadedPreset.defaultAccentId);
+
         const mode: ThemeName =
           parsed.mode === "light" || parsed.mode === "dark"
             ? parsed.mode
             : loadedPreset.defaultMode;
+
         Uniwind.setTheme(mode);
       })
       .catch(() => {
         Uniwind.setTheme(initialPreset.defaultMode);
       });
+
     return () => {
       active = false;
     };
@@ -130,6 +135,7 @@ export const AppThemeProvider = ({ children }: { children: React.ReactNode }) =>
       const nextBackdrop = getBackdropById(nextBackdropId);
       setBackdropId(nextBackdrop?.id ?? null);
       const nextAccentId = nextBackdrop?.defaultAccentId ?? accentId;
+
       if (nextBackdrop) {
         setAccentId(nextAccentId);
         Uniwind.setTheme("dark");
@@ -213,8 +219,10 @@ export const AppThemeProvider = ({ children }: { children: React.ReactNode }) =>
 
 export function useAppTheme() {
   const context = useContext(AppThemeContext);
+
   if (!context) {
     throw new Error("useAppTheme must be used within AppThemeProvider");
   }
+
   return context;
 }

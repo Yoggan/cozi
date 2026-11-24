@@ -19,24 +19,28 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
       email: "maria@fondamaria.mx",
       handle: "maria_fonda",
     });
+
     const ana = await createUser(t, {
       subject: "auth_ana_split",
       name: "Ana López",
       email: "ana@gmail.com",
       handle: "ana_lopez",
     });
+
     const beto = await createUser(t, {
       subject: "auth_beto_split",
       name: "Beto García",
       email: "beto@gmail.com",
       handle: "beto_garcia",
     });
+
     const carla = await createUser(t, {
       subject: "auth_carla_split",
       name: "Carla Ruiz",
       email: "carla@gmail.com",
       handle: "carla_ruiz",
     });
+
     const diego = await createUser(t, {
       subject: "auth_diego_outside",
       name: "Diego Pérez",
@@ -67,6 +71,7 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
         { name: "Jarra de jamaica", priceCents: 15_000, stock: 10 },
       ],
     });
+
     const [mole, jamaica] = fonda.products;
 
     // 1. Ana paga la cena grupal: 3 moles ($750) + 1 jarra ($150) + $100 propina = $1,000.00 MXN.
@@ -79,6 +84,7 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
       tipCents: 10_000,
       note: "Cena viernes",
     });
+
     expect(mealOrder.totalCents).toBe(100_000);
 
     // No se puede dividir antes de pagar.
@@ -94,9 +100,11 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
     await ana.client.action(api.pey.actions.createPaymentLink, {
       orderId: mealOrder.orderId,
     });
+
     const mealPending = await ana.client.query(api.orders.getByPublicId, {
       publicId: mealOrder.publicId,
     });
+
     const mealPaymentLinkId = mealPending?.payment?.peyReference ?? "";
 
     const mealWebhook = await sendSignedPeyWebhook(t, {
@@ -108,6 +116,7 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
         currency: "MXN",
       },
     });
+
     expect(mealWebhook.status).toBe(200);
     expect(mealWebhook.body).toEqual({ ok: true, outcome: "processed" });
 
@@ -138,6 +147,7 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
     const betoSplitView = await beto.client.query(api.splits.getById, {
       billSplitId: split.billSplitId,
     });
+
     expect(betoSplitView?.status).toBe("open");
     expect(betoSplitView?.businessName).toBe("Fonda María");
     expect(betoSplitView?.remainingCents).toBe(66_666);
@@ -145,18 +155,21 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
     const diegoSplitView = await diego.client.query(api.splits.getById, {
       billSplitId: split.billSplitId,
     });
+
     expect(diegoSplitView).toBeNull();
 
     // La orden original expone el resumen de la división activa.
     const sourceOrderWithSplit = await ana.client.query(api.orders.getByPublicId, {
       publicId: mealOrder.publicId,
     });
+
     expect(sourceOrderWithSplit?.activeSplit?.billSplitId).toBe(split.billSplitId);
     expect(sourceOrderWithSplit?.activeSplit?.status).toBe("open");
 
     // 3. Beto paga su parte ($333.33 MXN) vía CoDi QR + webhook firmado.
     const betoShare = split.shares.find((s) => s.handle === "beto_garcia");
     const carlaShare = split.shares.find((s) => s.handle === "carla_ruiz");
+
     if (!betoShare || !carlaShare) {
       throw new Error("Expected both participant shares");
     }
@@ -165,6 +178,7 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
       orderId: betoShare.orderId,
       method: "qr",
     });
+
     const betoOrder = await beto.client.query(api.orders.getByPublicId, {
       publicId: betoShare.publicId,
     });
@@ -177,6 +191,7 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
         currency: "MXN",
       },
     });
+
     expect(betoWebhook.status).toBe(200);
     expect(betoWebhook.body).toEqual({ ok: true, outcome: "processed" });
 
@@ -184,6 +199,7 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
     const afterBeto = await ana.client.query(api.splits.getBySourceOrder, {
       sourceOrderId: mealOrder.orderId,
     });
+
     expect(afterBeto?.status).toBe("partially_paid");
     expect(afterBeto?.paidParticipantCount).toBe(1);
     expect(afterBeto?.collectedCents).toBe(33_333);
@@ -199,6 +215,7 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
     await carla.client.action(api.pey.actions.createPaymentLink, {
       orderId: carlaShare.orderId,
     });
+
     const carlaOrder = await carla.client.query(api.orders.getByPublicId, {
       publicId: carlaShare.publicId,
     });
@@ -212,6 +229,7 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
         currency: "MXN",
       },
     });
+
     expect(carlaWebhook.status).toBe(200);
     expect(carlaWebhook.body).toEqual({ ok: true, outcome: "processed" });
 
@@ -229,12 +247,14 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
       },
       { webhookId: carlaWebhook.webhookId },
     );
+
     expect(carlaDup.body).toEqual({ ok: true, outcome: "duplicate" });
 
     // 5. La división queda `settled` con los $666.66 MXN recolectados.
     const settledSplit = await ana.client.query(api.splits.getById, {
       billSplitId: split.billSplitId,
     });
+
     expect(settledSplit?.status).toBe("settled");
     expect(settledSplit?.paidParticipantCount).toBe(2);
     expect(settledSplit?.collectedCents).toBe(66_666);
@@ -256,12 +276,14 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
       email: "raul@ramenhouse.mx",
       handle: "raul_ramen",
     });
+
     const ana = await createUser(t, {
       subject: "auth_ana_custom",
       name: "Ana López",
       email: "ana@gmail.com",
       handle: "ana_custom",
     });
+
     const beto = await createUser(t, {
       subject: "auth_beto_custom",
       name: "Beto García",
@@ -269,12 +291,14 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
       handle: "beto_custom",
       phone: "+525599887766",
     });
+
     const carla = await createUser(t, {
       subject: "auth_carla_custom",
       name: "Carla Ruiz",
       email: "carla@gmail.com",
       handle: "carla_custom",
     });
+
     await createUser(t, {
       subject: "auth_diego_custom",
       name: "Diego Pérez",
@@ -297,6 +321,7 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
         { name: "Postre compartido", priceCents: 10_000 },
       ],
     });
+
     const [tonkotsu, combo, dessert] = ramen.products;
 
     // Escenario A: División personalizada ($850 MXN: Ana $250, Beto $350, Carla $250).
@@ -307,9 +332,11 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
         { productId: combo.productId, quantity: 1 },
       ],
     });
+
     const dinnerPayment = await ana.client.action(api.pey.actions.createPaymentLink, {
       orderId: dinner.orderId,
     });
+
     await ana.client.action(api.pey.actions.refreshPayment, {
       paymentId: dinnerPayment.paymentId,
     });
@@ -323,6 +350,7 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
       ],
       note: "Ramen por platillo",
     });
+
     expect(customSplit.creatorShareCents).toBe(25_000);
     expect(customSplit.requestedTotalCents).toBe(60_000);
 
@@ -332,6 +360,7 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
       method: "push",
       payerPhone: "5599887766",
     });
+
     expect(betoPush.method).toBe("codi_push");
     await beto.client.action(api.pey.actions.refreshPayment, {
       paymentId: betoPush.paymentId,
@@ -340,6 +369,7 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
     const carlaLink = await carla.client.action(api.pey.actions.createPaymentLink, {
       orderId: customSplit.shares[1].orderId,
     });
+
     await carla.client.action(api.pey.actions.refreshPayment, {
       paymentId: carlaLink.paymentId,
     });
@@ -347,6 +377,7 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
     const settledCustom = await ana.client.query(api.splits.getById, {
       billSplitId: customSplit.billSplitId,
     });
+
     expect(settledCustom?.status).toBe("settled");
     expect(settledCustom?.collectedCents).toBe(60_000);
 
@@ -355,9 +386,11 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
       businessId: ramen.businessId,
       items: [{ productId: dessert.productId, quantity: 1 }],
     });
+
     const dessertPayment = await ana.client.action(api.pey.actions.createPaymentLink, {
       orderId: dessertOrder.orderId,
     });
+
     await ana.client.action(api.pey.actions.refreshPayment, {
       paymentId: dessertPayment.paymentId,
     });
@@ -372,6 +405,7 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
         { handle: "diego_custom" },
       ],
     });
+
     expect(excludedSplit.creatorShareCents).toBe(0);
     expect(excludedSplit.requestedTotalCents).toBe(10_000);
     expect(excludedSplit.shares.map((s) => s.amountCents)).toEqual([3334, 3333, 3333]);
@@ -386,12 +420,14 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
       email: "pablo@pizzeria.mx",
       handle: "chef_pablo",
     });
+
     const ana = await createUser(t, {
       subject: "auth_ana_split_guard",
       name: "Ana López",
       email: "ana@gmail.com",
       handle: "ana_guard",
     });
+
     const beto = await createUser(t, {
       subject: "auth_beto_split_guard",
       name: "Beto García",
@@ -410,9 +446,11 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
       businessId: pizzeria.businessId,
       items: [{ productId: pizzeria.products[0].productId, quantity: 1 }],
     });
+
     const link = await ana.client.action(api.pey.actions.createPaymentLink, {
       orderId: pizzaOrder.orderId,
     });
+
     await ana.client.action(api.pey.actions.refreshPayment, {
       paymentId: link.paymentId,
     });
@@ -488,11 +526,13 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
     const cancelled = await ana.client.mutation(api.splits.cancel, {
       billSplitId: firstSplit.billSplitId,
     });
+
     expect(cancelled.status).toBe("cancelled");
 
     const cancelledChildOrder = await beto.client.query(api.orders.getByPublicId, {
       publicId: firstSplit.shares[0].publicId,
     });
+
     expect(cancelledChildOrder?.status).toBe("cancelled");
 
     const secondSplit = await ana.client.mutation(api.splits.createForOrder, {
@@ -500,6 +540,7 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
       mode: "equal",
       participants: [{ handle: "beto_guard" }],
     });
+
     expect(secondSplit.shares[0]?.amountCents).toBe(10_000);
   });
 });

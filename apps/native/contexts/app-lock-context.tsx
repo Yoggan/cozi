@@ -33,9 +33,11 @@ function biometricLabelFor(types: Array<number>): string {
   if (Platform.OS === "ios" && types.includes(2)) {
     return "Face ID";
   }
+
   if (types.includes(1)) {
     return "Huella";
   }
+
   return "Biometría";
 }
 
@@ -75,6 +77,7 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
           getItemAsync(PIN_KEY),
           getItemAsync(BIOMETRIC_KEY),
         ]);
+
         if (!active) {
           return;
         }
@@ -83,6 +86,7 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
         setPinValue(validPin);
         setIsEnabled(Boolean(validPin));
         setBiometricEnabledState(Boolean(validPin) && storedBiometric === "1");
+
         if (validPin) {
           setIsLocked(true);
         }
@@ -102,6 +106,7 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const module = loadBiometrics();
+
     if (!module) {
       return;
     }
@@ -115,9 +120,11 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
           module.isEnrolledAsync(),
           module.supportedAuthenticationTypesAsync(),
         ]);
+
         if (!active) {
           return;
         }
+
         setBiometricAvailable(hasHardware && enrolled);
         setBiometricLabel(biometricLabelFor(types));
       } catch {
@@ -138,16 +145,21 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
     }
 
     let backgroundedAt: number | null = null;
+
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "background") {
         backgroundedAt = Date.now();
+
         return;
       }
+
       if (state !== "active" || backgroundedAt === null) {
         return;
       }
+
       const elapsed = Date.now() - backgroundedAt;
       backgroundedAt = null;
+
       if (elapsed > RELOCK_AFTER_MS) {
         setIsLocked(true);
       }
@@ -172,6 +184,7 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
     if (!PIN_PATTERN.test(nextPin)) {
       throw new Error("El PIN debe tener 4 dígitos.");
     }
+
     await setItemAsync(PIN_KEY, nextPin);
     setPinValue(nextPin);
     setIsEnabled(true);
@@ -185,6 +198,7 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
     setIsEnabled(false);
     setBiometricEnabledState(false);
     setIsLocked(false);
+
     try {
       await Promise.all([deleteItemAsync(PIN_KEY), deleteItemAsync(BIOMETRIC_KEY)]);
     } catch {
@@ -196,6 +210,7 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
     async (enabled: boolean) => {
       const next = enabled && biometricAvailable;
       setBiometricEnabledState(next);
+
       try {
         await setItemAsync(BIOMETRIC_KEY, next ? "1" : "0");
       } catch {
@@ -209,7 +224,9 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
     if (!biometricEnabled || !biometricAvailable) {
       return false;
     }
+
     const module = loadBiometrics();
+
     if (!module) {
       return false;
     }
@@ -220,10 +237,13 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
         cancelLabel: "Usar PIN",
         disableDeviceFallback: true,
       });
+
       if (!result.success) {
         return false;
       }
+
       setIsLocked(false);
+
       return true;
     } catch {
       return false;
@@ -268,8 +288,10 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
 
 export function useAppLock() {
   const context = useContext(AppLockContext);
+
   if (!context) {
     throw new Error("useAppLock must be used within AppLockProvider");
   }
+
   return context;
 }

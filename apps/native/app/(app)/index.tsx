@@ -201,10 +201,12 @@ function PersonalHome() {
   const successForeground = useThemeColor("success-foreground");
   const foreground = useThemeColor("foreground");
   const [isHandleSheetOpen, setIsHandleSheetOpen] = useState(false);
+
   const handleSheetBackground = useMemo(
     () => createHandleSheetBackground(baseColor, cardColor, cardBorder),
     [baseColor, cardColor, cardBorder],
   );
+
   const firstName = profile.displayName.split(/\s+/)[0] ?? profile.displayName;
 
   const scrollY = useSharedValue(0);
@@ -219,6 +221,7 @@ function PersonalHome() {
     // Slow downward drift while scrolling up; gentle zoom while overscrolling.
     const translateY = y > 0 ? y * 0.35 : y * 0.5;
     const scale = y < 0 ? 1 + Math.min(-y / 1200, 0.1) : 1;
+
     return { transform: [{ translateY }, { scale }] };
   });
 
@@ -226,6 +229,7 @@ function PersonalHome() {
     if (!profile.handle) {
       return;
     }
+
     await Share.share({ message: `Págame en Cozi: @${profile.handle}` });
   }
 
@@ -233,6 +237,7 @@ function PersonalHome() {
     if (!profile.handle) {
       return;
     }
+
     Clipboard.setString(`@${profile.handle}`);
   }
 
@@ -240,6 +245,7 @@ function PersonalHome() {
     if (!profile.handle) {
       return;
     }
+
     const url = createURL("/contacts", { queryParams: { handle: profile.handle } });
     await Share.share({ message: `Agrégame en Cozi: ${url}` });
   }
@@ -248,6 +254,7 @@ function PersonalHome() {
     if (!profile.handle) {
       return;
     }
+
     setIsHandleSheetOpen(true);
   }
 

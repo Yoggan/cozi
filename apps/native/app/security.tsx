@@ -76,11 +76,14 @@ export default function SecurityScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { toast } = useToast();
+
   const { accent, baseColor, cardColor, cardBorder, isImmersive, backdrop, isLight } =
     useAppTheme();
+
   const foreground = useThemeColor("foreground");
   const muted = useThemeColor("muted");
   const warning = useThemeColor("warning");
+
   const {
     isEnabled,
     hasLoaded,
@@ -121,6 +124,7 @@ export default function SecurityScreen() {
     if (completionTimer.current) {
       clearTimeout(completionTimer.current);
     }
+
     void impactAsync(ImpactFeedbackStyle.Light);
     setStep("idle");
     setEntry("");
@@ -135,23 +139,28 @@ export default function SecurityScreen() {
       setEntry("");
       setErrors(0);
       setStep("confirm");
+
       return;
     }
 
     if (pin !== draft) {
       void notificationAsync(NotificationFeedbackType.Error);
       setErrors((count) => count + 1);
+
       if (completionTimer.current) {
         clearTimeout(completionTimer.current);
       }
+
       completionTimer.current = setTimeout(() => {
         setEntry((current) => (current.length === PIN_LENGTH ? "" : current));
       }, 260);
+
       return;
     }
 
     void (async () => {
       setSaving(true);
+
       try {
         await setPin(pin);
         await notificationAsync(NotificationFeedbackType.Success);
@@ -174,15 +183,19 @@ export default function SecurityScreen() {
     if (step === "idle" || saving || entry.length >= PIN_LENGTH) {
       return;
     }
+
     if (errors > 0) {
       setErrors(0);
     }
+
     const next = entry + digit;
     setEntry(next);
+
     if (next.length === PIN_LENGTH) {
       if (completionTimer.current) {
         clearTimeout(completionTimer.current);
       }
+
       completionTimer.current = setTimeout(() => complete(next), 90);
     }
   }
@@ -364,6 +377,7 @@ export default function SecurityScreen() {
                     if (completionTimer.current) {
                       clearTimeout(completionTimer.current);
                     }
+
                     setEntry((current) => current.slice(0, -1));
                   }}
                   onDigit={handleDigit}

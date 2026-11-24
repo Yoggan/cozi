@@ -18,6 +18,7 @@ describe("E2E: P2P transfers, requests, and bank account activation webhooks", (
       email: "sofia@gmail.com",
       handle: "sofia_m",
     });
+
     const receiver = await createUser(t, {
       subject: "auth_p2p_receiver",
       name: "Jorge Castro",
@@ -60,6 +61,7 @@ describe("E2E: P2P transfers, requests, and bank account activation webhooks", (
         codiStatus: "ACTIVE",
       },
     });
+
     expect(bankWebhook.status).toBe(200);
     expect(bankWebhook.body).toEqual({ ok: true, outcome: "bank_account_updated" });
 
@@ -68,11 +70,13 @@ describe("E2E: P2P transfers, requests, and bank account activation webhooks", (
       orderId: transfer.orderId,
       method: "qr",
     });
+
     expect(charge.status).toBe("pending");
 
     const orderBefore = await sender.client.query(api.orders.getByPublicId, {
       publicId: transfer.publicId,
     });
+
     const paymentWebhook = await sendSignedPeyWebhook(t, {
       type: "codi.qr.payment_received",
       data: {
@@ -81,12 +85,14 @@ describe("E2E: P2P transfers, requests, and bank account activation webhooks", (
         currency: "MXN",
       },
     });
+
     expect(paymentWebhook.status).toBe(200);
     expect(paymentWebhook.body).toEqual({ ok: true, outcome: "processed" });
 
     const receiverView = await receiver.client.query(api.p2p.getOrder, {
       publicId: transfer.publicId,
     });
+
     expect(receiverView?.status).toBe("paid");
     expect(receiverView?.direction).toBe("in");
     expect(receiverView?.counterpartHandle).toBe("sofia_m");
@@ -101,6 +107,7 @@ describe("E2E: P2P transfers, requests, and bank account activation webhooks", (
       email: "lucia@gmail.com",
       handle: "lucia_v",
     });
+
     const payer = await createUser(t, {
       subject: "auth_p2p_payer",
       name: "Mateo Cruz",
@@ -137,12 +144,14 @@ describe("E2E: P2P transfers, requests, and bank account activation webhooks", (
         currency: "MXN",
       },
     });
+
     expect(webhook.status).toBe(200);
     expect(webhook.body).toEqual({ ok: true, outcome: "processed" });
 
     const paid = await payer.client.query(api.p2p.getOrder, {
       publicId: request.publicId,
     });
+
     expect(paid?.status).toBe("paid");
     expect(paid?.direction).toBe("out");
   });

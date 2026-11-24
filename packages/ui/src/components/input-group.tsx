@@ -58,10 +58,11 @@ function InputGroupAddon({
       data-align={align}
       className={cn(inputGroupAddonVariants({ align }), className)}
       onClick={(e) => {
-        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- e.target es el nodo clicado; solo se lee closest().
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- SAFETY: e.target es el nodo clicado; solo se lee closest().
         if ((e.target as HTMLElement).closest("button")) {
           return;
         }
+
         e.currentTarget.parentElement
           ?.querySelector<HTMLInputElement | HTMLTextAreaElement>("input, textarea")
           ?.focus();
