@@ -3,6 +3,8 @@ import { describe, expect, test } from "vitest";
 import { createTestBackend, createUser } from "../test-utils/harness";
 import { api } from "./_generated/api";
 
+const AVATAR_MAX_BYTES_TEST = 5 * 1024 * 1024;
+
 function imageBlob(type = "image/png"): Blob {
   return new Blob([new Uint8Array([137, 80, 78, 71])], { type });
 }
@@ -134,6 +136,57 @@ describe("E2E: foto de perfil", () => {
     expect(rejected).toMatchObject({ status: "rejected" });
 
     expect(await t.run(async (ctx) => await ctx.db.system.get("_storage", notAnImage))).toBeNull();
+  });
+
+  test("no borra una imagen que ya usa un negocio", async () => {
+    const t = createTestBackend();
+
+    const owner = await createUser(t, {
+      subject: "auth_avatar_product",
+      name: "Ana Ruiz",
+      email: "ana@gmail.com",
+      handle: "ana_r4",
+    });
+
+    const productImage = await t.run(async (ctx) => {
+      const storageId = await ctx.storage.store(
+        new Blob([new Uint8Array(AVATAR_MAX_BYTES_TEST + 1)], { type: "application/pdf" }),
+      );
+
+      const businessId = await ctx.db.insert("businesses", {
+        ownerId: owner.userId,
+        name: "Fonda Ana",
+        status: "active",
+        acceptingOrders: true,
+        tipsEnabled: false,
+        channels: {},
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+
+      await ctx.db.insert("products", {
+        businessId,
+        name: "Café de olla",
+        priceCents: 3500,
+        imageStorageId: storageId,
+        active: true,
+        source: "manual",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+
+      return storageId;
+    });
+
+    const rejected = await owner.client.mutation(api.users.setAvatar, {
+      expectedUserId: owner.userId,
+      storageId: productImage,
+    });
+
+    expect(rejected).toMatchObject({ status: "rejected" });
+    expect(
+      await t.run(async (ctx) => await ctx.db.system.get("_storage", productImage)),
+    ).not.toBeNull();
   });
 
   test("rechaza una subida que empezó en otra cuenta", async () => {

@@ -507,24 +507,29 @@ export const setAvatar = mutation({
       throw new ConvexError("No encontramos la imagen");
     }
 
+    const referenced =
+      user.avatarStorageId !== args.storageId && (await isStorageReferenced(ctx, args.storageId));
+
     // Los rechazos vuelven como resultado, no como error: un throw revierte
-    // también el borrado y dejaría el archivo inservible en Storage.
+    // también el borrado y dejaría el archivo inservible en Storage. Un
+    // archivo que ya usa otra fila nunca se borra desde aquí.
     if (!file.contentType?.startsWith("image/")) {
-      await ctx.storage.delete(args.storageId);
+      if (!referenced) {
+        await ctx.storage.delete(args.storageId);
+      }
 
       return { status: "rejected" as const, message: "La foto debe ser una imagen" };
     }
 
     if (file.size > AVATAR_MAX_BYTES) {
-      await ctx.storage.delete(args.storageId);
+      if (!referenced) {
+        await ctx.storage.delete(args.storageId);
+      }
 
       return { status: "rejected" as const, message: "La foto no puede pasar de 5 MB" };
     }
 
-    if (
-      user.avatarStorageId !== args.storageId &&
-      (await isStorageReferenced(ctx, args.storageId))
-    ) {
+    if (referenced) {
       return { status: "rejected" as const, message: "No encontramos la imagen" };
     }
 
