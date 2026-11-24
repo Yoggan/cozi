@@ -3,6 +3,7 @@
     "tools/oxlint/anti-slop/**",
     ".agents/skills/migrate-oxlint-config/**",
     ".agents/skills/vercel-react-native-skills/**",
-    ".claude/skills/vercel-react-native-skills/**"
+    ".claude/skills/vercel-react-native-skills/**",
+    "packages/backend/convex/_generated/**"
   ]
 }
