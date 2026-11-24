@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint, types, and tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The web build generates the gitignored routeTree.gen.ts, and lint needs
+      # those route types to resolve. check-types runs the web build first, so
+      # it must precede lint on a clean checkout.
+      - name: Check types
+        run: pnpm check-types
+        env:
+          # Placeholder Convex URLs so the varlock schema validates. The web
+          # schema rejects the example.convex.* hosts, so use a neutral host.
+          VITE_CONVEX_URL: https://ci-placeholder.convex.cloud
+          VITE_CONVEX_SITE_URL: https://ci-placeholder.convex.site
+          EXPO_PUBLIC_CONVEX_URL: https://ci-placeholder.convex.cloud
+          EXPO_PUBLIC_CONVEX_SITE_URL: https://ci-placeholder.convex.site
+
+      - name: Lint
+        run: pnpm exec oxlint
+
+      - name: Check formatting
+        run: pnpm exec oxfmt --check
+
+      - name: Test
+        run: pnpm test

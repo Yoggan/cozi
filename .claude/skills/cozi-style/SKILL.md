@@ -27,27 +27,27 @@ Personality: tranquilos (no aburridos) · premium (no fríos) · cercanos (no in
 
 Always use semantic tokens, never raw hex in components. **Dark is the default mode.**
 
-| Token | Dark (default) | Light |
-|---|---|---|
-| `color/bg/canvas` | `#000000` | `#FBF8F2` |
-| `color/bg/surface` | `#0A2A20` | `#FFFFFF` |
-| `color/bg/surface-raised` | `#0F3D2E` | `#F5EFE3` |
-| `color/bg/glass` | `#0A2A20` @ 62% (`#0A2A209E`) | `#FFFFFF` @ 72% (`#FFFFFFB8`) |
-| `color/bg/brand` | `#0F3D2E` | `#0F3D2E` |
-| `color/text/primary` | `#F5EFE3` | `#0B0F0D` |
-| `color/text/secondary` | `#BCC6C0` | `#26302B` |
-| `color/text/tertiary` | `#9BA89F` | `#5E6B64` |
-| `color/icon/secondary` | `#9BA89F` | `#5E6B64` |
-| `color/action/primary-bg` | `#F5EFE3` (cream, ink text) | `#0F3D2E` (evergreen, cream text) |
-| `color/action/secondary-bg` | `#0A2A209E` | `#E8DFCF` |
-| `color/status/success` | `#22C55E` | `#15803D` |
-| `color/status/error` | `#F87171` | `#DC2626` |
-| `color/status/warning` | `#FBBF24` | `#B45309` |
-| `color/money/received` | `#22C55E` | `#15803D` |
-| `color/money/sent` | `#F5EFE3` | `#0B0F0D` |
-| `color/border/subtle` | `#F5EFE3` @ 10% | `#0B0F0D` @ 8% |
-| `color/border/strong` | `#1D6B53` | `#D6CAB4` |
-| `color/focus/ring` | `#22C55E` | `#16A34A` |
+| Token                       | Dark (default)                | Light                             |
+| --------------------------- | ----------------------------- | --------------------------------- |
+| `color/bg/canvas`           | `#000000`                     | `#FBF8F2`                         |
+| `color/bg/surface`          | `#0A2A20`                     | `#FFFFFF`                         |
+| `color/bg/surface-raised`   | `#0F3D2E`                     | `#F5EFE3`                         |
+| `color/bg/glass`            | `#0A2A20` @ 62% (`#0A2A209E`) | `#FFFFFF` @ 72% (`#FFFFFFB8`)     |
+| `color/bg/brand`            | `#0F3D2E`                     | `#0F3D2E`                         |
+| `color/text/primary`        | `#F5EFE3`                     | `#0B0F0D`                         |
+| `color/text/secondary`      | `#BCC6C0`                     | `#26302B`                         |
+| `color/text/tertiary`       | `#9BA89F`                     | `#5E6B64`                         |
+| `color/icon/secondary`      | `#9BA89F`                     | `#5E6B64`                         |
+| `color/action/primary-bg`   | `#F5EFE3` (cream, ink text)   | `#0F3D2E` (evergreen, cream text) |
+| `color/action/secondary-bg` | `#0A2A209E`                   | `#E8DFCF`                         |
+| `color/status/success`      | `#22C55E`                     | `#15803D`                         |
+| `color/status/error`        | `#F87171`                     | `#DC2626`                         |
+| `color/status/warning`      | `#FBBF24`                     | `#B45309`                         |
+| `color/money/received`      | `#22C55E`                     | `#15803D`                         |
+| `color/money/sent`          | `#F5EFE3`                     | `#0B0F0D`                         |
+| `color/border/subtle`       | `#F5EFE3` @ 10%               | `#0B0F0D` @ 8%                    |
+| `color/border/strong`       | `#1D6B53`                     | `#D6CAB4`                         |
+| `color/focus/ring`          | `#22C55E`                     | `#16A34A`                         |
 
 Brand palette (exploration names, for marketing and naming only): Siempreverde `#0F3D2E` (brand), Bosque profundo `#0A2A20` (surfaces), Esmeralda `#22C55E` (action/success), Crema `#F5EFE3` (light bg / text), Arena `#E8DFCF` (secondary), Tinta `#0B0F0D` (dark bg).
 
@@ -61,32 +61,32 @@ Brand palette (exploration names, for marketing and naming only): Siempreverde `
 
 Accents only tint **highlights and selected states** (active tab, selected chip, avatar initials, switch on). Brand, text and status colors **never** change with the accent. Already implemented in [apps/native/lib/themes.ts](apps/native/lib/themes.ts) (`ACCENT_OPTIONS`).
 
-| Accent | `accent/solid` | `accent/soft` | on-accent fg |
-|---|---|---|---|
-| Esmeralda (default) | `#22C55E` | `rgba(34,197,94,0.18)` | `#052E16` |
-| Cielo | `#38BDF8` | `rgba(56,189,248,0.18)` | `#082F49` |
-| Índigo | `#818CF8` | `rgba(129,140,248,0.2)` | `#1E1B4B` |
-| Ámbar | `#FBBF24` | `rgba(251,191,36,0.18)` | `#451A03` |
-| Rosa | `#FB7185` | `rgba(251,113,133,0.18)` | `#4C0519` |
+| Accent              | `accent/solid` | `accent/soft`            | on-accent fg |
+| ------------------- | -------------- | ------------------------ | ------------ |
+| Esmeralda (default) | `#22C55E`      | `rgba(34,197,94,0.18)`   | `#052E16`    |
+| Cielo               | `#38BDF8`      | `rgba(56,189,248,0.18)`  | `#082F49`    |
+| Índigo              | `#818CF8`      | `rgba(129,140,248,0.2)`  | `#1E1B4B`    |
+| Ámbar               | `#FBBF24`      | `rgba(251,191,36,0.18)`  | `#451A03`    |
+| Rosa                | `#FB7185`      | `rgba(251,113,133,0.18)` | `#4C0519`    |
 
 ## Typography
 
 One family: **Plus Jakarta Sans**. ExtraBold for display, SemiBold for UI, Regular for text. **Tabular figures (`font-variant-numeric: tabular-nums`) for every amount.**
 
-| Style | Weight | Size / line-height | Tracking | Example |
-|---|---|---|---|---|
-| Display/XL | 800 ExtraBold | 56 / 1.0 | -3 | `cozi` |
-| Display/L | 700 Bold | 40 / 1.1 | -2 | Manda dinero |
-| Title/L | 700 Bold | 28 / 1.2 | -1 | Actividad reciente |
-| Title/M | 600 SemiBold | 22 / 1.25 | -0.5 | Vincula tu cuenta |
-| Body/L | 400 Regular | 17 / 1.45 | 0 | Agrega tu CLABE una sola vez. |
-| Body/M | 400 Regular | 15 / 1.45 | 0 | Sin comisiones · CoDi |
-| Body/M Strong | 600 SemiBold | 15 / 1.45 | 0 | @jorgezazueta |
-| Label/M | 600 SemiBold | 15 / 1.2 | 0 | Enviar |
-| Label/S | 600 SemiBold | 13 / 1.2 | +2, UPPERCASE | MOVIMIENTOS |
-| Caption | 500 Medium | 12 / 1.3 | 0 | Hoy, 2:05 p.m. |
-| Amount/XL | 700 Bold | 56 / 1.0 | -3 | $1,250.00 |
-| Amount/M | 600 SemiBold | 20 / 1.2 | -0.5 | $85.50 |
+| Style         | Weight        | Size / line-height | Tracking      | Example                       |
+| ------------- | ------------- | ------------------ | ------------- | ----------------------------- |
+| Display/XL    | 800 ExtraBold | 56 / 1.0           | -3            | `cozi`                        |
+| Display/L     | 700 Bold      | 40 / 1.1           | -2            | Manda dinero                  |
+| Title/L       | 700 Bold      | 28 / 1.2           | -1            | Actividad reciente            |
+| Title/M       | 600 SemiBold  | 22 / 1.25          | -0.5          | Vincula tu cuenta             |
+| Body/L        | 400 Regular   | 17 / 1.45          | 0             | Agrega tu CLABE una sola vez. |
+| Body/M        | 400 Regular   | 15 / 1.45          | 0             | Sin comisiones · CoDi         |
+| Body/M Strong | 600 SemiBold  | 15 / 1.45          | 0             | @jorgezazueta                 |
+| Label/M       | 600 SemiBold  | 15 / 1.2           | 0             | Enviar                        |
+| Label/S       | 600 SemiBold  | 13 / 1.2           | +2, UPPERCASE | MOVIMIENTOS                   |
+| Caption       | 500 Medium    | 12 / 1.3           | 0             | Hoy, 2:05 p.m.                |
+| Amount/XL     | 700 Bold      | 56 / 1.0           | -3            | $1,250.00                     |
+| Amount/M      | 600 SemiBold  | 20 / 1.2           | -0.5          | $85.50                        |
 
 Tracking values are in px (Figma letterSpacing).
 
@@ -128,15 +128,15 @@ Phosphor icon set, Regular weight, 24px default (16px inline in captions). Fill 
 
 Talk with **tú**, short, no jargon, no error codes.
 
-| Sí | No |
-|---|---|
-| Manda tu primer pago. | Realice su primera transferencia. |
-| Listo, ya le llegó a @ana.lu. | Operación procesada exitosamente. |
-| Agrega tu CLABE una sola vez. | Ingrese su Clave Bancaria Estandarizada. |
-| No pudimos completar el pago. Intenta de nuevo. | Error 402: transacción rechazada. |
+| Sí                                              | No                                       |
+| ----------------------------------------------- | ---------------------------------------- |
+| Manda tu primer pago.                           | Realice su primera transferencia.        |
+| Listo, ya le llegó a @ana.lu.                   | Operación procesada exitosamente.        |
+| Agrega tu CLABE una sola vez.                   | Ingrese su Clave Bancaria Estandarizada. |
+| No pudimos completar el pago. Intenta de nuevo. | Error 402: transacción rechazada.        |
 
 - Amounts: `$1,250.00`, currency `MXN` in the meta line. Time: `Hoy, 2:05 p.m.`.
-- Separate meta with ` · ` (middle dot).
+- Separate meta with `·` (middle dot).
 - Always name the person by `@handle` in confirmations.
 - Say "sin comisión" / "CoDi" plainly when relevant (trust).
 
