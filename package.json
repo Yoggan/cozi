@@ -24,6 +24,8 @@
     "deploy:check": "pnpm dlx vercel deploy --dry",
     "env:generate": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/native/",
     "postinstall": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/native/",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint . --fix",
     "check": "oxlint && oxfmt --write"
   },
   "dependencies": {

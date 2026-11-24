@@ -1,3 +1,8 @@
 {
-  "ignorePatterns": ["tools/oxlint/anti-slop/**"]
+  "ignorePatterns": [
+    "tools/oxlint/anti-slop/**",
+    ".agents/skills/migrate-oxlint-config/**",
+    ".agents/skills/vercel-react-native-skills/**",
+    ".claude/skills/vercel-react-native-skills/**"
+  ]
 }
