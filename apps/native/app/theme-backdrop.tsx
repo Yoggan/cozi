@@ -36,6 +36,7 @@ export default function ThemeBackdropScreen() {
     if (category === "todos") {
       return BACKDROP_OPTIONS;
     }
+
     return BACKDROP_OPTIONS.filter((item) => item.category === category);
   }, [category]);
 
@@ -94,6 +95,7 @@ export default function ThemeBackdropScreen() {
       >
         {BACKDROP_CATEGORIES.map((cat) => {
           const active = cat.id === category;
+
           return (
             <Pressable
               key={cat.id}
@@ -133,6 +135,7 @@ export default function ThemeBackdropScreen() {
         >
           {filtered.map((item, index) => {
             const selected = backdrop?.id === item.id;
+
             return (
               <WallpaperTile
                 key={`${category}-${item.id}`}
@@ -161,6 +164,7 @@ function WallpaperTile({
   onPress: () => void;
 }) {
   const scale = useSharedValue(1);
+
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));

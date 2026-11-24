@@ -21,6 +21,7 @@ const CSS_VARIABLES: CSSProperties & Record<`--${string}`, string> = {
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme } = useTheme();
+
   const sonnerTheme: NonNullable<ToasterProps["theme"]> =
     theme === "light" || theme === "dark" ? theme : "system";
 

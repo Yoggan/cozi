@@ -37,6 +37,7 @@ export default function EditProfileScreen() {
     }
 
     setIsSaving(true);
+
     try {
       await updateProfile({
         displayName: displayName.trim(),

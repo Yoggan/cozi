@@ -18,6 +18,7 @@ export default function AccountsScreen() {
   const theme = usePaymentTheme();
   const { toast } = useToast();
   const profile = useProfile();
+
   const {
     isEnabled,
     verifyPin,
@@ -26,6 +27,7 @@ export default function AccountsScreen() {
     biometricAvailable,
     biometricLabel,
   } = useAppLock();
+
   const {
     sessions,
     isLoading,
@@ -35,6 +37,7 @@ export default function AccountsScreen() {
     isBusinessSession,
     switchTo,
   } = useAccounts();
+
   const [pendingToken, setPendingToken] = useState<string | null>(null);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState(false);
@@ -43,9 +46,11 @@ export default function AccountsScreen() {
     if (a.session.id === activeSessionId) {
       return -1;
     }
+
     if (b.session.id === activeSessionId) {
       return 1;
     }
+
     return 0;
   });
 
@@ -69,13 +74,17 @@ export default function AccountsScreen() {
           label: "Configura un PIN o biometría antes de entrar a una cuenta de negocio.",
         });
         router.push("/security");
+
         return;
       }
+
       setPin("");
       setPinError(false);
       setPendingToken(sessionToken);
+
       return;
     }
+
     void performSwitch(sessionToken);
   }
 
@@ -83,10 +92,13 @@ export default function AccountsScreen() {
     if (!pendingToken || pin.length !== 4) {
       return;
     }
+
     if (verifyPin(pin)) {
       void performSwitch(pendingToken);
+
       return;
     }
+
     setPin("");
     setPinError(true);
   }
@@ -95,6 +107,7 @@ export default function AccountsScreen() {
     if (!pendingToken) {
       return;
     }
+
     if (await authenticateWithBiometrics()) {
       void performSwitch(pendingToken);
     }

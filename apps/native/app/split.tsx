@@ -51,10 +51,12 @@ export default function SplitScreen() {
   const { toast } = useToast();
 
   const order = useQuery(api.orders.getByPublicId, publicId ? { publicId } : "skip");
+
   const split = useQuery(
     api.splits.getBySourceOrder,
     order ? { sourceOrderId: order.orderId } : "skip",
   );
+
   const createSplit = useMutation(api.splits.createForOrder);
   const cancelSplit = useMutation(api.splits.cancel);
   const createPaymentLink = useAction(api.pey.actions.createPaymentLink);
@@ -77,18 +79,25 @@ export default function SplitScreen() {
 
   function addParticipant() {
     const handle = cleanHandle(draftHandle);
+
     if (handle.length < 3) {
       toast.show({ variant: "danger", label: "Escribe un @handle válido" });
+
       return;
     }
+
     if (handle === profile.handle) {
       toast.show({ variant: "danger", label: "No puedes incluirte como deudor" });
+
       return;
     }
+
     if (participants.some((participant) => participant.handle === handle)) {
       toast.show({ variant: "danger", label: `@${handle} ya está en la división` });
+
       return;
     }
+
     setParticipants((current) => [...current, { handle, amountText: "" }]);
     setDraftHandle("");
   }
@@ -113,19 +122,25 @@ export default function SplitScreen() {
     const customAmounts = participants.map((participant) =>
       parseAmountToCents(participant.amountText),
     );
+
     if (mode === "custom") {
       if (customAmounts.some((amount) => amount === null || amount < MIN_SHARE_CENTS)) {
         toast.show({ variant: "danger", label: "Cada parte debe ser de al menos $10 MXN" });
+
         return;
       }
+
       const requested = customAmounts.reduce<number>((sum, amount) => sum + (amount ?? 0), 0);
+
       if (requested > order.totalCents) {
         toast.show({ variant: "danger", label: "Las partes superan el total de la cuenta" });
+
         return;
       }
     }
 
     setIsSubmitting(true);
+
     try {
       await createSplit({
         sourceOrderId: order.orderId,
@@ -189,12 +204,16 @@ export default function SplitScreen() {
     }
 
     setSharingOrderId(orderId);
+
     try {
       const payment = await createPaymentLink({ orderId, expiresInMinutes: 1440 });
+
       if (!payment.checkoutUrl) {
         router.push({ pathname: "/order/[publicId]", params: { publicId: sharePublicId } });
+
         return;
       }
+
       await Share.share({
         message: `Te toca ${formatMxn(amountCents)} de "${split.note ?? "la cuenta"}". Paga en Cozi: ${payment.checkoutUrl}`,
       });
@@ -240,13 +259,16 @@ export default function SplitScreen() {
   const canCancel = split?.status === "open";
   const equalDivisor = participants.length + (includeCreator ? 1 : 0);
   const equalShare = equalDivisor > 0 ? Math.floor(order.totalCents / equalDivisor) : 0;
+
   const customAmounts = participants.map((participant) =>
     parseAmountToCents(participant.amountText),
   );
+
   const customValid =
     mode === "equal" ||
     (customAmounts.every((amount) => amount !== null && amount >= MIN_SHARE_CENTS) &&
       customAmounts.reduce<number>((sum, amount) => sum + (amount ?? 0), 0) <= order.totalCents);
+
   const equalValid = mode === "custom" || equalDivisor === 0 || equalShare >= MIN_SHARE_CENTS;
   const canSubmit = participants.length > 0 && customValid && equalValid && !isSubmitting;
 
@@ -468,6 +490,7 @@ export default function SplitScreen() {
                   <View style={{ flexDirection: "row", gap: 8 }}>
                     {(["equal", "custom"] as const).map((option) => {
                       const active = mode === option;
+
                       return (
                         <Pressable
                           key={option}
@@ -546,6 +569,7 @@ export default function SplitScreen() {
                   <View style={[cardStyle, { overflow: "hidden" }]}>
                     {participants.map((participant, index) => {
                       const amount = parseAmountToCents(participant.amountText);
+
                       return (
                         <View
                           key={participant.handle}

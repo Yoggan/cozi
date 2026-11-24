@@ -59,7 +59,9 @@ export function AccountOnboarding() {
     if (isSaving) {
       return;
     }
+
     setIsSaving(true);
+
     try {
       await completeOnboarding({});
     } catch (error) {
@@ -73,10 +75,13 @@ export function AccountOnboarding() {
 
   function next() {
     void selectionAsync();
+
     if (isLast) {
       void finish();
+
       return;
     }
+
     setStep((value) => value + 1);
   }
 

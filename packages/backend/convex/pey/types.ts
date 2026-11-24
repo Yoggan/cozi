@@ -220,9 +220,11 @@ export function normalizePaymentStatus(raw: string | null | undefined): PaymentS
   ) {
     return "succeeded";
   }
+
   if (["processing", "in_progress", "in-progress", "pending_confirmation"].includes(status)) {
     return "processing";
   }
+
   if (
     ["pending", "created", "requires_action", "awaiting_payment", "open", "not_started"].includes(
       status,
@@ -230,6 +232,7 @@ export function normalizePaymentStatus(raw: string | null | undefined): PaymentS
   ) {
     return "pending";
   }
+
   if (
     [
       "failed",
@@ -244,11 +247,14 @@ export function normalizePaymentStatus(raw: string | null | undefined): PaymentS
   ) {
     return "failed";
   }
+
   if (["expired", "timeout", "timed_out", "expirado"].includes(status)) {
     return "expired";
   }
+
   if (["refunded", "refund", "reembolsado"].includes(status)) {
     return "refunded";
   }
+
   return null;
 }

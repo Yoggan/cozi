@@ -76,6 +76,7 @@ export default function ConversationScreen() {
     }
 
     setIsSending(true);
+
     try {
       await sendMessage({ threadId: thread.threadId, text: cleaned });
       setDraft("");

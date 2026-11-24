@@ -25,6 +25,7 @@ export async function saveRememberMeOnSignIn(rememberMe: boolean, email: string)
     if (rememberMe) {
       await setItemAsync(REMEMBERED_EMAIL_KEY, email.trim());
       await deleteItemAsync(EPHEMERAL_SESSION_KEY);
+
       return;
     }
 
@@ -42,6 +43,7 @@ export async function consumeEphemeralSessionFlag(): Promise<boolean> {
     }
 
     await deleteItemAsync(EPHEMERAL_SESSION_KEY);
+
     return true;
   } catch {
     // SecureStore is unavailable (for example on web): no session to end.

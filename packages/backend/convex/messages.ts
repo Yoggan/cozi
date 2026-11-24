@@ -12,6 +12,7 @@ const UNREAD_SCAN_LIMIT = 100;
 
 async function getViewer(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
+
   if (!identity) {
     throw new ConvexError("Inicia sesión para continuar");
   }
@@ -20,6 +21,7 @@ async function getViewer(ctx: QueryCtx | MutationCtx) {
     .query("users")
     .withIndex("by_auth_user", (q) => q.eq("authUserId", identity.subject))
     .unique();
+
   if (!user) {
     throw new ConvexError("Completa tu perfil antes de continuar");
   }
@@ -31,9 +33,11 @@ function getViewerRole(thread: Doc<"messageThreads">, viewerId: Id<"users">) {
   if (thread.ownerId === viewerId) {
     return "owner" as const;
   }
+
   if (thread.customerId === viewerId) {
     return "customer" as const;
   }
+
   return null;
 }
 
@@ -82,6 +86,7 @@ async function readOrderContext(ctx: QueryCtx | MutationCtx, thread: Doc<"messag
   }
 
   const order = await ctx.db.get(thread.orderId);
+
   if (!order) {
     return null;
   }
@@ -106,6 +111,7 @@ async function readCounterpart(
   // En un hilo de negocio el cliente ve el negocio, no la cuenta personal del dueño.
   if (thread.businessId) {
     const business = await readBusinessContext(ctx, thread.businessId);
+
     if (business) {
       return { name: business.name, handle: business.handle };
     }
@@ -156,6 +162,7 @@ async function buildThreadSummary(
   viewerId: Id<"users">,
 ) {
   const viewerRole = thread.ownerId === viewerId ? ("owner" as const) : ("customer" as const);
+
   const [counterpart, order, business, lastMessage, unreadCount] = await Promise.all([
     readCounterpart(ctx, thread, viewerId),
     readOrderContext(ctx, thread),
@@ -186,6 +193,7 @@ export const getOrCreateOrderThread = mutation({
   args: { orderPublicId: v.string() },
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
+
     const order = await ctx.db
       .query("orders")
       .withIndex("by_public_id", (q) => q.eq("publicId", args.orderPublicId))
@@ -197,9 +205,11 @@ export const getOrCreateOrderThread = mutation({
 
     const isSeller = order.sellerId === viewer._id;
     const isBuyer = order.buyerId === viewer._id;
+
     if (!isSeller && !isBuyer) {
       throw new ConvexError("No tienes acceso a esta conversación");
     }
+
     if (!order.buyerId) {
       throw new ConvexError("El comprador aún no tiene cuenta en Cozi");
     }
@@ -208,11 +218,13 @@ export const getOrCreateOrderThread = mutation({
       .query("messageThreads")
       .withIndex("by_order", (q) => q.eq("orderId", order._id))
       .unique();
+
     if (existing) {
       return { threadId: existing._id };
     }
 
     const now = Date.now();
+
     const threadId = await ctx.db.insert("messageThreads", {
       orderId: order._id,
       customerId: order.buyerId,
@@ -233,9 +245,11 @@ export const getOrCreateBusinessThread = mutation({
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
     const business = await ctx.db.get(args.businessId);
+
     if (!business) {
       throw new ConvexError("Negocio no encontrado");
     }
+
     if (business.ownerId === viewer._id) {
       throw new ConvexError("No puedes iniciar una conversación con tu propio negocio");
     }
@@ -246,11 +260,13 @@ export const getOrCreateBusinessThread = mutation({
         q.eq("businessId", business._id).eq("customerId", viewer._id),
       )
       .unique();
+
     if (existing) {
       return { threadId: existing._id };
     }
 
     const now = Date.now();
+
     const threadId = await ctx.db.insert("messageThreads", {
       businessId: business._id,
       customerId: viewer._id,
@@ -270,6 +286,7 @@ export const listThreads = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
+
     const limit = Math.min(
       Math.max(Math.floor(args.limit ?? DEFAULT_THREAD_LIMIT), 1),
       MAX_THREAD_LIMIT,
@@ -289,6 +306,7 @@ export const listThreads = query({
     ]);
 
     const unique = new Map<Id<"messageThreads">, Doc<"messageThreads">>();
+
     for (const thread of [...asCustomer, ...asOwner]) {
       unique.set(thread._id, thread);
     }
@@ -308,6 +326,7 @@ export const getThread = query({
     const viewer = await getViewer(ctx);
     const threadId = ctx.db.normalizeId("messageThreads", args.threadId);
     const thread = threadId ? await ctx.db.get(threadId) : null;
+
     if (!thread || getViewerRole(thread, viewer._id) === null) {
       return null;
     }
@@ -334,19 +353,23 @@ export const sendMessage = mutation({
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
     const thread = await ctx.db.get(args.threadId);
+
     if (!thread || getViewerRole(thread, viewer._id) === null) {
       throw new ConvexError("Conversación no encontrada");
     }
 
     const text = args.text.trim();
+
     if (text.length < 1) {
       throw new ConvexError("Escribe un mensaje");
     }
+
     if (text.length > MAX_MESSAGE_LENGTH) {
       throw new ConvexError("El mensaje no puede pasar de 1000 caracteres");
     }
 
     const now = Date.now();
+
     const messageId = await ctx.db.insert("messages", {
       threadId: thread._id,
       senderId: viewer._id,
@@ -370,6 +393,7 @@ export const markRead = mutation({
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
     const thread = await ctx.db.get(args.threadId);
+
     if (!thread || getViewerRole(thread, viewer._id) === null) {
       throw new ConvexError("Conversación no encontrada");
     }
@@ -389,6 +413,7 @@ export const getOrderThreadState = query({
   args: { orderPublicId: v.string() },
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
+
     const order = await ctx.db
       .query("orders")
       .withIndex("by_public_id", (q) => q.eq("publicId", args.orderPublicId))

@@ -66,6 +66,7 @@ export default function RequestScreen() {
   const amountCents = parseAmountToCents(amountText);
   const cleanPayer = payer.replace(/^@/, "").replaceAll(/\s/g, "").toLowerCase();
   const showSuggestions = handleFocused && !suppressSuggestions && contacts.length > 0;
+
   const canSubmit =
     profile.hasReceivingAccount && amountCents !== null && amountCents >= 1000 && !isSubmitting;
 
@@ -85,6 +86,7 @@ export default function RequestScreen() {
     }
 
     setIsSubmitting(true);
+
     try {
       const order = await createRequest({
         payerHandle: cleanPayer || undefined,

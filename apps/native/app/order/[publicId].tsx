@@ -40,9 +40,11 @@ function statusChipColor(status: OrderStatus): "success" | "warning" | "danger" 
   if (status === "paid" || status === "fulfilled") {
     return "success";
   }
+
   if (status === "cancelled" || status === "expired") {
     return "danger";
   }
+
   return "warning";
 }
 
@@ -67,11 +69,14 @@ export default function OrderScreen() {
   const fulfillOrder = useMutation(api.orders.fulfill);
   const cancelOrder = useMutation(api.orders.cancel);
   const openOrderThread = useMutation(api.messages.getOrCreateOrderThread);
+
   const threadState = useQuery(
     api.messages.getOrderThreadState,
     publicId ? { orderPublicId: publicId } : "skip",
   );
+
   const contacts = useQuery(api.contacts.list);
+
   const splitSourceOrderId =
     order &&
     !order.billSplitId &&
@@ -79,10 +84,12 @@ export default function OrderScreen() {
     order.direction === "out"
       ? order.orderId
       : null;
+
   const activeSplit = useQuery(
     api.splits.getBySourceOrder,
     splitSourceOrderId ? { sourceOrderId: splitSourceOrderId } : "skip",
   );
+
   const { toast } = useToast();
   const { isImmersive, baseColor, cardColor, cardBorder } = useAppTheme();
   const success = useThemeColor("success");
@@ -100,6 +107,7 @@ export default function OrderScreen() {
 
   async function generatePaymentLink(orderId: Id<"orders">) {
     setIsGenerating(true);
+
     try {
       await createPaymentLink({ orderId, expiresInMinutes: 1440 });
       toast.show({ variant: "success", label: "Link de pago listo" });
@@ -119,6 +127,7 @@ export default function OrderScreen() {
     }
 
     setIsFulfillingOrder(true);
+
     try {
       await fulfillOrder({ orderId: businessOrder.orderId });
       toast.show({ variant: "success", label: "Pedido completado" });
@@ -188,11 +197,14 @@ export default function OrderScreen() {
     const businessExpired = businessOrder.status === "expired";
     const isBusinessSeller = businessOrder.direction === "in";
     const canFulfill = isBusinessSeller && businessOrder.status === "paid";
+
     const canCancel =
       isBusinessSeller &&
       (businessOrder.status === "draft" || businessOrder.status === "awaiting_payment");
+
     const canPay = businessOrder.status === "draft" || businessOrder.status === "awaiting_payment";
     const businessCheckoutUrl = businessOrder.payment?.checkoutUrl ?? null;
+
     const customer =
       [
         businessOrder.customer.name,
@@ -555,12 +567,15 @@ export default function OrderScreen() {
   const isIncoming = current.direction === "in";
   const isRequest = current.kind === "request";
   const checkoutUrl = current.payment?.checkoutUrl ?? null;
+
   const counterpart = current.counterpartHandle
     ? `@${current.counterpartHandle}`
     : current.counterpartName;
+
   const savedContact = current.counterpartHandle
     ? contacts?.find((contact) => contact.handle === current.counterpartHandle)
     : null;
+
   const relationship = isRequest
     ? isIncoming
       ? "Cobro de"
@@ -579,6 +594,7 @@ export default function OrderScreen() {
     if (!checkoutUrl) {
       return;
     }
+
     await Share.share({
       message: `Te cobré ${formatMxn(current.amountCents)} en Cozi. Paga aquí: ${checkoutUrl}`,
     });
@@ -588,6 +604,7 @@ export default function OrderScreen() {
     if (!checkoutUrl) {
       return;
     }
+
     await openBrowserAsync(checkoutUrl);
   }
 
@@ -595,7 +612,9 @@ export default function OrderScreen() {
     if (!current.payment) {
       return;
     }
+
     setIsRefreshing(true);
+
     try {
       await refreshPayment({ paymentId: current.payment.paymentId });
     } catch (error) {
@@ -614,6 +633,7 @@ export default function OrderScreen() {
     }
 
     setIsSavingContact(true);
+
     try {
       await saveContact({ handle: current.counterpartHandle });
       toast.show({ variant: "success", label: "Contacto guardado" });
@@ -629,6 +649,7 @@ export default function OrderScreen() {
 
   async function handleOpenThread(orderPublicId: string) {
     setIsOpeningThread(true);
+
     try {
       const { threadId } = await openOrderThread({ orderPublicId });
       router.push({ pathname: "/messages/[threadId]", params: { threadId } });

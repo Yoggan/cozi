@@ -57,12 +57,15 @@ const CLABE_BANKS = new Map([
 
 function isMockMode(): boolean {
   const mode = process.env.PEY_MODE?.trim().toLowerCase();
+
   if (mode === "mock") {
     return true;
   }
+
   if (mode === "live") {
     return false;
   }
+
   return !process.env.PEY_API_KEY;
 }
 
@@ -76,9 +79,11 @@ function getSiteUrl(): string {
 
 function requireEnv(name: string): string {
   const value = process.env[name];
+
   if (!value) {
     throw new Error(`Falta la variable de entorno ${name}`);
   }
+
   return value;
 }
 
@@ -88,6 +93,7 @@ function bankFromClabe(digits: string): string | undefined {
 
 function numericRef(reference: string): string {
   const digits = reference.replaceAll(/\D/g, "").slice(0, 7);
+
   return digits.length > 0 ? digits : String(Date.now()).slice(-7);
 }
 
@@ -109,7 +115,7 @@ async function peyFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new Error(`Pey ${response.status} ${path}: ${detail.slice(0, 300)}`);
   }
 
-  // shortcut: el cliente confía en el contrato de Pey; los campos se validan al mapear.
+  // SAFETY: el cliente confía en el contrato de Pey; los campos se validan al mapear.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return (await response.json()) as T;
 }
@@ -118,6 +124,7 @@ function requireString(value: unknown, field: string): string {
   if (typeof value !== "string" || value.length === 0) {
     throw new Error(`Respuesta de Pey sin ${field}`);
   }
+
   return value;
 }
 
@@ -129,10 +136,13 @@ function toEpochMs(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value < 1_000_000_000_000 ? value * 1000 : value;
   }
+
   if (typeof value === "string") {
     const parsed = Date.parse(value);
+
     return Number.isNaN(parsed) ? undefined : parsed;
   }
+
   return undefined;
 }
 
@@ -159,6 +169,7 @@ function summarizeCodiTransactions(
   const paid = transactions.find(
     (tx) => tx.datePaid || normalizePaymentStatus(tx.status) === "succeeded",
   );
+
   return {
     id,
     status: paid ? "succeeded" : "pending",
@@ -168,6 +179,7 @@ function summarizeCodiTransactions(
 
 function mapCodiCharge(raw: PeyCodiChargeRaw): PeyCodiChargeResult {
   const id = requireString(raw.codiQrId ?? raw.id ?? raw.transactionId, "id");
+
   const expiresAt =
     toEpochMs(raw.expiresAt ?? raw.expires_at) ??
     (typeof raw.expiration === "number" ? Date.now() + raw.expiration * 1000 : undefined);
@@ -218,6 +230,7 @@ export const pey: PeyClient = {
         accountType: input.accountType,
         last4: input.accountNumber.slice(-4),
       });
+
       return {
         id: `mock_ba_${crypto.randomUUID().replaceAll("-", "").slice(0, 20)}`,
         status: "verified",
@@ -269,6 +282,7 @@ export const pey: PeyClient = {
     if (isMockMode()) {
       const id = `mock_codi_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`;
       console.info("[pey:mock] createCodiCharge", { id, method: input.method });
+
       return {
         id,
         status: "pending",
@@ -288,6 +302,7 @@ export const pey: PeyClient = {
           bankAccountId: input.bankAccountId,
         }),
       });
+
       return mapCodiCharge(raw);
     }
 
@@ -309,6 +324,7 @@ export const pey: PeyClient = {
     if (isMockMode()) {
       const id = `mock_pl_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`;
       console.info("[pey:mock] createPaymentLink", { id, reference: input.reference });
+
       return {
         id,
         status: "pending",
@@ -320,6 +336,7 @@ export const pey: PeyClient = {
     }
 
     const orderUrl = `${getSiteUrl()}/order/${encodeURIComponent(input.reference)}`;
+
     const raw = await peyFetch<PeyPaymentLinkRaw>(ROUTES.paymentLinkCreate, {
       method: "POST",
       body: JSON.stringify({
@@ -342,6 +359,7 @@ export const pey: PeyClient = {
     if (isMockMode() || id.startsWith("mock_")) {
       return { id, status: "succeeded" };
     }
+
     const raw = await peyFetch<PeyCodiChargeRaw | Array<PeyTransactionRaw>>(
       `${ROUTES.transactionsByCodiQr}/${encodeURIComponent(id)}`,
     );
@@ -349,9 +367,11 @@ export const pey: PeyClient = {
     if (Array.isArray(raw)) {
       return summarizeCodiTransactions(id, raw);
     }
+
     if (raw.transactions) {
       return summarizeCodiTransactions(id, raw.transactions);
     }
+
     return mapCodiCharge(raw);
   },
 
@@ -363,9 +383,11 @@ export const pey: PeyClient = {
         url: `${getSiteUrl()}/pay/${id}`,
       };
     }
+
     const raw = await peyFetch<PeyPaymentLinkRaw>(
       `${ROUTES.paymentLink}/${encodeURIComponent(id)}`,
     );
+
     return mapPaymentLink(raw);
   },
 
@@ -373,7 +395,9 @@ export const pey: PeyClient = {
     if (isMockMode() || id.startsWith("mock_")) {
       return { id, status: "succeeded", paidAt: Date.now() };
     }
+
     const raw = await peyFetch<PeyTransactionRaw>(`/transaction/${encodeURIComponent(id)}`);
+
     return mapTransaction(raw);
   },
 };
@@ -385,30 +409,37 @@ export const pey: PeyClient = {
 export async function getPaymentStatus(refs: PaymentProviderRefs): Promise<PeyPaymentUpdate> {
   if (refs.peyTransactionId) {
     const transaction = await pey.getTransaction(refs.peyTransactionId);
+
     return toUpdate(transaction);
   }
 
   if (refs.method === "payment_link" && refs.peyPaymentLinkId) {
     const link = await pey.getPaymentLink(refs.peyPaymentLinkId);
+
     return { status: link.status };
   }
 
   if (refs.peyCodiId) {
     const charge = await pey.getCodiCharge(refs.peyCodiId);
+
     return { status: charge.status };
   }
 
   if (refs.peyPaymentId) {
     const transaction = await pey.getTransaction(refs.peyPaymentId);
+
     return toUpdate(transaction);
   }
 
   if (refs.peyReference) {
     if (refs.method === "payment_link") {
       const link = await pey.getPaymentLink(refs.peyReference);
+
       return { status: link.status };
     }
+
     const transaction = await pey.getTransaction(refs.peyReference);
+
     return toUpdate(transaction);
   }
 

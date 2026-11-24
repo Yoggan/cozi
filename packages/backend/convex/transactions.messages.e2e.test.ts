@@ -13,12 +13,14 @@ describe("E2E: in-app messaging attached to orders and businesses", () => {
       email: "sofia@gmail.com",
       handle: "sofia_m",
     });
+
     const receiver = await createUser(t, {
       subject: "auth_chat_receiver",
       name: "Jorge Castro",
       email: "jorge@gmail.com",
       handle: "jorge_c",
     });
+
     const outsider = await createUser(t, {
       subject: "auth_chat_outsider",
       name: "Diego Pérez",
@@ -35,15 +37,18 @@ describe("E2E: in-app messaging attached to orders and businesses", () => {
     const initialState = await sender.client.query(api.messages.getOrderThreadState, {
       orderPublicId: transfer.publicId,
     });
+
     expect(initialState).toEqual({ canMessage: true, threadId: null });
 
     // Cualquiera de los dos abre el hilo y el otro lo reutiliza.
     const opened = await sender.client.mutation(api.messages.getOrCreateOrderThread, {
       orderPublicId: transfer.publicId,
     });
+
     const reused = await receiver.client.mutation(api.messages.getOrCreateOrderThread, {
       orderPublicId: transfer.publicId,
     });
+
     expect(reused.threadId).toBe(opened.threadId);
 
     // Solo los participantes pueden leer o escribir.
@@ -69,6 +74,7 @@ describe("E2E: in-app messaging attached to orders and businesses", () => {
       threadId: opened.threadId,
       text: "  ¿Te va bien a las 7?  ",
     });
+
     expect(sent.messageId).toBeTruthy();
 
     const senderThreads = await sender.client.query(api.messages.listThreads, {});
@@ -93,6 +99,7 @@ describe("E2E: in-app messaging attached to orders and businesses", () => {
     const conversation = await receiver.client.query(api.messages.getThread, {
       threadId: opened.threadId,
     });
+
     expect(conversation?.messages.map((message) => message.text)).toEqual(["¿Te va bien a las 7?"]);
     expect(conversation?.messages[0]?.isMine).toBe(false);
     expect(conversation?.unreadCount).toBe(1);
@@ -103,6 +110,7 @@ describe("E2E: in-app messaging attached to orders and businesses", () => {
     const stateAfter = await sender.client.query(api.messages.getOrderThreadState, {
       orderPublicId: transfer.publicId,
     });
+
     expect(stateAfter.threadId).toBe(opened.threadId);
 
     // Validación de texto: no vacío y máximo 1000 caracteres.
@@ -157,6 +165,7 @@ describe("E2E: in-app messaging attached to orders and businesses", () => {
       email: "maria@fondamaria.mx",
       handle: "maria_fonda",
     });
+
     const customer = await createUser(t, {
       subject: "auth_chat_business_customer",
       name: "Ana López",
@@ -180,9 +189,11 @@ describe("E2E: in-app messaging attached to orders and businesses", () => {
     const opened = await customer.client.mutation(api.messages.getOrCreateBusinessThread, {
       businessId: fonda.businessId,
     });
+
     const reused = await customer.client.mutation(api.messages.getOrCreateBusinessThread, {
       businessId: fonda.businessId,
     });
+
     expect(reused.threadId).toBe(opened.threadId);
 
     await customer.client.mutation(api.messages.sendMessage, {

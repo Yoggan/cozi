@@ -73,6 +73,7 @@ function ModeSwitcher({ mode, onChange }: { mode: Mode; onChange: (mode: Mode) =
               if (active) {
                 return;
               }
+
               void selectionAsync();
               onChange(segment.value);
             }}

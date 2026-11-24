@@ -39,6 +39,7 @@ function PressScale({
   className,
 }: PropsWithChildren<{ onPress: () => void; className?: string }>) {
   const scale = useSharedValue(1);
+
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
@@ -86,8 +87,10 @@ function ThemePreviewCard({
 
   const isLightCard = !effectiveBackdrop && item.defaultMode === "light";
   const bg = effectiveBackdrop?.baseColor ?? (isLightCard ? "#F4F5F7" : "#09090B");
+
   const cardBg =
     effectiveBackdrop?.cardColor ?? (isLightCard ? "#FFFFFF" : "rgba(255,255,255,0.08)");
+
   const dotBg = isLightCard ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.22)";
   const textColor = isLightCard ? "#111827" : "#FFFFFF";
 
@@ -230,14 +233,17 @@ function ThemePreviewCard({
 export default function ThemePreviewScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
   const { preset, backdrop, accent, isDark, toggleTheme, selectPreset, selectAccent, resetTheme } =
     useAppTheme();
 
   const [showColors, setShowColors] = useState(false);
+
   const initialIndex = Math.max(
     0,
     THEME_PRESETS.findIndex((p) => p.id === preset.id),
   );
+
   const listRef = useRef<FlatList<ThemePreset>>(null);
   const scrollX = useSharedValue(initialIndex * SNAP_INTERVAL);
 
@@ -255,6 +261,7 @@ export default function ThemePreviewScreen() {
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: Array<{ item: ThemePreset }> }) => {
       const first = viewableItems[0]?.item;
+
       // Only apply a preset when the carousel lands on a different one; re-selecting
       // the active preset would reset its custom accent/backdrop to the defaults.
       if (first && first.id !== presetIdRef.current) {
@@ -357,9 +364,11 @@ export default function ThemePreviewScreen() {
               onOpenBackdropPicker={() => router.push("/theme-backdrop")}
               onSelect={() => {
                 void selectionAsync();
+
                 if (item.id !== preset.id) {
                   selectPreset(item.id);
                 }
+
                 listRef.current?.scrollToIndex({ index, animated: true });
               }}
             />
@@ -376,6 +385,7 @@ export default function ThemePreviewScreen() {
         >
           {ACCENT_OPTIONS.map((swatch) => {
             const selected = swatch.id === accent.id;
+
             return (
               <Pressable
                 key={swatch.id}

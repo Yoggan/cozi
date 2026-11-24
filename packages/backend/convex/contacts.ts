@@ -7,6 +7,7 @@ import { orderDeadline } from "./lib/expiry";
 import { HANDLE_PATTERN, normalizeHandle } from "./lib/identifiers";
 
 type ContactKind = "user" | "business";
+
 type ContactSource = "saved" | "recent";
 
 type ContactItem = {
@@ -40,6 +41,7 @@ type ResolvedHandle = {
 
 async function getViewer(ctx: QueryCtx | MutationCtx): Promise<Doc<"users">> {
   const identity = await ctx.auth.getUserIdentity();
+
   if (!identity) {
     throw new ConvexError("Inicia sesión para continuar");
   }
@@ -48,6 +50,7 @@ async function getViewer(ctx: QueryCtx | MutationCtx): Promise<Doc<"users">> {
     .query("users")
     .withIndex("by_auth_user", (q) => q.eq("authUserId", identity.subject))
     .unique();
+
   if (!user) {
     throw new ConvexError("Completa tu perfil antes de continuar");
   }
@@ -74,6 +77,7 @@ async function resolveHandle(
   handleId: Id<"handles">,
 ): Promise<ResolvedHandle | null> {
   const handle = await ctx.db.get(handleId);
+
   if (!handle) {
     return null;
   }
@@ -82,10 +86,13 @@ async function resolveHandle(
     if (!handle.businessId) {
       return null;
     }
+
     const business = await ctx.db.get(handle.businessId);
+
     if (!business) {
       return null;
     }
+
     return {
       handleId: handle._id,
       handle: handle.handle,
@@ -100,10 +107,13 @@ async function resolveHandle(
   if (!handle.userId) {
     return null;
   }
+
   const user = await ctx.db.get(handle.userId);
+
   if (!user) {
     return null;
   }
+
   const canReceive = await canReceiveMoney(ctx, user._id);
 
   return {
@@ -146,6 +156,7 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const viewer = await getViewer(ctx);
+
     const contacts = await ctx.db
       .query("contacts")
       .withIndex("by_owner", (q) => q.eq("ownerId", viewer._id))
@@ -155,6 +166,7 @@ export const list = query({
     const items = await Promise.all(
       contacts.map(async (contact) => {
         const resolved = await resolveHandle(ctx, contact.handleId);
+
         return resolved ? savedItem(contact, resolved) : null;
       }),
     );
@@ -172,6 +184,7 @@ export const suggestions = query({
   args: {},
   handler: async (ctx) => {
     const viewer = await getViewer(ctx);
+
     const contacts = await ctx.db
       .query("contacts")
       .withIndex("by_owner", (q) => q.eq("ownerId", viewer._id))
@@ -180,12 +193,15 @@ export const suggestions = query({
     const savedAll = await Promise.all(
       contacts.map(async (contact) => {
         const resolved = await resolveHandle(ctx, contact.handleId);
+
         return resolved ? savedItem(contact, resolved) : null;
       }),
     );
+
     const saved = sortContacts(
       savedAll.filter((item): item is SavedContactItem => item !== null && item.kind === "user"),
     );
+
     const savedHandles = new Set(saved.map((item) => item.handle));
 
     const [asSeller, asBuyer] = await Promise.all([
@@ -202,6 +218,7 @@ export const suggestions = query({
     ]);
 
     const now = Date.now();
+
     const orders = [...asSeller, ...asBuyer]
       .filter(
         (order) =>
@@ -220,6 +237,7 @@ export const suggestions = query({
       }
 
       const counterpartUserId = order.sellerId === viewer._id ? order.buyerId : order.sellerId;
+
       if (!counterpartUserId || counterpartUserId === viewer._id) {
         continue;
       }
@@ -228,11 +246,13 @@ export const suggestions = query({
         .query("handles")
         .withIndex("by_user", (q) => q.eq("userId", counterpartUserId))
         .first();
+
       if (!handle || seenHandles.has(handle.handle)) {
         continue;
       }
 
       const resolved = await resolveHandle(ctx, handle._id);
+
       if (!resolved || resolved.kind !== "user") {
         continue;
       }
@@ -266,6 +286,7 @@ export const save = mutation({
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
     const handle = normalizeHandle(args.handle);
+
     if (!HANDLE_PATTERN.test(handle)) {
       throw new ConvexError("Escribe un @handle válido");
     }
@@ -274,6 +295,7 @@ export const save = mutation({
       .query("handles")
       .withIndex("by_handle", (q) => q.eq("handle", handle))
       .unique();
+
     if (!handleDocument) {
       throw new ConvexError("No encontramos ese @handle");
     }
@@ -284,17 +306,20 @@ export const save = mutation({
       }
     } else if (handleDocument.businessId) {
       const business = await ctx.db.get(handleDocument.businessId);
+
       if (business?.ownerId === viewer._id) {
         throw new ConvexError("No puedes guardar tu propio negocio");
       }
     }
 
     const nickname = args.nickname?.trim();
+
     if (nickname !== undefined && nickname.length > 40) {
       throw new ConvexError("El apodo no puede pasar de 40 caracteres");
     }
 
     const now = Date.now();
+
     const existing = await ctx.db
       .query("contacts")
       .withIndex("by_owner_handle", (q) =>
@@ -307,6 +332,7 @@ export const save = mutation({
         updatedAt: now,
         nickname: nickname === undefined ? existing.nickname : nickname || undefined,
       });
+
       return { contactId: existing._id, created: false };
     }
 
@@ -328,11 +354,13 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
     const contact = await ctx.db.get(args.contactId);
+
     if (!contact || contact.ownerId !== viewer._id) {
       throw new ConvexError("No encontramos ese contacto");
     }
 
     await ctx.db.delete(contact._id);
+
     return { ok: true as const };
   },
 });

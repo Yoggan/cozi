@@ -17,6 +17,7 @@ const splitParticipantInputValidator = v.object({
 
 async function getViewer(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
+
   if (!identity) {
     throw new ConvexError("Inicia sesión para continuar");
   }
@@ -25,6 +26,7 @@ async function getViewer(ctx: QueryCtx | MutationCtx) {
     .query("users")
     .withIndex("by_auth_user", (q) => q.eq("authUserId", identity.subject))
     .unique();
+
   if (!user) {
     throw new ConvexError("Completa tu perfil antes de continuar");
   }
@@ -39,6 +41,7 @@ async function getViewer(ctx: QueryCtx | MutationCtx) {
 
 async function resolveParticipantHandle(ctx: MutationCtx, rawHandle: string) {
   const handle = normalizeHandle(rawHandle);
+
   if (!HANDLE_PATTERN.test(handle)) {
     throw new ConvexError("Escribe un @handle válido");
   }
@@ -47,14 +50,17 @@ async function resolveParticipantHandle(ctx: MutationCtx, rawHandle: string) {
     .query("handles")
     .withIndex("by_handle", (q) => q.eq("handle", handle))
     .unique();
+
   if (!handleDoc) {
     throw new ConvexError(`No encontramos a @${handle}`);
   }
+
   if (handleDoc.ownerType !== "user" || !handleDoc.userId) {
     throw new ConvexError("Solo puedes dividir la cuenta con personas, no con negocios");
   }
 
   const user = await ctx.db.get(handleDoc.userId);
+
   if (!user) {
     throw new ConvexError(`No encontramos a @${handle}`);
   }
@@ -64,12 +70,15 @@ async function resolveParticipantHandle(ctx: MutationCtx, rawHandle: string) {
 
 function cleanNote(note: string | undefined): string | undefined {
   const value = note?.trim();
+
   if (!value) {
     return undefined;
   }
+
   if (value.length > 140) {
     throw new ConvexError("La nota no puede pasar de 140 caracteres");
   }
+
   return value;
 }
 
@@ -81,6 +90,7 @@ async function hydrateSplitView(ctx: QueryCtx, split: Doc<"billSplits">, viewerI
 
   const isCreator = split.creatorId === viewerId;
   const isParticipant = shareOrders.some((order) => order.buyerId === viewerId);
+
   if (!isCreator && !isParticipant) {
     return null;
   }
@@ -154,20 +164,25 @@ export const createForOrder = mutation({
   },
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
+
     if (!viewer.handle) {
       throw new ConvexError("Completa tu perfil antes de dividir una cuenta");
     }
 
     const sourceOrder = await ctx.db.get(args.sourceOrderId);
+
     if (!sourceOrder) {
       throw new ConvexError("Orden no encontrada");
     }
+
     if (sourceOrder.buyerId !== viewer.user._id) {
       throw new ConvexError("Solo quien pagó la orden puede dividir la cuenta");
     }
+
     if (sourceOrder.status !== "paid" && sourceOrder.status !== "fulfilled") {
       throw new ConvexError("La orden debe estar pagada antes de dividir la cuenta");
     }
+
     if (sourceOrder.billSplitId) {
       throw new ConvexError("No puedes volver a dividir un cobro de división de cuenta");
     }
@@ -176,6 +191,7 @@ export const createForOrder = mutation({
       .query("billSplits")
       .withIndex("by_source_order", (q) => q.eq("sourceOrderId", sourceOrder._id))
       .take(10);
+
     if (existingSplits.some((split) => split.status !== "cancelled")) {
       throw new ConvexError("Esta orden ya tiene una división de cuenta activa");
     }
@@ -183,11 +199,13 @@ export const createForOrder = mutation({
     if (args.participants.length === 0) {
       throw new ConvexError("Agrega al menos una persona para dividir la cuenta");
     }
+
     if (args.participants.length > MAX_PARTICIPANTS) {
       throw new ConvexError(`Puedes dividir la cuenta hasta con ${MAX_PARTICIPANTS} personas`);
     }
 
     const seenHandles = new Set<string>();
+
     const resolvedParticipants: Array<{
       user: Doc<"users">;
       handle: string;
@@ -197,12 +215,15 @@ export const createForOrder = mutation({
 
     for (const entry of args.participants) {
       const resolved = await resolveParticipantHandle(ctx, entry.handle);
+
       if (resolved.user._id === viewer.user._id) {
         throw new ConvexError("No puedes incluirte como deudor en tu propia división");
       }
+
       if (seenHandles.has(resolved.handle)) {
         throw new ConvexError(`@${resolved.handle} está repetido en la división`);
       }
+
       seenHandles.add(resolved.handle);
       resolvedParticipants.push({
         ...resolved,
@@ -212,6 +233,7 @@ export const createForOrder = mutation({
 
     const totalCents = sourceOrder.totalCents;
     let creatorShareCents: number;
+
     const allocatedShares: Array<{
       participant: (typeof resolvedParticipants)[number];
       amountCents: number;
@@ -219,14 +241,17 @@ export const createForOrder = mutation({
 
     if (args.mode === "equal") {
       const includeCreator = args.includeCreator ?? true;
+
       const divisor = includeCreator
         ? resolvedParticipants.length + 1
         : resolvedParticipants.length;
+
       const baseShare = Math.floor(totalCents / divisor);
       const remainder = totalCents - baseShare * divisor;
 
       if (includeCreator) {
         creatorShareCents = baseShare + remainder;
+
         for (const participant of resolvedParticipants) {
           allocatedShares.push({ participant, amountCents: baseShare });
         }
@@ -241,17 +266,22 @@ export const createForOrder = mutation({
       }
     } else {
       let requestedSum = 0;
+
       for (const participant of resolvedParticipants) {
         const amount = participant.requestedAmountCents;
+
         if (amount === undefined || !Number.isInteger(amount)) {
           throw new ConvexError("En división personalizada cada persona requiere un monto exacto");
         }
+
         requestedSum += amount;
         allocatedShares.push({ participant, amountCents: amount });
       }
+
       if (requestedSum > totalCents) {
         throw new ConvexError("La suma de las partes no puede superar el total de la cuenta");
       }
+
       creatorShareCents = totalCents - requestedSum;
     }
 
@@ -259,6 +289,7 @@ export const createForOrder = mutation({
       if (share.amountCents < MIN_SHARE_CENTS) {
         throw new ConvexError("Cada parte debe ser de al menos $10 MXN");
       }
+
       if (share.amountCents > MAX_SHARE_CENTS) {
         throw new ConvexError("Cada parte no puede superar $20,000 MXN");
       }
@@ -266,9 +297,11 @@ export const createForOrder = mutation({
 
     const requestedTotalCents = allocatedShares.reduce((sum, share) => sum + share.amountCents, 0);
     const business = sourceOrder.businessId ? await ctx.db.get(sourceOrder.businessId) : null;
+
     const note =
       cleanNote(args.note) ??
       (business ? `División de cuenta · ${business.name}` : "División de cuenta");
+
     const now = Date.now();
 
     const billSplitId = await ctx.db.insert("billSplits", {
@@ -299,6 +332,7 @@ export const createForOrder = mutation({
 
     for (const { participant, amountCents } of allocatedShares) {
       const publicId = makePublicId();
+
       const orderId = await ctx.db.insert("orders", {
         publicId,
         sellerId: viewer.user._id,
@@ -337,6 +371,7 @@ export const createForOrder = mutation({
           q.eq("ownerId", viewer.user._id).eq("handleId", participant.handleId),
         )
         .unique();
+
       if (savedContact) {
         await ctx.db.patch(savedContact._id, { lastUsedAt: now, updatedAt: now });
       }
@@ -368,9 +403,11 @@ export const getById = query({
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
     const split = await ctx.db.get(args.billSplitId);
+
     if (!split) {
       return null;
     }
+
     return await hydrateSplitView(ctx, split, viewer.user._id);
   },
 });
@@ -380,15 +417,18 @@ export const getBySourceOrder = query({
   args: { sourceOrderId: v.id("orders") },
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
+
     const splits = await ctx.db
       .query("billSplits")
       .withIndex("by_source_order", (q) => q.eq("sourceOrderId", args.sourceOrderId))
       .take(10);
 
     const activeSplit = splits.find((split) => split.status !== "cancelled");
+
     if (!activeSplit) {
       return null;
     }
+
     return await hydrateSplitView(ctx, activeSplit, viewer.user._id);
   },
 });
@@ -430,12 +470,15 @@ export const cancel = mutation({
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
     const split = await ctx.db.get(args.billSplitId);
+
     if (!split || split.creatorId !== viewer.user._id) {
       throw new ConvexError("División de cuenta no encontrada");
     }
+
     if (split.status === "cancelled") {
       return { ok: true as const, status: "cancelled" as const };
     }
+
     if (split.status !== "open") {
       throw new ConvexError("No puedes cancelar una división que ya tiene pagos");
     }
@@ -444,11 +487,13 @@ export const cancel = mutation({
       .query("orders")
       .withIndex("by_bill_split", (q) => q.eq("billSplitId", split._id))
       .take(MAX_PARTICIPANTS + 1);
+
     if (shareOrders.some((order) => order.status === "paid" || order.status === "fulfilled")) {
       throw new ConvexError("No puedes cancelar una división que ya tiene pagos");
     }
 
     const now = Date.now();
+
     for (const order of shareOrders) {
       if (order.status === "draft" || order.status === "awaiting_payment") {
         await ctx.db.patch(order._id, {

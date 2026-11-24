@@ -1,4 +1,5 @@
 export type ContactKind = "user" | "business";
+
 export type ContactSource = "saved" | "recent";
 
 export type Contact = {
