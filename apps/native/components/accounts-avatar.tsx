@@ -1,6 +1,7 @@
 import { Text } from "heroui-native";
 import { View } from "react-native";
 
+import { ProfilePhoto } from "@/components/profile-photo";
 import { useAccounts } from "@/contexts/accounts-context";
 import { useAppTheme } from "@/contexts/app-theme-context";
 import { useProfile } from "@/contexts/profile-context";
@@ -37,29 +38,38 @@ export function AccountsAvatar({ size = "sm" }: { size?: "sm" | "md" }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center" }}>
       {accounts.map((account, index) => (
-        <View
-          key={account.session.token}
-          style={{
-            width: dimension,
-            height: dimension,
-            borderRadius: dimension / 2,
-            marginLeft: index === 0 ? 0 : overlap,
-            borderWidth: 2,
-            borderColor: baseColor,
-            backgroundColor: index === 0 ? "rgba(34, 197, 94, 0.28)" : "rgba(255, 255, 255, 0.16)",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Text
-            style={{
-              color: index === 0 ? "#4ADE80" : "rgba(255, 255, 255, 0.86)",
-              fontSize,
-              fontWeight: "700",
-            }}
-          >
-            {nameInitials(account.user.name)}
-          </Text>
+        <View key={account.session.token} style={{ marginLeft: index === 0 ? 0 : overlap }}>
+          {index === 0 ? (
+            <ProfilePhoto
+              borderColor={baseColor}
+              name={account.user.name}
+              size={dimension}
+              uri={profile.avatarUrl}
+            />
+          ) : (
+            <View
+              style={{
+                width: dimension,
+                height: dimension,
+                borderRadius: dimension / 2,
+                borderWidth: 2,
+                borderColor: baseColor,
+                backgroundColor: "rgba(255, 255, 255, 0.16)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text
+                style={{
+                  color: "rgba(255, 255, 255, 0.86)",
+                  fontSize,
+                  fontWeight: "700",
+                }}
+              >
+                {nameInitials(account.user.name)}
+              </Text>
+            </View>
+          )}
         </View>
       ))}
     </View>

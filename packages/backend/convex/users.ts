@@ -445,3 +445,118 @@ export const updateProfile = mutation({
     return { ok: true as const };
   },
 });
+
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Un archivo puede pertenecer a una foto de perfil, al logo de un negocio o a
+ * la imagen de un producto; ninguna de estas mutaciones debe tocarlo si ya es
+ * de alguien.
+ */
+async function isStorageReferenced(
+  ctx: QueryCtx | MutationCtx,
+  storageId: Id<"_storage">,
+): Promise<boolean> {
+  const [avatar, logo, productImage] = await Promise.all([
+    ctx.db
+      .query("users")
+      .withIndex("by_avatar_storage", (q) => q.eq("avatarStorageId", storageId))
+      .first(),
+    ctx.db
+      .query("businesses")
+      .withIndex("by_logo_storage", (q) => q.eq("logoStorageId", storageId))
+      .first(),
+    ctx.db
+      .query("products")
+      .withIndex("by_image_storage", (q) => q.eq("imageStorageId", storageId))
+      .first(),
+  ]);
+
+  return Boolean(avatar ?? logo ?? productImage);
+}
+
+/** URL efímera para subir la foto de perfil directo a Convex Storage. */
+export const generateAvatarUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAuthUserId(ctx);
+
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/** Guarda la foto recién subida y borra la que reemplaza. */
+export const setAvatar = mutation({
+  args: { storageId: v.id("_storage"), expectedUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    const user = await findUserByAuthId(ctx, await requireAuthUserId(ctx));
+
+    if (!user) {
+      throw new ConvexError("Completa tu perfil antes de editarlo");
+    }
+
+    // El actor sigue saliendo de la identidad; esto solo detecta una subida
+    // que arrancó en una cuenta y terminó cuando ya estaba activa otra.
+    if (user._id !== args.expectedUserId) {
+      throw new ConvexError("Cambiaste de cuenta; intenta de nuevo");
+    }
+
+    const file = await ctx.db.system.get("_storage", args.storageId);
+
+    if (!file) {
+      throw new ConvexError("No encontramos la imagen");
+    }
+
+    const referenced =
+      user.avatarStorageId !== args.storageId && (await isStorageReferenced(ctx, args.storageId));
+
+    // Los rechazos vuelven como resultado, no como error: un throw revierte
+    // también el borrado y dejaría el archivo inservible en Storage. Un
+    // archivo que ya usa otra fila nunca se borra desde aquí.
+    if (!file.contentType?.startsWith("image/")) {
+      if (!referenced) {
+        await ctx.storage.delete(args.storageId);
+      }
+
+      return { status: "rejected" as const, message: "La foto debe ser una imagen" };
+    }
+
+    if (file.size > AVATAR_MAX_BYTES) {
+      if (!referenced) {
+        await ctx.storage.delete(args.storageId);
+      }
+
+      return { status: "rejected" as const, message: "La foto no puede pasar de 5 MB" };
+    }
+
+    if (referenced) {
+      return { status: "rejected" as const, message: "No encontramos la imagen" };
+    }
+
+    if (user.avatarStorageId && user.avatarStorageId !== args.storageId) {
+      await ctx.storage.delete(user.avatarStorageId);
+    }
+
+    await ctx.db.patch(user._id, {
+      avatarStorageId: args.storageId,
+      updatedAt: Date.now(),
+    });
+
+    return { status: "saved" as const, avatarUrl: await ctx.storage.getUrl(args.storageId) };
+  },
+});
+
+/** Quitar la foto y volver a las iniciales. */
+export const removeAvatar = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await findUserByAuthId(ctx, await requireAuthUserId(ctx));
+
+    if (!user?.avatarStorageId) {
+      return;
+    }
+
+    await ctx.storage.delete(user.avatarStorageId);
+    await ctx.db.patch(user._id, { avatarStorageId: undefined, updatedAt: Date.now() });
+  },
+});

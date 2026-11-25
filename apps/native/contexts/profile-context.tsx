@@ -11,7 +11,7 @@ import { Splash } from "@/components/splash";
 import { consumePendingAccountType } from "@/lib/account-type";
 
 export type Profile = {
-  _id: string;
+  _id: Id<"users">;
   displayName: string;
   handle: string | null;
   phone: string | null;

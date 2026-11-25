@@ -115,6 +115,7 @@ export function SignUp() {
                         emailInputRef.current?.focus();
                       }}
                       placeholder="Tu nombre"
+                      testID="auth-name"
                       returnKeyType="next"
                       textContentType="name"
                       value={field.state.value}
@@ -139,6 +140,7 @@ export function SignUp() {
                         passwordInputRef.current?.focus();
                       }}
                       placeholder="tu@correo.com"
+                      testID="auth-email"
                       returnKeyType="next"
                       textContentType="emailAddress"
                       value={field.state.value}
@@ -159,6 +161,7 @@ export function SignUp() {
                         void form.handleSubmit();
                       }}
                       placeholder="Mínimo 8 caracteres"
+                      testID="auth-password"
                       returnKeyType="go"
                       secure
                       textContentType="newPassword"
@@ -173,6 +176,7 @@ export function SignUp() {
               <AuthSubmitButton
                 isSubmitting={isSubmitting}
                 label="Crear cuenta"
+                testID="auth-submit"
                 onPress={() => {
                   void form.handleSubmit();
                 }}
