@@ -4,28 +4,24 @@ export function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ConvexError) {
     const data: unknown = error.data;
 
-    if (typeof data === "string" && data.trim().length > 0) {
-      return data;
+    if (typeof data === "string") {
+      const trimmed = data.trim();
+
+      if (trimmed.length > 0) {
+        return trimmed;
+      }
     }
 
     if (typeof data === "object" && data !== null && "message" in data) {
       const message: unknown = data.message;
 
-      if (typeof message === "string" && message.trim().length > 0) {
-        return message;
+      if (typeof message === "string") {
+        const trimmed = message.trim();
+
+        if (trimmed.length > 0) {
+          return trimmed;
+        }
       }
-    }
-  }
-
-  if (error instanceof Error) {
-    const match = /Uncaught ConvexError:\s*(.+?)(?:\n|$)/.exec(error.message);
-
-    if (match?.[1]?.trim()) {
-      return match[1].trim();
-    }
-
-    if (!error.message.startsWith("[CONVEX ") && error.message.trim().length > 0) {
-      return error.message;
     }
   }
 

@@ -75,15 +75,45 @@ function getBaseUrl(): string {
 
 const DEFAULT_SITE_URL = "https://cozi.app";
 
-function getSiteUrl(): string {
-  const configured = process.env.SITE_URL?.trim();
+function parseOrigin(raw: string | undefined, requireHttps: boolean): string | null {
+  const value = raw?.trim();
 
-  // Pey exige URLs HTTPS en successUrl/backUrl; en desarrollo SITE_URL suele ser http://localhost.
-  if (configured && /^https:\/\//i.test(configured)) {
-    return configured.replace(/\/$/, "");
+  if (!value) {
+    return null;
   }
 
-  return DEFAULT_SITE_URL;
+  try {
+    const parsed = new URL(value);
+
+    if (parsed.username || parsed.password) {
+      return null;
+    }
+
+    if (requireHttps && parsed.protocol !== "https:") {
+      return null;
+    }
+
+    if (!requireHttps && parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      return null;
+    }
+
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
+function getMockSiteOrigin(): string {
+  return parseOrigin(process.env.SITE_URL, false) ?? DEFAULT_SITE_URL;
+}
+
+function getPeyReturnOrigin(): string {
+  // Pey exige URLs HTTPS en successUrl/backUrl; en desarrollo SITE_URL suele ser http://localhost.
+  return (
+    parseOrigin(process.env.PEY_RETURN_ORIGIN, true) ??
+    parseOrigin(process.env.SITE_URL, true) ??
+    DEFAULT_SITE_URL
+  );
 }
 
 function requireEnv(name: string): string {
@@ -334,17 +364,23 @@ export const pey: PeyClient = {
       const id = `mock_pl_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`;
       console.info("[pey:mock] createPaymentLink", { id, reference: input.reference });
 
+      const mockUrl = new URL(`/pay/${encodeURIComponent(input.reference)}`, getMockSiteOrigin());
+      mockUrl.searchParams.set("mock", id);
+
       return {
         id,
         status: "pending",
-        url: `${getSiteUrl()}/pay/${encodeURIComponent(input.reference)}?mock=${id}`,
+        url: mockUrl.toString(),
         expiresAt: input.expiresInMinutes
           ? Date.now() + input.expiresInMinutes * 60 * 1000
           : Date.now() + 24 * 60 * 60 * 1000,
       };
     }
 
-    const orderUrl = `${getSiteUrl()}/order/${encodeURIComponent(input.reference)}`;
+    const orderUrl = new URL(
+      `/order/${encodeURIComponent(input.reference)}`,
+      getPeyReturnOrigin(),
+    ).toString();
 
     const raw = await peyFetch<PeyPaymentLinkRaw>(ROUTES.paymentLinkCreate, {
       method: "POST",
@@ -389,7 +425,7 @@ export const pey: PeyClient = {
       return {
         id,
         status: "succeeded",
-        url: `${getSiteUrl()}/pay/${id}`,
+        url: new URL(`/pay/${encodeURIComponent(id)}`, getMockSiteOrigin()).toString(),
       };
     }
 

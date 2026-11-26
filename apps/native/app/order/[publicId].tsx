@@ -372,22 +372,10 @@ export default function OrderScreen() {
             <View className="rounded-2xl bg-surface p-4" style={immersiveCard}>
               <Text className="text-center text-sm text-muted">
                 {isBusinessSeller
-                  ? "Este pedido expiró. Renueva el link para seguir cobrando."
+                  ? "Este pedido expiró. Crea un pedido nuevo para volver a cobrar."
                   : "Este pedido expiró. Pide un link nuevo al negocio."}
               </Text>
             </View>
-            {isBusinessSeller ? (
-              <Button
-                onPress={() => generatePaymentLink(businessOrder.orderId)}
-                isDisabled={isGenerating}
-              >
-                {isGenerating ? (
-                  <Spinner size="sm" color="default" />
-                ) : (
-                  <Button.Label>Renovar link</Button.Label>
-                )}
-              </Button>
-            ) : null}
           </View>
         ) : businessCheckoutUrl && canPay ? (
           <Button className="mt-6" onPress={handleShareBusinessOrder}>
@@ -741,12 +729,14 @@ export default function OrderScreen() {
             <>
               <View className="rounded-2xl bg-surface p-4" style={immersiveCard}>
                 <Text className="text-center text-sm text-muted">
-                  {isIncoming
+                  {isIncoming && isRequest && current.status !== "expired"
                     ? "Este cobro expiró. Renueva el link para seguir cobrando."
-                    : "Este cobro expiró. Pide un link nuevo a quien te cobró."}
+                    : isIncoming
+                      ? "Este cobro expiró. Crea un cobro nuevo para volver a cobrar."
+                      : "Este cobro expiró. Pide un link nuevo a quien te cobró."}
                 </Text>
               </View>
-              {isIncoming && isRequest ? (
+              {isIncoming && isRequest && current.status !== "expired" ? (
                 <Button onPress={handleGenerateLink} isDisabled={isGenerating}>
                   {isGenerating ? (
                     <Spinner size="sm" color="default" />

@@ -23,6 +23,11 @@ function requireEnv(name: string): string {
 const siteUrl = requireEnv("SITE_URL");
 const nativeAppUrl = process.env.NATIVE_APP_URL || "cozi://";
 
+const expoWebOrigins = (process.env.EXPO_WEB_ORIGINS ?? "http://localhost:8081")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter((origin) => origin.length > 0);
+
 export const authComponent = createClient<DataModel>(components.betterAuth);
 
 function createAuth(ctx: GenericCtx<DataModel>) {
@@ -34,13 +39,11 @@ function createAuth(ctx: GenericCtx<DataModel>) {
     advanced: {
       trustedProxyHeaders: true,
     },
-    trustedOrigins: [siteUrl, nativeAppUrl, "exp://", "http://localhost:8081"],
+    trustedOrigins: [...new Set([siteUrl, nativeAppUrl, "exp://", ...expoWebOrigins])],
     database: authComponent.adapter(ctx),
     account: {
       accountLinking: {
         enabled: true,
-        trustedProviders: ["google"],
-        requireLocalEmailVerified: false,
       },
     },
     emailAndPassword: {

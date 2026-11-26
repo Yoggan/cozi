@@ -342,9 +342,11 @@ export default function SendScreen() {
                 lineHeight: 18,
               }}
             >
-              {recipientLookup && !recipientLookup.isSelf && !recipientLookup.canReceive
-                ? "Cuando active su cuenta receptora podrás enviarle dinero por CoDi, sin comisiones."
-                : `Link de pago CoDi a nombre de @${cleanRecipient || "tu contacto"}. El dinero llega directo a su cuenta, sin comisiones.`}
+              {recipientLookup && !recipientLookup.isSelf
+                ? recipientLookup.canReceive
+                  ? `Link de pago CoDi a nombre de @${cleanRecipient}. El dinero llega directo a su cuenta, sin comisiones.`
+                  : "Cuando active su cuenta receptora podrás enviarle dinero por CoDi, sin comisiones."
+                : "Pagos directos por CoDi, sin comisiones."}
             </Text>
           </View>
         </View>
