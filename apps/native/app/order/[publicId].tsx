@@ -11,6 +11,7 @@ import { Alert, Share, View } from "react-native";
 
 import { Container } from "@/components/container";
 import { useAppTheme } from "@/contexts/app-theme-context";
+import { getErrorMessage } from "@/lib/errors";
 import { formatMxn } from "@/lib/money";
 import { firstParam } from "@/lib/search-params";
 
@@ -114,7 +115,7 @@ export default function OrderScreen() {
     } catch (error) {
       toast.show({
         variant: "danger",
-        label: error instanceof Error ? error.message : "No pudimos generar el link",
+        label: getErrorMessage(error, "No pudimos generar el link"),
       });
     } finally {
       setIsGenerating(false);
@@ -134,7 +135,7 @@ export default function OrderScreen() {
     } catch (error) {
       toast.show({
         variant: "danger",
-        label: error instanceof Error ? error.message : "No pudimos completar el pedido",
+        label: getErrorMessage(error, "No pudimos completar el pedido"),
       });
     } finally {
       setIsFulfillingOrder(false);
@@ -158,7 +159,7 @@ export default function OrderScreen() {
             .catch((error: unknown) =>
               toast.show({
                 variant: "danger",
-                label: error instanceof Error ? error.message : "No pudimos cancelar el pedido",
+                label: getErrorMessage(error, "No pudimos cancelar el pedido"),
               }),
             )
             .finally(() => setIsCancellingOrder(false));
@@ -370,12 +371,14 @@ export default function OrderScreen() {
           <View className="mt-6 gap-3">
             <View className="rounded-2xl bg-surface p-4" style={immersiveCard}>
               <Text className="text-center text-sm text-muted">
-                {isBusinessSeller
+                {isBusinessSeller && businessOrder.canRenew
                   ? "Este pedido expiró. Renueva el link para seguir cobrando."
-                  : "Este pedido expiró. Pide un link nuevo al negocio."}
+                  : isBusinessSeller
+                    ? "Este pedido expiró. Crea un pedido nuevo para volver a cobrar."
+                    : "Este pedido expiró. Pide un link nuevo al negocio."}
               </Text>
             </View>
-            {isBusinessSeller ? (
+            {isBusinessSeller && businessOrder.canRenew ? (
               <Button
                 onPress={() => generatePaymentLink(businessOrder.orderId)}
                 isDisabled={isGenerating}
@@ -620,7 +623,7 @@ export default function OrderScreen() {
     } catch (error) {
       toast.show({
         variant: "danger",
-        label: error instanceof Error ? error.message : "No pudimos revisar el pago",
+        label: getErrorMessage(error, "No pudimos revisar el pago"),
       });
     } finally {
       setIsRefreshing(false);
@@ -640,7 +643,7 @@ export default function OrderScreen() {
     } catch (error) {
       toast.show({
         variant: "danger",
-        label: error instanceof Error ? error.message : "No pudimos guardar el contacto",
+        label: getErrorMessage(error, "No pudimos guardar el contacto"),
       });
     } finally {
       setIsSavingContact(false);
@@ -656,7 +659,7 @@ export default function OrderScreen() {
     } catch (error) {
       toast.show({
         variant: "danger",
-        label: error instanceof Error ? error.message : "No pudimos abrir la conversación",
+        label: getErrorMessage(error, "No pudimos abrir la conversación"),
       });
     } finally {
       setIsOpeningThread(false);
@@ -740,12 +743,14 @@ export default function OrderScreen() {
             <>
               <View className="rounded-2xl bg-surface p-4" style={immersiveCard}>
                 <Text className="text-center text-sm text-muted">
-                  {isIncoming
+                  {isIncoming && isRequest && current.canRenew
                     ? "Este cobro expiró. Renueva el link para seguir cobrando."
-                    : "Este cobro expiró. Pide un link nuevo a quien te cobró."}
+                    : isIncoming
+                      ? "Este cobro expiró. Crea un cobro nuevo para volver a cobrar."
+                      : "Este cobro expiró. Pide un link nuevo a quien te cobró."}
                 </Text>
               </View>
-              {isIncoming && isRequest ? (
+              {isIncoming && isRequest && current.canRenew ? (
                 <Button onPress={handleGenerateLink} isDisabled={isGenerating}>
                   {isGenerating ? (
                     <Spinner size="sm" color="default" />

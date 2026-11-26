@@ -330,6 +330,7 @@ export const getOrder = query({
       orderId: order._id,
       publicId: order.publicId,
       status: effectiveOrderStatus(order.status, deadline, Date.now()),
+      canRenew: order.status === "draft" || order.status === "awaiting_payment",
       expiresAt: deadline,
       amountCents: order.totalCents,
       note: order.note ?? order.items[0]?.name ?? "Pago Cozi",

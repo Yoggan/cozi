@@ -358,6 +358,7 @@ export const getByPublicId = query({
       p2pKind: order.p2pKind ?? null,
       direction: isSeller ? ("in" as const) : ("out" as const),
       status: effectiveOrderStatus(order.status, deadline, Date.now()),
+      canRenew: order.status === "draft" || order.status === "awaiting_payment",
       expiresAt: deadline,
       items: order.items,
       subtotalCents: order.subtotalCents,
