@@ -26,6 +26,7 @@ import { normalizePaymentStatus } from "./types";
  * `PEY_API_KEY` (y opcionalmente `PEY_MODE=live`).
  */
 const DEFAULT_BASE_URL = "https://api.pey.mx";
+const CODI_EXPIRATION_SECONDS = 600;
 
 const ROUTES = {
   bankAccount: "/bank-account",
@@ -177,6 +178,10 @@ function summarizeCodiTransactions(
   };
 }
 
+function pngDataUrl(image: string): string {
+  return image.startsWith("data:image/png;base64,") ? image : `data:image/png;base64,${image}`;
+}
+
 function mapCodiCharge(raw: PeyCodiChargeRaw): PeyCodiChargeResult {
   const id = requireString(raw.codiQrId ?? raw.id ?? raw.transactionId, "id");
 
@@ -187,7 +192,9 @@ function mapCodiCharge(raw: PeyCodiChargeRaw): PeyCodiChargeResult {
   return {
     id,
     status: normalizePaymentStatus(raw.status) ?? "pending",
-    qrImageUrl: optionalString(raw.qr_image_url ?? raw.qr ?? raw.qrCode),
+    qrImageUrl: raw.qrImage
+      ? pngDataUrl(raw.qrImage)
+      : optionalString(raw.qr_image_url ?? raw.qr ?? raw.qrCode),
     deepLink: optionalString(raw.deepLink ?? raw.deep_link),
     expiresAt,
     transactionId: optionalString(raw.transactionId ?? raw.transaction_id),
@@ -287,7 +294,7 @@ export const pey: PeyClient = {
         id,
         status: "pending",
         deepLink: `codi://pay?ref=${encodeURIComponent(input.reference)}`,
-        expiresAt: Date.now() + 10 * 60 * 1000,
+        expiresAt: Date.now() + CODI_EXPIRATION_SECONDS * 1000,
       };
     }
 
@@ -311,13 +318,19 @@ export const pey: PeyClient = {
       body: JSON.stringify({
         amount: input.amountCents / 100,
         concept: input.description,
-        expiration: 600,
+        expiration: CODI_EXPIRATION_SECONDS,
+        generateImage: true,
         numRef: numericRef(input.reference),
         bankAccountId: input.bankAccountId,
       }),
     });
 
-    return mapCodiCharge(raw);
+    const charge = mapCodiCharge(raw);
+
+    return {
+      ...charge,
+      expiresAt: charge.expiresAt ?? Date.now() + CODI_EXPIRATION_SECONDS * 1000,
+    };
   },
 
   async createPaymentLink(input: CreatePaymentLinkInput): Promise<PeyPaymentLinkResult> {

@@ -1,9 +1,9 @@
-import { Loader2 } from "lucide-react";
+import { Loading } from "@/components/cozi";
 
 export default function Loader() {
   return (
-    <div className="flex h-full items-center justify-center pt-8">
-      <Loader2 className="animate-spin" />
-    </div>
+    <main id="contenido" className="page-narrow">
+      <Loading />
+    </main>
   );
 }
