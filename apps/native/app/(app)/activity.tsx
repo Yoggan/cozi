@@ -6,20 +6,20 @@ import { useFonts } from "expo-font";
 import { useNetworkState } from "expo-network";
 import { useRouter } from "expo-router";
 import type { ErrorBoundaryProps } from "expo-router";
-import { Button, Skeleton, Text, useThemeColor } from "heroui-native";
+import { Button, Skeleton, Text } from "heroui-native";
 import { useState } from "react";
 import { Keyboard, Pressable, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SvgUri } from "react-native-svg";
 
 import searchIcon from "@/assets/activity/search.svg";
+import searchLightIcon from "@/assets/activity/search-light.svg";
 import plusJakartaSansSemiBold from "@/assets/fonts/PlusJakartaSans_600SemiBold.ttf";
 import { ActivityEmptyState } from "@/components/activity-empty-state";
 import { ActivityRow } from "@/components/activity-row";
 import type { ActivityItem } from "@/components/activity-row";
 import { Container } from "@/components/container";
-import { useAppTheme } from "@/contexts/app-theme-context";
-import { COZI_DARK_COLORS } from "@/lib/themes";
+import { useActivityPalette } from "@/lib/activity-palette";
 
 const ACTIVITY_LIMIT = 50;
 
@@ -32,7 +32,7 @@ const FILTERS = [
 
 type ActivityFilter = (typeof FILTERS)[number]["id"];
 
-const SEARCH_ICON = [searchIcon];
+const SEARCH_ICONS = [searchIcon, searchLightIcon];
 const ACTIVITY_FONTS = { PlusJakartaSansSemiBold: plusJakartaSansSemiBold };
 const SKELETON_ROWS = ["top", "middle", "bottom"];
 
@@ -87,27 +87,42 @@ function groupByDay(items: Array<ActivityItem>) {
 
 export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
   const insets = useSafeAreaInsets();
+  const palette = useActivityPalette();
 
   return (
     <Container
       className="px-4"
-      style={{ paddingTop: insets.top, paddingBottom: insets.bottom + 96 }}
+      style={[
+        { paddingTop: insets.top, paddingBottom: insets.bottom + 96 },
+        palette.canvas ? { backgroundColor: palette.canvas } : undefined,
+      ]}
     >
-      <Text className="py-4 text-2xl font-semibold text-foreground" accessibilityRole="header">
+      <Text
+        className="py-4 text-2xl font-semibold"
+        style={{ color: palette.text }}
+        accessibilityRole="header"
+      >
         Actividad
       </Text>
       <View className="flex-1 items-center justify-center gap-3 py-6">
         <Text
-          className="text-center text-xl font-semibold text-foreground"
+          className="text-center text-xl font-semibold"
+          style={{ color: palette.text }}
           accessibilityRole="header"
         >
           No pudimos cargar tus movimientos
         </Text>
-        <Text className="text-center text-sm text-muted">
+        <Text className="text-center text-sm" style={{ color: palette.muted }}>
           Revisa tu conexión e inténtalo de nuevo.
         </Text>
-        <Button className="mt-2 self-stretch rounded-full" onPress={() => void retry()}>
-          <Button.Label>Intentar de nuevo</Button.Label>
+        <Button
+          className="mt-2 self-stretch rounded-full"
+          style={{ backgroundColor: palette.primaryAction }}
+          onPress={() => void retry()}
+        >
+          <Button.Label style={{ color: palette.primaryActionText }}>
+            Intentar de nuevo
+          </Button.Label>
         </Button>
       </View>
     </Container>
@@ -119,16 +134,12 @@ export default function ActivityScreen() {
   const insets = useSafeAreaInsets();
   const activity = useQuery(api.p2p.listActivity, { limit: ACTIVITY_LIMIT });
   const network = useNetworkState();
-  const [searchAssets] = useAssets(SEARCH_ICON);
+  const [searchAssets] = useAssets(SEARCH_ICONS);
   const [fontsLoaded] = useFonts(ACTIVITY_FONTS);
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<ActivityFilter>("all");
-  const { accent, isLight } = useAppTheme();
-  const foreground = useThemeColor("foreground");
-  const muted = useThemeColor("muted");
-  const surface = useThemeColor("surface");
-  const border = useThemeColor("border");
+  const palette = useActivityPalette();
   const offline = network.isConnected === false || network.isInternetReachable === false;
   const isEmpty = activity?.length === 0;
   const hasActivity = activity !== undefined && activity.length > 0;
@@ -147,13 +158,6 @@ export default function ActivityScreen() {
       return searchTerms.every((term) => searchable.includes(term));
     }),
   );
-
-  const palette = {
-    text: isLight ? foreground : COZI_DARK_COLORS.primaryText,
-    muted: isLight ? muted : COZI_DARK_COLORS.secondaryText,
-    surface: isLight ? surface : COZI_DARK_COLORS.glass,
-    border: isLight ? border : COZI_DARK_COLORS.subtleBorder,
-  };
 
   const semibold = fontsLoaded
     ? { fontFamily: "PlusJakartaSansSemiBold" }
@@ -177,7 +181,10 @@ export default function ActivityScreen() {
   return (
     <Container
       className="px-4"
-      style={{ paddingTop: insets.top, paddingBottom: insets.bottom + 80 }}
+      style={[
+        { paddingTop: insets.top, paddingBottom: insets.bottom + 80 },
+        palette.canvas ? { backgroundColor: palette.canvas } : undefined,
+      ]}
       scrollViewProps={{ keyboardDismissMode: "on-drag" }}
     >
       <View className="min-h-11 flex-row items-center justify-between gap-3 pb-4 pt-4">
@@ -195,12 +202,12 @@ export default function ActivityScreen() {
             accessibilityState={{ expanded: searchOpen }}
             onPress={toggleSearch}
             className="size-11 items-center justify-center rounded-full border"
-            style={{ backgroundColor: COZI_DARK_COLORS.glass, borderColor: palette.border }}
+            style={palette.glassStyle}
           >
             {searchOpen ? (
-              <Ionicons name="close" size={20} color={COZI_DARK_COLORS.primaryText} />
+              <Ionicons name="close" size={20} color={palette.text} />
             ) : (
-              <SvgUri uri={searchAssets?.[0]?.localUri ?? null} />
+              <SvgUri uri={searchAssets?.[palette.light ? 1 : 0]?.localUri ?? null} />
             )}
           </Pressable>
         ) : null}
@@ -210,11 +217,7 @@ export default function ActivityScreen() {
         <Text
           accessibilityRole="alert"
           className="mb-4 rounded-2xl border px-4 py-3 text-sm"
-          style={{
-            color: palette.text,
-            backgroundColor: palette.surface,
-            borderColor: palette.border,
-          }}
+          style={[palette.glassStyle, { color: palette.text }]}
         >
           {activity === undefined
             ? "Sin conexión. Tus movimientos se cargarán cuando vuelva la conexión."
@@ -228,7 +231,7 @@ export default function ActivityScreen() {
             <View className="gap-2">
               <View
                 className="min-h-12 flex-row items-center rounded-2xl border px-4"
-                style={{ backgroundColor: palette.surface, borderColor: palette.border }}
+                style={palette.glassStyle}
               >
                 <TextInput
                   accessibilityLabel="Buscar por nombre, @handle o concepto"
@@ -273,15 +276,16 @@ export default function ActivityScreen() {
                   accessibilityState={{ selected }}
                   className="min-h-9 justify-center rounded-full border px-4 py-2"
                   hitSlop={{ top: 4, bottom: 4 }}
-                  style={{
-                    backgroundColor: selected ? accent.softHex : palette.surface,
-                    borderColor: selected ? "transparent" : palette.border,
-                  }}
+                  style={
+                    selected
+                      ? { backgroundColor: palette.accent.softHex, borderColor: "transparent" }
+                      : palette.glassStyle
+                  }
                   onPress={() => setFilter(id)}
                 >
                   <Text
                     className="text-[15px] leading-[18px]"
-                    style={[semibold, { color: selected && !isLight ? accent.hex : palette.text }]}
+                    style={[semibold, { color: selected ? palette.selectedText : palette.muted }]}
                   >
                     {label}
                   </Text>
@@ -298,7 +302,7 @@ export default function ActivityScreen() {
           accessibilityState={{ busy: true }}
           accessible
           className="gap-4 rounded-3xl border p-4"
-          style={{ backgroundColor: palette.surface, borderColor: palette.border }}
+          style={palette.glassStyle}
         >
           {SKELETON_ROWS.map((key) => (
             <View key={key} className="flex-row items-center gap-3">
@@ -331,8 +335,13 @@ export default function ActivityScreen() {
           <Text className="text-center text-sm" style={{ color: palette.muted }}>
             Prueba otra búsqueda o cambia el filtro.
           </Text>
-          <Button variant="secondary" onPress={resetFilters}>
-            <Button.Label>Ver todos los movimientos</Button.Label>
+          <Button
+            variant="secondary"
+            className="border"
+            style={palette.glassStyle}
+            onPress={resetFilters}
+          >
+            <Button.Label style={{ color: palette.text }}>Ver todos los movimientos</Button.Label>
           </Button>
         </View>
       ) : null}
@@ -347,18 +356,19 @@ export default function ActivityScreen() {
             >
               {label}
             </Text>
-            <View
-              className="rounded-3xl border px-4"
-              style={{ backgroundColor: palette.surface, borderColor: palette.border }}
-            >
+            <View className="rounded-3xl border px-4" style={palette.glassStyle}>
               {items.map((item, index) => (
                 <View
                   key={item.publicId}
                   className={index > 0 ? "border-t" : undefined}
-                  style={{ borderColor: palette.border }}
+                  style={{ borderColor: palette.glassStyle.borderColor }}
                 >
                   <ActivityRow
                     item={item}
+                    iconPalette={{
+                      backgroundColor: palette.accent.softHex,
+                      color: palette.selectedText,
+                    }}
                     onPress={() =>
                       router.push({
                         pathname: "/order/[publicId]",

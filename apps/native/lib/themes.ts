@@ -9,6 +9,16 @@ export const COZI_DARK_COLORS = {
   primaryActionText: "#0B0F0D",
 };
 
+export const COZI_LIGHT_COLORS = {
+  canvas: "#FBF8F2",
+  glass: "rgba(255, 255, 255, 0.72)",
+  subtleBorder: "rgba(11, 15, 13, 0.08)",
+  primaryText: "#0B0F0D",
+  secondaryText: "#26302B",
+  primaryAction: "#0F3D2E",
+  primaryActionText: "#F5EFE3",
+};
+
 export type BackdropCategory = "todos" | "naturaleza" | "abstracto" | "seda" | "metal";
 
 export type AccentOption = {
@@ -29,6 +39,8 @@ export type BackdropOption = {
   baseColor: string;
   cardColor: string;
   cardBorder: string;
+  glassColor?: string;
+  glassBorder?: string;
   defaultAccentId: string;
 };
 
@@ -108,6 +120,7 @@ export const BACKDROP_OPTIONS: Array<BackdropOption> = [
     baseColor: "#0E1B0D",
     cardColor: "rgba(28, 46, 26, 0.72)",
     cardBorder: "rgba(255, 255, 255, 0.10)",
+    glassColor: COZI_DARK_COLORS.glass,
     defaultAccentId: "emerald",
   },
   {
@@ -119,6 +132,7 @@ export const BACKDROP_OPTIONS: Array<BackdropOption> = [
     baseColor: "#080B1A",
     cardColor: "rgba(20, 25, 52, 0.74)",
     cardBorder: "rgba(255, 255, 255, 0.10)",
+    glassColor: "rgba(20, 25, 52, 0.70)",
     defaultAccentId: "indigo",
   },
   {
@@ -130,6 +144,7 @@ export const BACKDROP_OPTIONS: Array<BackdropOption> = [
     baseColor: "#141C14",
     cardColor: "rgba(35, 46, 35, 0.72)",
     cardBorder: "rgba(255, 255, 255, 0.10)",
+    glassColor: "rgba(35, 46, 35, 0.70)",
     defaultAccentId: "emerald",
   },
   {
@@ -141,6 +156,8 @@ export const BACKDROP_OPTIONS: Array<BackdropOption> = [
     baseColor: "#0D1624",
     cardColor: "rgba(24, 36, 56, 0.74)",
     cardBorder: "rgba(255, 255, 255, 0.11)",
+    glassColor: "rgba(24, 36, 56, 0.72)",
+    glassBorder: "rgba(245, 239, 227, 0.11)",
     defaultAccentId: "sky",
   },
   {
@@ -163,6 +180,7 @@ export const BACKDROP_OPTIONS: Array<BackdropOption> = [
     baseColor: "#09091A",
     cardColor: "rgba(26, 24, 58, 0.74)",
     cardBorder: "rgba(255, 255, 255, 0.10)",
+    glassColor: "rgba(26, 24, 58, 0.72)",
     defaultAccentId: "indigo",
   },
   {
@@ -174,6 +192,7 @@ export const BACKDROP_OPTIONS: Array<BackdropOption> = [
     baseColor: "#141A13",
     cardColor: "rgba(36, 44, 34, 0.74)",
     cardBorder: "rgba(255, 255, 255, 0.10)",
+    glassColor: "rgba(36, 44, 34, 0.72)",
     defaultAccentId: "amber",
   },
   {
@@ -196,6 +215,8 @@ export const BACKDROP_OPTIONS: Array<BackdropOption> = [
     baseColor: "#09090B",
     cardColor: "rgba(28, 28, 33, 0.80)",
     cardBorder: "rgba(255, 255, 255, 0.09)",
+    glassColor: "rgba(28, 28, 33, 0.78)",
+    glassBorder: "rgba(245, 239, 227, 0.09)",
     defaultAccentId: "silver",
   },
 ];

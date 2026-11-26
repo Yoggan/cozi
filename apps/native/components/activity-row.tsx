@@ -69,7 +69,15 @@ function activityVerb(item: ActivityItem, status: string): string {
   return "Enviaste";
 }
 
-export function ActivityRow({ item, onPress }: { item: ActivityItem; onPress?: () => void }) {
+export function ActivityRow({
+  item,
+  onPress,
+  iconPalette,
+}: {
+  item: ActivityItem;
+  onPress?: () => void;
+  iconPalette?: { backgroundColor: string; color: string };
+}) {
   const success = useThemeColor("success");
   const muted = useThemeColor("muted");
   const incoming = item.direction === "in";
@@ -91,11 +99,12 @@ export function ActivityRow({ item, onPress }: { item: ActivityItem; onPress?: (
         className={`h-10 w-10 items-center justify-center rounded-full ${
           incoming ? "bg-success-soft" : "bg-surface-secondary"
         }`}
+        style={iconPalette ? { backgroundColor: iconPalette.backgroundColor } : undefined}
       >
         <Ionicons
           name={incoming ? "arrow-down" : "arrow-up"}
           size={18}
-          color={incoming ? success : muted}
+          color={iconPalette?.color ?? (incoming ? success : muted)}
         />
       </View>
 

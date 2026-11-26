@@ -1,17 +1,30 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useAssets } from "expo-asset";
 import { useFonts } from "expo-font";
-import { Button, useThemeColor } from "heroui-native";
+import { Button } from "heroui-native";
 import { StyleSheet, Text, View } from "react-native";
 import { SvgUri } from "react-native-svg";
 
 import arrowsClockwiseIcon from "@/assets/activity/arrows-clockwise.svg";
+import amberArrowsIcon from "@/assets/activity/arrows-clockwise-amber.svg";
+import indigoArrowsIcon from "@/assets/activity/arrows-clockwise-indigo.svg";
+import silverArrowsIcon from "@/assets/activity/arrows-clockwise-silver.svg";
+import skyArrowsIcon from "@/assets/activity/arrows-clockwise-sky.svg";
 import plusIcon from "@/assets/activity/plus.svg";
+import plusLightIcon from "@/assets/activity/plus-light.svg";
 import plusJakartaSansRegular from "@/assets/fonts/PlusJakartaSans_400Regular.ttf";
 import plusJakartaSansSemiBold from "@/assets/fonts/PlusJakartaSans_600SemiBold.ttf";
-import { useAppTheme } from "@/contexts/app-theme-context";
-import { COZI_DARK_COLORS } from "@/lib/themes";
+import { useActivityPalette } from "@/lib/activity-palette";
 
-const ICONS = [arrowsClockwiseIcon, plusIcon];
+const REFRESH_ICON_ASSETS = new Map([
+  ["emerald", arrowsClockwiseIcon],
+  ["sky", skyArrowsIcon],
+  ["indigo", indigoArrowsIcon],
+  ["silver", silverArrowsIcon],
+  ["amber", amberArrowsIcon],
+]);
+
+const ICONS = [...REFRESH_ICON_ASSETS.values(), plusIcon, plusLightIcon];
 
 const FONTS = {
   PlusJakartaSansRegular: plusJakartaSansRegular,
@@ -19,45 +32,26 @@ const FONTS = {
 };
 
 export function ActivityEmptyState({ onSend }: { onSend: () => void }) {
-  const { isLight } = useAppTheme();
-  const foreground = useThemeColor("foreground");
-  const muted = useThemeColor("muted");
-  const border = useThemeColor("border");
+  const palette = useActivityPalette();
   const [assets] = useAssets(ICONS);
   const [fontsLoaded] = useFonts(FONTS);
   const semibold = fontsLoaded ? styles.semibold : styles.fallbackSemibold;
+  const refreshIcon = REFRESH_ICON_ASSETS.get(palette.accent.id);
+  const plus = palette.light ? plusLightIcon : plusIcon;
 
   return (
     <View style={styles.content}>
-      <View
-        accessible={false}
-        style={[
-          styles.icon,
-          {
-            backgroundColor: COZI_DARK_COLORS.glass,
-            borderColor: isLight ? border : COZI_DARK_COLORS.subtleBorder,
-          },
-        ]}
-      >
-        <SvgUri uri={assets?.[0]?.localUri ?? null} />
+      <View accessible={false} style={[styles.icon, palette.glassStyle]}>
+        {refreshIcon === undefined ? (
+          <Ionicons name="sync" size={30} color={palette.selectedText} />
+        ) : (
+          <SvgUri uri={assets?.[ICONS.indexOf(refreshIcon)]?.localUri ?? null} />
+        )}
       </View>
-      <Text
-        accessibilityRole="header"
-        style={[
-          styles.title,
-          semibold,
-          { color: isLight ? foreground : COZI_DARK_COLORS.primaryText },
-        ]}
-      >
+      <Text accessibilityRole="header" style={[styles.title, semibold, { color: palette.text }]}>
         Aún no hay movimientos
       </Text>
-      <Text
-        style={[
-          styles.body,
-          fontsLoaded && styles.regular,
-          { color: isLight ? muted : COZI_DARK_COLORS.secondaryText },
-        ]}
-      >
+      <Text style={[styles.body, fontsLoaded && styles.regular, { color: palette.muted }]}>
         Cuando envíes o recibas dinero, aparecerá aquí.
       </Text>
       <Button
@@ -66,15 +60,15 @@ export function ActivityEmptyState({ onSend }: { onSend: () => void }) {
         style={[
           styles.button,
           {
-            backgroundColor: COZI_DARK_COLORS.primaryAction,
-            borderColor: isLight ? border : COZI_DARK_COLORS.subtleBorder,
+            backgroundColor: palette.primaryAction,
+            borderColor: palette.glassStyle.borderColor,
           },
         ]}
       >
         <View accessible={false} style={styles.buttonIcon}>
-          <SvgUri uri={assets?.[1]?.localUri ?? null} />
+          <SvgUri uri={assets?.[ICONS.indexOf(plus)]?.localUri ?? null} />
         </View>
-        <Text style={[styles.buttonLabel, semibold, { color: COZI_DARK_COLORS.primaryActionText }]}>
+        <Text style={[styles.buttonLabel, semibold, { color: palette.primaryActionText }]}>
           Enviar mi primer pago
         </Text>
       </Button>
