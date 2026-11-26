@@ -84,7 +84,11 @@ export default function BusinessOrdersScreen() {
 
   return (
     <Container className="px-5 pt-4">
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
+      >
         <View className="flex-row gap-2 pb-1">
           {FILTERS.map((option) => {
             const active = option.value === filter;

@@ -321,6 +321,7 @@ export default function BusinessProfileScreen() {
           paddingBottom: Math.max(insets.bottom, 20) + 8,
         }}
         showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
       >
         <View style={{ width: "100%", maxWidth: 460, alignSelf: "center", gap: 18 }}>
           <View style={[cardStyle, { gap: 14, padding: 16 }]}>

@@ -273,6 +273,7 @@ function PersonalHome() {
         <Animated.ScrollView
           onScroll={onScroll}
           showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
           contentContainerStyle={{
             paddingBottom: Math.max(insets.bottom, 16) + 96,
           }}

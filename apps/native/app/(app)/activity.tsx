@@ -19,7 +19,7 @@ import { ActivityEmptyState } from "@/components/activity-empty-state";
 import { ActivityRow } from "@/components/activity-row";
 import type { ActivityItem } from "@/components/activity-row";
 import { Container } from "@/components/container";
-import { useActivityPalette } from "@/lib/activity-palette";
+import { useCoziGlassPalette } from "@/lib/cozi-glass-palette";
 
 const ACTIVITY_LIMIT = 50;
 
@@ -87,7 +87,7 @@ function groupByDay(items: Array<ActivityItem>) {
 
 export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
   const insets = useSafeAreaInsets();
-  const palette = useActivityPalette();
+  const palette = useCoziGlassPalette();
 
   return (
     <Container
@@ -139,7 +139,7 @@ export default function ActivityScreen() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<ActivityFilter>("all");
-  const palette = useActivityPalette();
+  const palette = useCoziGlassPalette();
   const offline = network.isConnected === false || network.isInternetReachable === false;
   const isEmpty = activity?.length === 0;
   const hasActivity = activity !== undefined && activity.length > 0;

@@ -90,6 +90,7 @@ export default function ThemeBackdropScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
         style={{ flexGrow: 0 }}
         contentContainerStyle={{ paddingHorizontal: 16, gap: 8, paddingBottom: 14 }}
       >
@@ -124,6 +125,7 @@ export default function ThemeBackdropScreen() {
       {/* 3-column wallpaper grid */}
       <ScrollView
         showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
           paddingHorizontal: GRID_PADDING,
           paddingBottom: Math.max(insets.bottom, 24) + 16,

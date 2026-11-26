@@ -170,6 +170,7 @@ export default function ConversationScreen() {
         }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
       >
         {current.messages.length === 0 ? (
           <Text className="py-8 text-center text-sm text-muted">

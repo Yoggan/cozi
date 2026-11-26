@@ -17,6 +17,7 @@ export const COZI_LIGHT_COLORS = {
   secondaryText: "#26302B",
   primaryAction: "#0F3D2E",
   primaryActionText: "#F5EFE3",
+  secondaryAction: "#E8DFCF",
 };
 
 export type BackdropCategory = "todos" | "naturaleza" | "abstracto" | "seda" | "metal";
@@ -111,6 +112,19 @@ export const ACCENT_OPTIONS: Array<AccentOption> = [
 ];
 
 export const BACKDROP_OPTIONS: Array<BackdropOption> = [
+  {
+    id: "pure-black",
+    name: "Negro",
+    category: "abstracto",
+    kind: "gradient",
+    gradientColors: ["#000000", "#000000", "#000000"],
+    baseColor: "#000000",
+    cardColor: "rgba(18, 18, 18, 0.92)",
+    cardBorder: "rgba(255, 255, 255, 0.08)",
+    glassColor: "rgba(18, 18, 18, 0.92)",
+    glassBorder: "rgba(245, 239, 227, 0.08)",
+    defaultAccentId: "emerald",
+  },
   {
     id: "forest",
     name: "Bosque",
@@ -223,6 +237,18 @@ export const BACKDROP_OPTIONS: Array<BackdropOption> = [
 
 export const THEME_PRESETS: Array<ThemePreset> = [
   {
+    id: "negro",
+    name: "Negro",
+    subtitle: "Principal",
+    immersive: true,
+    backdropId: "pure-black",
+    baseColor: "#000000",
+    cardColor: "rgba(18, 18, 18, 0.92)",
+    cardBorder: "rgba(255, 255, 255, 0.08)",
+    defaultAccentId: "emerald",
+    defaultMode: "dark",
+  },
+  {
     id: "bosque",
     name: "Bosque",
     subtitle: "Naturaleza",
@@ -296,7 +322,7 @@ export const THEME_PRESETS: Array<ThemePreset> = [
   },
 ];
 
-export const DEFAULT_PRESET_ID = "bosque";
+export const DEFAULT_PRESET_ID = "negro";
 
 export function getPresetById(id: string | null | undefined): ThemePreset {
   return THEME_PRESETS.find((preset) => preset.id === id) ?? THEME_PRESETS[0];

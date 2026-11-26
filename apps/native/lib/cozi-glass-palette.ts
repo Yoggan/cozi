@@ -3,7 +3,7 @@ import { useThemeColor } from "heroui-native";
 import { useAppTheme } from "@/contexts/app-theme-context";
 import { COZI_DARK_COLORS, COZI_LIGHT_COLORS } from "@/lib/themes";
 
-export function useActivityPalette() {
+export function useCoziGlassPalette() {
   const { accent, backdrop, isLight } = useAppTheme();
   const surface = useThemeColor("surface");
   const border = useThemeColor("border");
@@ -25,6 +25,7 @@ export function useActivityPalette() {
     muted: colors.secondaryText,
     primaryAction: colors.primaryAction,
     primaryActionText: colors.primaryActionText,
+    secondaryAction: light ? COZI_LIGHT_COLORS.secondaryAction : glass,
     glassStyle: { backgroundColor: glass, borderColor: glassBorder },
   };
 }

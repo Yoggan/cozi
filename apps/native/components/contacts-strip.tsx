@@ -127,6 +127,7 @@ export function ContactsStrip() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={{ gap: 14, paddingRight: 16 }}
         >
           {contacts.map((contact) => (

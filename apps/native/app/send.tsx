@@ -235,6 +235,7 @@ export default function SendScreen() {
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
       >
         <View style={{ flexGrow: 1, width: "100%", maxWidth: 460, alignSelf: "center" }}>
           <View style={{ gap: 22 }}>

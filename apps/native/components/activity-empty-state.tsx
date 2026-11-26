@@ -14,7 +14,7 @@ import plusIcon from "@/assets/activity/plus.svg";
 import plusLightIcon from "@/assets/activity/plus-light.svg";
 import plusJakartaSansRegular from "@/assets/fonts/PlusJakartaSans_400Regular.ttf";
 import plusJakartaSansSemiBold from "@/assets/fonts/PlusJakartaSans_600SemiBold.ttf";
-import { useActivityPalette } from "@/lib/activity-palette";
+import { useCoziGlassPalette } from "@/lib/cozi-glass-palette";
 
 const REFRESH_ICON_ASSETS = new Map([
   ["emerald", arrowsClockwiseIcon],
@@ -32,7 +32,7 @@ const FONTS = {
 };
 
 export function ActivityEmptyState({ onSend }: { onSend: () => void }) {
-  const palette = useActivityPalette();
+  const palette = useCoziGlassPalette();
   const [assets] = useAssets(ICONS);
   const [fontsLoaded] = useFonts(FONTS);
   const semibold = fontsLoaded ? styles.semibold : styles.fallbackSemibold;

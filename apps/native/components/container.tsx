@@ -14,7 +14,10 @@ const AnimatedView = Animated.createAnimatedComponent(View);
 type Props = AnimatedProps<ViewProps> & {
   className?: string;
   isScrollable?: boolean;
-  scrollViewProps?: Omit<ScrollViewProps, "contentContainerStyle">;
+  scrollViewProps?: Omit<
+    ScrollViewProps,
+    "contentContainerStyle" | "showsVerticalScrollIndicator" | "showsHorizontalScrollIndicator"
+  >;
   showBackdrop?: boolean;
   backdropHeight?: number;
 };
@@ -48,6 +51,8 @@ export function Container({
           keyboardShouldPersistTaps="handled"
           contentInsetAdjustmentBehavior="automatic"
           {...scrollViewProps}
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
         >
           {children}
         </ScrollView>
