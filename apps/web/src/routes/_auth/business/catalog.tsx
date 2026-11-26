@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { api } from "@cozi/backend/convex/_generated/api";
 import type { Id } from "@cozi/backend/convex/_generated/dataModel";
+import { Button } from "@cozi/ui/components/button";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { ConvexError } from "convex/values";
@@ -76,6 +77,8 @@ function ProductEditor({
   const create = useMutation(api.products.create);
   const update = useMutation(api.products.update);
   const [version, setVersion] = useState(0);
+  const [stockDraft, setStockDraft] = useState<{ value: string; expected: number | null }>();
+  const currentStock = product?.stock ?? null;
 
   return (
     <Form
@@ -102,9 +105,16 @@ function ProductEditor({
         };
 
         if (product) {
-          await update({ ...fields, productId: product._id, stock });
+          const stockChange =
+            stockDraft && stock !== stockDraft.expected
+              ? { stock, expectedStock: stockDraft.expected }
+              : {};
+
+          await update({ ...fields, productId: product._id, ...stockChange });
+          setStockDraft(undefined);
         } else {
           await create({ ...fields, businessId, stock: stock ?? undefined });
+          setStockDraft(undefined);
           setVersion((value) => value + 1);
         }
 
@@ -123,7 +133,7 @@ function ProductEditor({
         name="description"
         label="Descripción"
         defaultValue={product?.description ?? ""}
-        maxLength={280}
+        maxLength={240}
       />
       <Field
         name="category"
@@ -142,12 +152,33 @@ function ProductEditor({
       <Field
         name="stock"
         label="Inventario"
-        defaultValue={product?.stock ?? ""}
+        value={stockDraft?.value ?? currentStock?.toString() ?? ""}
+        onChange={(event) => {
+          const { value } = event.target;
+          const expected = stockDraft ? stockDraft.expected : currentStock;
+
+          setStockDraft(value === (expected?.toString() ?? "") ? undefined : { value, expected });
+        }}
         type="number"
         min={0}
         step={1}
         hint="Déjalo vacío para vender sin límite de inventario."
       />
+      {stockDraft && stockDraft.expected !== currentStock && (
+        <div className="space-y-2">
+          <p role="status" className="text-sm text-warning">
+            El inventario cambió mientras editabas.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setStockDraft(undefined)}
+          >
+            Usar inventario actual
+          </Button>
+        </div>
+      )}
       <label className="flex items-center gap-2">
         <input type="checkbox" name="active" defaultChecked={product?.active ?? true} /> Mostrar en
         el catálogo

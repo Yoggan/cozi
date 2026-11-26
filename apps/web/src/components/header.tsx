@@ -59,14 +59,11 @@ export default function Header() {
             ))}
           </nav>
         )}
-        {isAuthenticated ? (
-          <UserMenu />
-        ) : (
-          !isLoading && (
-            <Link to="/dashboard" className={buttonVariants({ variant: "secondary", size: "sm" })}>
-              Inicia sesión
-            </Link>
-          )
+        {ready && <UserMenu />}
+        {!isAuthenticated && !isLoading && (
+          <Link to="/dashboard" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+            Inicia sesión
+          </Link>
         )}
       </div>
     </header>

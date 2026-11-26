@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 
 import { Field, Form, Page, field } from "@/components/cozi";
+import SignOutForm from "@/components/sign-out-form";
 import type { Profile } from "@/lib/profile";
 
 export function BusinessFields() {
@@ -97,6 +98,7 @@ export default function Onboarding({ profile }: { profile: Profile | null }) {
         />
         {business && !profile?.business && <BusinessFields />}
       </Form>
+      <SignOutForm />
     </Page>
   );
 }

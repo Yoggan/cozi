@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import Appearance from "@/components/appearance";
 import { Avatar, Field, Form, Page, field } from "@/components/cozi";
-import { authClient } from "@/lib/auth-client";
+import SignOutForm from "@/components/sign-out-form";
 import { useProfile } from "@/lib/profile";
 
 export const Route = createFileRoute("/_auth/profile")({ component: ProfilePage });
@@ -141,21 +141,7 @@ function ProfilePage() {
         )}
       </section>
       <Appearance />
-      <Form
-        className="stack"
-        submit="Cerrar sesión"
-        variant="ghost"
-        fallback="No pudimos cerrar tu sesión. Intenta de nuevo."
-        onSubmit={async () => {
-          const { error } = await authClient.signOut();
-
-          if (error) {
-            throw new Error(error.code);
-          }
-
-          window.location.assign("/");
-        }}
-      />
+      <SignOutForm />
     </Page>
   );
 }
