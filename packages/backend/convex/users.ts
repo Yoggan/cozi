@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 
+import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
@@ -255,6 +256,57 @@ export const completeOnboarding = mutation({
         updatedAt: Date.now(),
       });
     }
+  },
+});
+
+/** Completa el alta web en una transacción, incluidas las reservas de @handle. */
+export const finishOnboarding = mutation({
+  args: {
+    accountType: v.union(v.literal("personal"), v.literal("business")),
+    displayName: v.string(),
+    handle: v.string(),
+    business: v.optional(
+      v.object({
+        name: v.string(),
+        handle: v.optional(v.string()),
+        category: v.optional(v.string()),
+      }),
+    ),
+  },
+  handler: async (ctx, args): Promise<null> => {
+    const { userId }: { userId: Id<"users"> } = await ctx.runMutation(api.users.ensureProfile, {
+      accountType: args.accountType,
+    });
+
+    const user = await ctx.db.get(userId);
+
+    if (!user || (user.accountType ?? "personal") !== args.accountType) {
+      throw new ConvexError("El tipo de cuenta ya cambió. Vuelve a abrir esta pantalla.");
+    }
+
+    await ctx.runMutation(api.users.updateProfile, {
+      displayName: args.displayName,
+      handle: args.handle,
+    });
+
+    if (args.accountType === "business") {
+      const existing = await ctx.db
+        .query("businesses")
+        .withIndex("by_owner", (q) => q.eq("ownerId", userId))
+        .first();
+
+      if (!existing) {
+        if (!args.business) {
+          throw new ConvexError("Completa los datos de tu negocio.");
+        }
+
+        await ctx.runMutation(api.businesses.create, args.business);
+      }
+    }
+
+    await ctx.runMutation(api.users.completeOnboarding, {});
+
+    return null;
   },
 });
 

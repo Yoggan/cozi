@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Field, Form, field, shareText } from "@/components/cozi";
 import { payable } from "@/lib/cozi";
 
-type Order = NonNullable<FunctionReturnType<typeof api.p2p.getOrder>>;
+type Order = NonNullable<FunctionReturnType<typeof api.orders.getByPublicId>>;
 
 export function useDeadline(deadline: number | null | undefined) {
   const [elapsedDeadline, setElapsedDeadline] = useState<number>();
@@ -27,26 +27,17 @@ export function useDeadline(deadline: number | null | undefined) {
   return Boolean(deadline && elapsedDeadline === deadline);
 }
 
-export default function OrderPayment({
-  order,
-  defaultLinkMinutes,
-}: {
-  order: Order;
-  defaultLinkMinutes: number;
-}) {
+export default function OrderPayment({ order, status }: { order: Order; status: Order["status"] }) {
   const createLink = useAction(api.pey.actions.createPaymentLink);
   const createCodi = useAction(api.pey.actions.createCodiCharge);
   const refresh = useAction(api.pey.actions.refreshPayment);
   const [method, setMethod] = useState<"link" | "qr" | "push">("link");
-  const orderExpired = useDeadline(order.expiresAt) || order.status === "expired";
+  const orderExpired = status === "expired";
   const paymentExpired = useDeadline(order.payment?.expiresAt);
   const payment = paymentExpired ? null : order.payment;
-  const open = payable(order.status) && !orderExpired;
+  const open = payable(status);
 
-  const canRenew =
-    orderExpired &&
-    order.direction === "in" &&
-    (payable(order.status) || order.status === "expired");
+  const canRenew = orderExpired && order.direction === "in";
 
   const checkoutUrl = payment?.checkoutUrl;
 
@@ -134,7 +125,7 @@ export default function OrderPayment({
             if (method === "link" || canRenew) {
               await createLink({
                 orderId: order.orderId,
-                expiresInMinutes: linkDuration(order, orderExpired, defaultLinkMinutes),
+                expiresInMinutes: linkDuration(order, orderExpired),
               });
             } else {
               await createCodi({
@@ -182,9 +173,9 @@ export default function OrderPayment({
   );
 }
 
-function linkDuration(order: Order, expired: boolean, defaultLinkMinutes: number) {
+function linkDuration(order: Order, expired: boolean) {
   if (!order.expiresAt) {
-    return order.kind === "send" ? defaultLinkMinutes : 0;
+    return order.p2pKind === "request" ? 0 : order.channel === "p2p" ? 30 : 1440;
   }
 
   const duration = order.expiresAt - (expired ? order.createdAt : Date.now());

@@ -5,6 +5,7 @@ import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { effectiveOrderStatus, expiryFromMinutes, orderDeadline } from "./lib/expiry";
 import { HANDLE_PATTERN, makePublicId, normalizeHandle } from "./lib/identifiers";
+import { resolveOrderCounterpart } from "./lib/order-parties";
 import { findActivePayment } from "./pey/queries";
 
 const MIN_AMOUNT_CENTS = 1000;
@@ -85,48 +86,6 @@ async function resolveUserHandle(ctx: QueryCtx | MutationCtx, rawHandle: string)
   }
 
   return { user, handle: handleDocument.handle, handleId: handleDocument._id };
-}
-
-async function resolveCounterpart(
-  ctx: QueryCtx,
-  order: Doc<"orders">,
-  viewerId: Id<"users">,
-): Promise<{ name: string; handle: string | null }> {
-  if (order.sellerId === viewerId) {
-    return {
-      name: order.customer.name?.trim() || "Alguien",
-      handle: order.customer.handle ?? null,
-    };
-  }
-
-  if (order.businessId) {
-    const [business, businessHandle] = await Promise.all([
-      ctx.db.get(order.businessId),
-      ctx.db
-        .query("handles")
-        .withIndex("by_business", (q) => q.eq("businessId", order.businessId))
-        .first(),
-    ]);
-
-    if (business) {
-      return {
-        name: business.name,
-        handle: businessHandle?.handle ?? null,
-      };
-    }
-  }
-
-  const seller = await ctx.db.get(order.sellerId);
-
-  const handle = await ctx.db
-    .query("handles")
-    .withIndex("by_user", (q) => q.eq("userId", order.sellerId))
-    .first();
-
-  return {
-    name: seller?.displayName ?? "Cozi",
-    handle: handle?.handle ?? null,
-  };
 }
 
 /** Enviar dinero a un @handle. El pagador inicia la orden. */
@@ -310,7 +269,7 @@ export const listActivity = query({
     // shortcut: una lectura de contraparte por fila; denormalizar si crece.
     return await Promise.all(
       orders.map(async (order) => {
-        const counterpart = await resolveCounterpart(ctx, order, viewer.user._id);
+        const counterpart = await resolveOrderCounterpart(ctx, order, viewer.user._id);
         const deadline = orderDeadline(order);
 
         return {
@@ -364,7 +323,7 @@ export const getOrder = query({
         ? latestPayment
         : await findActivePayment(ctx.db, order._id);
 
-    const counterpart = await resolveCounterpart(ctx, order, viewer.user._id);
+    const counterpart = await resolveOrderCounterpart(ctx, order, viewer.user._id);
     const deadline = orderDeadline(order);
 
     return {

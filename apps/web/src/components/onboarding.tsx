@@ -39,10 +39,7 @@ export function businessFields(data: FormData) {
 
 export default function Onboarding({ profile }: { profile: Profile | null }) {
   const authUser = useQuery(api.auth.getCurrentUser);
-  const ensureProfile = useMutation(api.users.ensureProfile);
-  const updateProfile = useMutation(api.users.updateProfile);
-  const createBusiness = useMutation(api.businesses.create);
-  const completeOnboarding = useMutation(api.users.completeOnboarding);
+  const finishOnboarding = useMutation(api.users.finishOnboarding);
   const [accountType, setAccountType] = useState(profile?.accountType ?? "personal");
   const business = (profile?.accountType ?? accountType) === "business";
 
@@ -53,22 +50,14 @@ export default function Onboarding({ profile }: { profile: Profile | null }) {
     >
       <Form
         submit="Continuar"
-        onSubmit={async (data) => {
-          if (!profile) {
-            await ensureProfile({ accountType });
-          }
-
-          await updateProfile({
+        onSubmit={(data) =>
+          finishOnboarding({
+            accountType: profile?.accountType ?? accountType,
             displayName: field(data, "displayName"),
             handle: field(data, "handle"),
-          });
-
-          if (business && !profile?.business) {
-            await createBusiness(businessFields(data));
-          }
-
-          await completeOnboarding({});
-        }}
+            business: business && !profile?.business ? businessFields(data) : undefined,
+          })
+        }
       >
         {!profile && (
           <label className="field">

@@ -14,10 +14,9 @@ export const Route = createFileRoute("/_auth/order/$publicId")({ component: Orde
 
 function OrderPage() {
   const { publicId } = Route.useParams();
-  const order = useQuery(api.p2p.getOrder, { publicId });
-  const details = useQuery(api.orders.getByPublicId, { publicId });
+  const order = useQuery(api.orders.getByPublicId, { publicId });
 
-  if (order === undefined || details === undefined) {
+  if (order === undefined) {
     return (
       <Page title="Detalle">
         <Loading />
@@ -25,7 +24,7 @@ function OrderPage() {
     );
   }
 
-  if (!order || !details) {
+  if (!order) {
     return (
       <Page title="Pago no disponible">
         <Empty>Revisa el enlace o abre el movimiento desde Actividad.</Empty>
@@ -33,15 +32,13 @@ function OrderPage() {
     );
   }
 
-  return <OrderDetail key={publicId} order={order} details={details} />;
+  return <OrderDetail key={publicId} order={order} />;
 }
 
 function OrderDetail({
   order,
-  details,
 }: {
-  order: NonNullable<FunctionReturnType<typeof api.p2p.getOrder>>;
-  details: NonNullable<FunctionReturnType<typeof api.orders.getByPublicId>>;
+  order: NonNullable<FunctionReturnType<typeof api.orders.getByPublicId>>;
 }) {
   const navigate = useNavigate();
   const thread = useQuery(api.messages.getOrderThreadState, { orderPublicId: order.publicId });
@@ -53,7 +50,7 @@ function OrderDetail({
   const status = deadlineElapsed && payable(order.status) ? "expired" : order.status;
   const settled = paid(status);
   const incoming = order.direction === "in";
-  const business = details.business;
+  const business = order.business;
 
   const title = business
     ? "Detalle del pedido"
@@ -66,13 +63,15 @@ function OrderDetail({
       <div className="panel space-y-2 text-center">
         <p className="text-sm font-semibold text-muted-foreground">{orderLabels[status]}</p>
         <Amount
-          cents={order.amountCents}
+          cents={order.totalCents}
           className={`block text-5xl ${settled && incoming ? "text-success" : ""}`}
         />
         <p className="text-sm text-muted-foreground">MXN</p>
-        <p className="break-words">{business?.name ?? order.note}</p>
+        <p className="break-words">
+          {business?.name ?? order.note ?? order.items[0]?.name ?? "Pago Cozi"}
+        </p>
         <p className="text-sm text-muted-foreground">
-          {order.counterpartHandle ? `@${order.counterpartHandle}` : order.counterpartName}
+          {order.counterpart.handle ? `@${order.counterpart.handle}` : order.counterpart.name}
         </p>
         <p className="text-sm text-muted-foreground">{dateTime(order.paidAt ?? order.createdAt)}</p>
         {payable(status) && order.expiresAt > 0 && (
@@ -83,7 +82,7 @@ function OrderDetail({
         <section className="panel stack">
           <h2 className="section-title">Artículos</h2>
           <ul className="divide-y">
-            {details.items.map((item, index) => (
+            {order.items.map((item, index) => (
               <li key={`${index}-${item.name}`} className="flex justify-between gap-3 py-3">
                 <span className="min-w-0 break-words">
                   {item.quantity} × {item.name}
@@ -91,21 +90,21 @@ function OrderDetail({
                 <Amount cents={item.totalCents} className="shrink-0" />
               </li>
             ))}
-            {details.discountCents > 0 && (
+            {order.discountCents > 0 && (
               <li className="flex justify-between gap-3 py-3">
-                Descuento <Amount cents={details.discountCents} />
+                Descuento <Amount cents={order.discountCents} />
               </li>
             )}
-            {details.tipCents > 0 && (
+            {order.tipCents > 0 && (
               <li className="flex justify-between gap-3 py-3">
-                Propina <Amount cents={details.tipCents} />
+                Propina <Amount cents={order.tipCents} />
               </li>
             )}
           </ul>
-          {details.note && <p className="text-muted-foreground">{details.note}</p>}
+          {order.note && <p className="text-muted-foreground">{order.note}</p>}
         </section>
       )}
-      <OrderPayment order={order} defaultLinkMinutes={business ? 1440 : 30} />
+      <OrderPayment order={order} status={status} />
       {business && incoming && status === "paid" && (
         <Form
           submit="Marcar como entregado"
@@ -155,14 +154,14 @@ function OrderDetail({
             />
           )
         )}
-        {!business && order.counterpartHandle && (
+        {!business && order.counterpart.handle && (
           <Form
             className="stack"
             submit="Guardar contacto"
             variant="ghost"
             onSubmit={async () => {
-              if (order.counterpartHandle) {
-                await saveContact({ handle: order.counterpartHandle });
+              if (order.counterpart.handle) {
+                await saveContact({ handle: order.counterpart.handle });
               }
 
               toast.success("Contacto guardado");
