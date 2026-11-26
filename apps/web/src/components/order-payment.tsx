@@ -1,4 +1,5 @@
 import { api } from "@cozi/backend/convex/_generated/api";
+import { DEFAULT_EXPIRY_MINUTES } from "@cozi/backend/convex/lib/expiry";
 import { Button, buttonVariants } from "@cozi/ui/components/button";
 import { useAction } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
@@ -125,7 +126,8 @@ export default function OrderPayment({ order, status }: { order: Order; status: 
             if (method === "link" || canRenew) {
               await createLink({
                 orderId: order.orderId,
-                expiresInMinutes: linkDuration(order, orderExpired),
+                expiresInMinutes: order.p2pKind === "send" ? 30 : DEFAULT_EXPIRY_MINUTES,
+                preserveOrderExpiry: !canRenew,
               });
             } else {
               await createCodi({
@@ -171,14 +173,4 @@ export default function OrderPayment({ order, status }: { order: Order; status: 
       )}
     </section>
   );
-}
-
-function linkDuration(order: Order, expired: boolean) {
-  if (!order.expiresAt) {
-    return order.p2pKind === "request" ? 0 : order.channel === "p2p" ? 30 : 1440;
-  }
-
-  const duration = order.expiresAt - (expired ? order.createdAt : Date.now());
-
-  return Math.max(5, Math.min(10_080, Math.round(duration / 60_000)));
 }
