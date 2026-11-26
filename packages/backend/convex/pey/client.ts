@@ -73,8 +73,17 @@ function getBaseUrl(): string {
   return (process.env.PEY_API_BASE_URL?.trim() || DEFAULT_BASE_URL).replace(/\/$/, "");
 }
 
+const DEFAULT_SITE_URL = "https://cozi.app";
+
 function getSiteUrl(): string {
-  return (process.env.SITE_URL?.trim() || "https://cozi.app").replace(/\/$/, "");
+  const configured = process.env.SITE_URL?.trim();
+
+  // Pey exige URLs HTTPS en successUrl/backUrl; en desarrollo SITE_URL suele ser http://localhost.
+  if (configured && /^https:\/\//i.test(configured)) {
+    return configured.replace(/\/$/, "");
+  }
+
+  return DEFAULT_SITE_URL;
 }
 
 function requireEnv(name: string): string {

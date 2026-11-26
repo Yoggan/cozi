@@ -11,6 +11,7 @@ import { Alert, Share, View } from "react-native";
 
 import { Container } from "@/components/container";
 import { useAppTheme } from "@/contexts/app-theme-context";
+import { getErrorMessage } from "@/lib/errors";
 import { formatMxn } from "@/lib/money";
 import { firstParam } from "@/lib/search-params";
 
@@ -114,7 +115,7 @@ export default function OrderScreen() {
     } catch (error) {
       toast.show({
         variant: "danger",
-        label: error instanceof Error ? error.message : "No pudimos generar el link",
+        label: getErrorMessage(error, "No pudimos generar el link"),
       });
     } finally {
       setIsGenerating(false);
@@ -134,7 +135,7 @@ export default function OrderScreen() {
     } catch (error) {
       toast.show({
         variant: "danger",
-        label: error instanceof Error ? error.message : "No pudimos completar el pedido",
+        label: getErrorMessage(error, "No pudimos completar el pedido"),
       });
     } finally {
       setIsFulfillingOrder(false);
@@ -158,7 +159,7 @@ export default function OrderScreen() {
             .catch((error: unknown) =>
               toast.show({
                 variant: "danger",
-                label: error instanceof Error ? error.message : "No pudimos cancelar el pedido",
+                label: getErrorMessage(error, "No pudimos cancelar el pedido"),
               }),
             )
             .finally(() => setIsCancellingOrder(false));
@@ -620,7 +621,7 @@ export default function OrderScreen() {
     } catch (error) {
       toast.show({
         variant: "danger",
-        label: error instanceof Error ? error.message : "No pudimos revisar el pago",
+        label: getErrorMessage(error, "No pudimos revisar el pago"),
       });
     } finally {
       setIsRefreshing(false);
@@ -640,7 +641,7 @@ export default function OrderScreen() {
     } catch (error) {
       toast.show({
         variant: "danger",
-        label: error instanceof Error ? error.message : "No pudimos guardar el contacto",
+        label: getErrorMessage(error, "No pudimos guardar el contacto"),
       });
     } finally {
       setIsSavingContact(false);
@@ -656,7 +657,7 @@ export default function OrderScreen() {
     } catch (error) {
       toast.show({
         variant: "danger",
-        label: error instanceof Error ? error.message : "No pudimos abrir la conversación",
+        label: getErrorMessage(error, "No pudimos abrir la conversación"),
       });
     } finally {
       setIsOpeningThread(false);

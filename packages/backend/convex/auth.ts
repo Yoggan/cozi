@@ -36,6 +36,13 @@ function createAuth(ctx: GenericCtx<DataModel>) {
     },
     trustedOrigins: [siteUrl, nativeAppUrl, "exp://", "http://localhost:8081"],
     database: authComponent.adapter(ctx),
+    account: {
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ["google"],
+        requireLocalEmailVerified: false,
+      },
+    },
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,
