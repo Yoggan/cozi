@@ -162,7 +162,7 @@ export default function SplitScreen() {
     } catch (error) {
       toast.show({
         variant: "danger",
-        label: error instanceof Error ? error.message : "No pudimos dividir la cuenta",
+        label: getErrorMessage(error, "No pudimos dividir la cuenta"),
       });
     } finally {
       setIsSubmitting(false);
@@ -189,7 +189,7 @@ export default function SplitScreen() {
               .catch((error: unknown) =>
                 toast.show({
                   variant: "danger",
-                  label: error instanceof Error ? error.message : "No pudimos cancelar",
+                  label: getErrorMessage(error, "No pudimos cancelar"),
                 }),
               )
               .finally(() => setIsCancelling(false));

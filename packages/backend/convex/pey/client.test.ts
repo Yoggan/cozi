@@ -79,6 +79,7 @@ describe("pey payment link return URLs", () => {
     const cases: Array<{ siteUrl?: string; peyReturnOrigin?: string; expected: string }> = [
       { siteUrl: "http://localhost:3001", expected: "https://cozi.app/order/ord_1" },
       { siteUrl: "https://", expected: "https://cozi.app/order/ord_1" },
+      { siteUrl: "https:cozi.example", expected: "https://cozi.app/order/ord_1" },
       { siteUrl: "https://user:pass@cozi.mx", expected: "https://cozi.app/order/ord_1" },
       { siteUrl: "https://cozi.mx///", expected: "https://cozi.mx/order/ord_1" },
       { siteUrl: "https://cozi.mx/sub?a=1#hash", expected: "https://cozi.mx/order/ord_1" },
@@ -86,6 +87,11 @@ describe("pey payment link return URLs", () => {
         siteUrl: "http://localhost:3001",
         peyReturnOrigin: "https://pay.cozi.mx/",
         expected: "https://pay.cozi.mx/order/ord_1",
+      },
+      {
+        siteUrl: "https://cozi.mx",
+        peyReturnOrigin: "https:malformed.example",
+        expected: "https://cozi.mx/order/ord_1",
       },
     ];
 

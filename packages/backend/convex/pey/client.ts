@@ -82,6 +82,10 @@ function parseOrigin(raw: string | undefined, requireHttps: boolean): string | n
     return null;
   }
 
+  if (requireHttps ? !/^https:\/\//i.test(value) : !/^https?:\/\//i.test(value)) {
+    return null;
+  }
+
   try {
     const parsed = new URL(value);
 
