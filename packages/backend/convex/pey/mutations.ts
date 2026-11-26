@@ -234,6 +234,7 @@ export const attachProvider = internalMutation({
     qrImageUrl: v.optional(v.string()),
     deepLink: v.optional(v.string()),
     expiresAt: v.optional(v.number()),
+    orderExpiresAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const payment = await ctx.db.get(args.paymentId);
@@ -267,6 +268,10 @@ export const attachProvider = internalMutation({
       throw new Error("No se pudo actualizar el pago");
     }
 
+    if (args.orderExpiresAt !== undefined) {
+      await writeOrderExpiry(ctx, payment.orderId, args.orderExpiresAt);
+    }
+
     if (args.status !== "pending" && args.status !== "processing") {
       await settlePayment(ctx, updated, args.status);
       const settled = await ctx.db.get(payment._id);
@@ -282,28 +287,29 @@ export const attachProvider = internalMutation({
   },
 });
 
-/** Fija la vigencia local del cobro; `undefined` significa que no vence. */
+async function writeOrderExpiry(ctx: MutationCtx, orderId: Id<"orders">, expiresAt: number) {
+  const order = await ctx.db.get(orderId);
+
+  if (
+    !order ||
+    order.status === "paid" ||
+    order.status === "fulfilled" ||
+    order.status === "cancelled"
+  ) {
+    return;
+  }
+
+  await ctx.db.patch(orderId, { expiresAt, updatedAt: Date.now() });
+}
+
+/** Fija la vigencia local de un cobro que reutiliza un intento de pago. */
 export const setOrderExpiry = internalMutation({
   args: {
     orderId: v.id("orders"),
-    expiresAt: v.optional(v.number()),
+    expiresAt: v.number(),
   },
   handler: async (ctx, args) => {
-    const order = await ctx.db.get(args.orderId);
-
-    if (
-      !order ||
-      order.status === "paid" ||
-      order.status === "fulfilled" ||
-      order.status === "cancelled"
-    ) {
-      return;
-    }
-
-    await ctx.db.patch(order._id, {
-      expiresAt: args.expiresAt,
-      updatedAt: Date.now(),
-    });
+    await writeOrderExpiry(ctx, args.orderId, args.expiresAt);
   },
 });
 

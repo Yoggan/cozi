@@ -6,7 +6,7 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { action } from "../_generated/server";
 import type { ActionCtx } from "../_generated/server";
-import { expiryFromMinutes } from "../lib/expiry";
+import { expiryFromMinutes, orderDeadline } from "../lib/expiry";
 import type { BankAccountStatus, PaymentStatus } from "../schema";
 import { getPaymentStatus, pey } from "./client";
 import type { PaymentHandle } from "./types";
@@ -26,6 +26,12 @@ async function loadChargeContext(ctx: ActionCtx, orderId: Id<"orders">) {
     orderId,
     authUserId: await getAuthUserId(ctx),
   });
+}
+
+function assertOrderOpen(deadline: number, now: number) {
+  if (deadline > 0 && deadline <= now) {
+    throw new ConvexError("Este cobro venció. Pide un enlace nuevo.");
+  }
 }
 
 function chargeDescription(order: Doc<"orders">, business: Doc<"businesses"> | null): string {
@@ -64,6 +70,7 @@ export const createCodiCharge = action({
     }
 
     const data = await loadChargeContext(ctx, args.orderId);
+    assertOrderOpen(orderDeadline(data.order), Date.now());
 
     if (data.activePayment) {
       return toHandle(data.activePayment, true);
@@ -125,17 +132,30 @@ export const createPaymentLink = action({
   args: {
     orderId: v.id("orders"),
     expiresInMinutes: v.optional(v.number()),
+    preserveOrderExpiry: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<PaymentHandle> => {
-    const orderExpiresAt = expiryFromMinutes(args.expiresInMinutes, Date.now());
-
     const data = await loadChargeContext(ctx, args.orderId);
+    const now = Date.now();
+    const deadline = orderDeadline(data.order);
+    const hasDeadline = data.order.expiresAt !== undefined || data.order.p2pKind === "request";
+    const preserveExpiry = args.preserveOrderExpiry && hasDeadline;
+
+    const orderExpiresAt = preserveExpiry
+      ? undefined
+      : expiryFromMinutes(args.expiresInMinutes, now);
+
+    if (args.preserveOrderExpiry) {
+      assertOrderOpen(deadline, now);
+    }
 
     if (data.activePayment) {
-      await ctx.runMutation(internal.pey.mutations.setOrderExpiry, {
-        orderId: args.orderId,
-        expiresAt: orderExpiresAt,
-      });
+      if (orderExpiresAt !== undefined) {
+        await ctx.runMutation(internal.pey.mutations.setOrderExpiry, {
+          orderId: args.orderId,
+          expiresAt: orderExpiresAt,
+        });
+      }
 
       return toHandle(data.activePayment, true);
     }
@@ -175,11 +195,7 @@ export const createPaymentLink = action({
         peyTransactionId: link.transactionId,
         checkoutUrl: link.url,
         expiresAt: link.expiresAt,
-      });
-
-      await ctx.runMutation(internal.pey.mutations.setOrderExpiry, {
-        orderId: args.orderId,
-        expiresAt: orderExpiresAt,
+        orderExpiresAt,
       });
 
       return toHandle(payment, false);

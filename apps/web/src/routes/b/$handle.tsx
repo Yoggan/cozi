@@ -1,62 +1,63 @@
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@cozi/backend/convex/_generated/api";
 import { normalizeHandle } from "@cozi/backend/convex/lib/identifiers";
-import { buttonVariants } from "@cozi/ui/components/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@cozi/ui/components/card";
-import { Skeleton } from "@cozi/ui/components/skeleton";
+import { Button, buttonVariants } from "@cozi/ui/components/button";
 import { useQuery } from "@tanstack/react-query";
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useConvexAuth, useMutation, useQuery as useConvexQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { useEffect, useRef, useState } from "react";
+import { Share2, Store } from "lucide-react";
+
+import { Empty, Form, Loading, Page, shareText } from "@/components/cozi";
+import OrderCart, { CatalogList } from "@/components/order-cart";
+import { needsOnboarding } from "@/lib/profile";
 
 export const Route = createFileRoute("/b/$handle")({
+  loader: async ({ context, params }) => {
+    await context.queryClient.prefetchQuery(businessQuery(params.handle));
+  },
   component: BusinessPage,
 });
 
-const mxn = new Intl.NumberFormat("es-MX", {
-  style: "currency",
-  currency: "MXN",
-  minimumFractionDigits: 2,
-});
-
-function formatMxn(cents: number): string {
-  return mxn.format(cents / 100);
+function businessQuery(handle: string) {
+  return convexQuery(api.businesses.getByHandle, { handle: normalizeHandle(handle) });
 }
 
 function BusinessPage() {
   const { handle } = Route.useParams();
-  const normalized = normalizeHandle(handle);
-  const business = useQuery(convexQuery(api.businesses.getByHandle, { handle: normalized }));
+
+  const business = useQuery(
+    convexQuery(api.businesses.getByHandle, { handle: normalizeHandle(handle) }),
+  );
 
   if (business.isPending) {
-    return <BusinessSkeleton />;
+    return (
+      <Page title="Negocio">
+        <Loading />
+      </Page>
+    );
   }
 
   if (business.isError) {
     return (
-      <PageMessage
-        title="No pudimos cargar este negocio"
-        description="Inténtalo de nuevo en unos momentos."
-      />
+      <Page title="No pudimos cargar el negocio">
+        <Empty>Intenta de nuevo en unos momentos.</Empty>
+      </Page>
     );
   }
 
   if (!business.data) {
     return (
-      <PageMessage
-        title="No encontramos este negocio"
-        description={`No hay un negocio con el @handle "${normalized || handle}". Revisa el enlace o busca otro desde el inicio.`}
-      />
+      <Page title="Negocio no disponible">
+        <Empty>Revisa el @handle o busca otro negocio.</Empty>
+        <Link to="/" className={buttonVariants()}>
+          Buscar negocio
+        </Link>
+      </Page>
     );
   }
 
-  return <BusinessProfile business={business.data} />;
+  return <BusinessProfile key={business.data._id} business={business.data} />;
 }
 
 function BusinessProfile({
@@ -64,135 +65,87 @@ function BusinessProfile({
 }: {
   business: NonNullable<FunctionReturnType<typeof api.businesses.getByHandle>>;
 }) {
-  const [showStoreFallback, setShowStoreFallback] = useState(false);
-  const timeout = useRef<number | undefined>(undefined);
-
-  useEffect(() => () => window.clearTimeout(timeout.current), []);
-
-  function handleOpenApp() {
-    window.clearTimeout(timeout.current);
-    timeout.current = window.setTimeout(() => {
-      if (document.visibilityState === "visible") {
-        setShowStoreFallback(true);
-      }
-    }, 1500);
-  }
+  const navigate = useNavigate();
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const profile = useConvexQuery(api.users.getMe, isAuthenticated ? {} : "skip");
+  const startThread = useMutation(api.messages.getOrCreateBusinessThread);
+  const ready = profile && !needsOnboarding(profile);
+  const owner = business._id === profile?.business?._id;
+  const open = business.acceptingOrders && business.hasReceivingAccount;
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 py-10">
-      <div className="flex flex-col gap-4">
+    <main id="contenido" className="page-narrow">
+      <div className="panel stack bg-brand text-brand-foreground">
+        <span className="grid size-11 place-items-center rounded-full bg-brand-foreground text-brand">
+          <Store aria-hidden="true" className="size-5" />
+        </span>
         <div>
-          <p className="text-sm text-muted-foreground">@{business.handle}</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">{business.name}</h1>
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-            {business.category && (
-              <span className="rounded-full border px-2.5 py-0.5 text-muted-foreground">
-                {business.category}
-              </span>
-            )}
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 ${
-                business.acceptingOrders
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : "text-muted-foreground"
-              }`}
-            >
-              <span
-                className={`size-1.5 rounded-full ${
-                  business.acceptingOrders ? "bg-emerald-500" : "bg-muted-foreground"
-                }`}
-              />
-              {business.acceptingOrders ? "Aceptando pedidos" : "No acepta pedidos por ahora"}
-            </span>
-          </div>
+          <p className="mb-1 text-sm">@{business.handle}</p>
+          <h1 className="page-title break-words">{business.name}</h1>
+          {business.category && <p className="mt-2">{business.category}</p>}
         </div>
-
-        <div>
+        <div className="flex flex-wrap gap-2">
           <a
             href={`cozi://business/${business.handle}`}
-            onClick={handleOpenApp}
-            className={buttonVariants({ size: "lg" })}
+            className={buttonVariants({
+              variant: "secondary",
+              className: "bg-brand-foreground text-brand hover:bg-brand-foreground/90",
+            })}
           >
             Abrir en la app
           </a>
-          {showStoreFallback && (
-            <p className="mt-2 text-xs text-muted-foreground">
-              ¿No tienes la app? Pronto estará disponible en App Store y Google Play.
+          <Button
+            variant="ghost"
+            className="text-brand-foreground hover:bg-brand-foreground/15 hover:text-brand-foreground"
+            onClick={() => void shareText(business.name, window.location.href)}
+          >
+            <Share2 /> Compartir
+          </Button>
+        </div>
+      </div>
+      {ready && !owner && (
+        <Form
+          className="max-w-xs"
+          submit="Escribir al negocio"
+          variant="secondary"
+          fallback="No pudimos abrir la conversación."
+          onSubmit={async () => {
+            const { threadId } = await startThread({ businessId: business._id });
+            await navigate({ to: "/messages/$threadId", params: { threadId } });
+          }}
+        />
+      )}
+      {open && ready && !owner && business.products.length > 0 ? (
+        <OrderCart
+          businessId={business._id}
+          products={business.products}
+          tipsEnabled={business.tipsEnabled}
+        />
+      ) : (
+        <section className="panel stack">
+          <h2 className="section-title">Catálogo</h2>
+          {!open && (
+            <p className="text-sm text-muted-foreground">
+              Este negocio todavía no recibe pedidos en Cozi.
             </p>
           )}
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Catálogo</CardTitle>
-            <CardDescription>Productos disponibles de este negocio.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {business.products.length === 0 ? (
-              <p className="text-muted-foreground">
-                Este negocio todavía no tiene productos activos.
-              </p>
-            ) : (
-              <ul className="divide-y">
-                {business.products.map((product) => (
-                  <li
-                    key={product._id}
-                    className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0"
-                  >
-                    <div>
-                      <p className="font-medium">{product.name}</p>
-                      {product.description && (
-                        <p className="text-muted-foreground">{product.description}</p>
-                      )}
-                      {product.category && (
-                        <p className="mt-1 text-muted-foreground">{product.category}</p>
-                      )}
-                    </div>
-                    <span className="shrink-0 font-medium tabular-nums">
-                      {formatMxn(product.priceCents)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        <Link to="/" className="text-xs text-muted-foreground underline underline-offset-4">
-          Buscar otro negocio en Cozi
-        </Link>
-      </div>
-    </main>
-  );
-}
-
-function PageMessage({ title, description }: { title: string; description: string }) {
-  return (
-    <main className="mx-auto w-full max-w-md px-4 py-16">
-      <Card>
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link to="/" className={buttonVariants({ variant: "outline" })}>
-            Volver al inicio
-          </Link>
-        </CardContent>
-      </Card>
-    </main>
-  );
-}
-
-function BusinessSkeleton() {
-  return (
-    <main className="mx-auto w-full max-w-2xl space-y-6 px-4 py-10">
-      <div className="space-y-2">
-        <Skeleton className="h-4 w-24" />
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-5 w-40" />
-      </div>
-      <Skeleton className="h-52 w-full" />
+          <CatalogList products={business.products} />
+          {open && !isLoading && !ready && business.products.length > 0 && (
+            <Link
+              to="/dashboard"
+              search={{ negocio: business.handle }}
+              className={buttonVariants()}
+            >
+              {isAuthenticated ? "Completa tu perfil para pedir" : "Inicia sesión para pedir"}
+            </Link>
+          )}
+          {owner && (
+            <Link to="/business" className={buttonVariants({ variant: "secondary" })}>
+              Gestionar negocio
+            </Link>
+          )}
+        </section>
+      )}
     </main>
   );
 }
