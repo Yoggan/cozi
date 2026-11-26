@@ -1,5 +1,14 @@
 import type { ImageSourcePropType } from "react-native";
 
+export const COZI_DARK_COLORS = {
+  glass: "rgba(10, 42, 32, 0.62)",
+  subtleBorder: "rgba(245, 239, 227, 0.10)",
+  primaryText: "#F5EFE3",
+  secondaryText: "#BCC6C0",
+  primaryAction: "#F5EFE3",
+  primaryActionText: "#0B0F0D",
+};
+
 export type BackdropCategory = "todos" | "naturaleza" | "abstracto" | "seda" | "metal";
 
 export type AccentOption = {
