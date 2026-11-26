@@ -158,6 +158,7 @@ export const update = mutation({
     sku: v.optional(v.string()),
     category: v.optional(v.string()),
     stock: v.optional(v.union(v.number(), v.null())),
+    expectedStock: v.optional(v.union(v.number(), v.null())),
     active: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
@@ -193,6 +194,10 @@ export const update = mutation({
     }
 
     if (args.stock !== undefined) {
+      if (args.expectedStock !== undefined && (product.stock ?? null) !== args.expectedStock) {
+        throw new ConvexError("El inventario cambió. Revisa las existencias antes de guardar.");
+      }
+
       patch.stock = readStock(args.stock);
     }
 

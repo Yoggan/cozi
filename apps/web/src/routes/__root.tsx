@@ -9,13 +9,14 @@ import {
   createRootRouteWithContext,
   useRouteContext,
 } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import { ThemeProvider } from "next-themes";
 import { createServerFn } from "@tanstack/react-start";
 
 import { authClient } from "@/lib/auth-client";
 import { getToken } from "@/lib/auth-server";
 
 import Header from "../components/header";
+import { RestoreAccent } from "@/components/appearance";
 
 import appCss from "../index.css?url";
 
@@ -78,17 +79,20 @@ function RootDocument() {
       authClient={authClient}
       initialToken={context.token}
     >
-      <html lang="es" className="dark">
+      <html lang="es-MX" suppressHydrationWarning>
         <head>
           <HeadContent />
         </head>
         <body>
-          <div className="grid h-svh grid-rows-[auto_1fr]">
+          <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+            <a href="#contenido" className="sr-only focus:not-sr-only">
+              Saltar al contenido
+            </a>
             <Header />
+            <RestoreAccent />
             <Outlet />
-          </div>
-          <Toaster richColors />
-          <TanStackRouterDevtools position="bottom-left" />
+            <Toaster />
+          </ThemeProvider>
           <Scripts />
         </body>
       </html>

@@ -5,6 +5,7 @@ import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { effectiveOrderStatus, orderDeadline } from "./lib/expiry";
 import { HANDLE_PATTERN, makePublicId, normalizeHandle } from "./lib/identifiers";
+import { readOrderBusiness, resolveOrderCounterpart } from "./lib/order-parties";
 import { findActivePayment } from "./pey/queries";
 import { orderStatusValidator } from "./schema";
 
@@ -339,26 +340,8 @@ export const getByPublicId = query({
         ? latestPayment
         : await findActivePayment(ctx.db, order._id);
 
-    let businessSummary: { _id: Id<"businesses">; name: string; handle: string | null } | null =
-      null;
-
-    if (order.businessId) {
-      const [business, businessHandle] = await Promise.all([
-        ctx.db.get(order.businessId),
-        ctx.db
-          .query("handles")
-          .withIndex("by_business", (q) => q.eq("businessId", order.businessId))
-          .first(),
-      ]);
-
-      if (business) {
-        businessSummary = {
-          _id: business._id,
-          name: business.name,
-          handle: businessHandle?.handle ?? null,
-        };
-      }
-    }
+    const businessSummary = await readOrderBusiness(ctx, order.businessId);
+    const counterpart = await resolveOrderCounterpart(ctx, order, viewer.user._id, businessSummary);
 
     const splits = await ctx.db
       .query("billSplits")
@@ -386,6 +369,7 @@ export const getByPublicId = query({
       note: order.note ?? null,
       customer: order.customer,
       business: businessSummary,
+      counterpart,
       billSplitId: order.billSplitId ?? null,
       activeSplit: activeSplit
         ? {

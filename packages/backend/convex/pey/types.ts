@@ -31,6 +31,7 @@ export interface PeyCodiChargeRaw extends PeyRawResponse {
   qr?: string;
   qrCode?: string;
   qr_image_url?: string;
+  qrImage?: string;
   deepLink?: string;
   deep_link?: string;
   expiration?: number;
