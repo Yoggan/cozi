@@ -6,6 +6,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { effectiveOrderStatus, orderDeadline } from "./lib/expiry";
+import { canTransition, isOrderOpen, isOrderPaid, ORDER_TRANSITIONS } from "./lib/stateMachines";
 import { normalizeHistoryPaginationOpts } from "./lib/historyPagination";
 import { HANDLE_PATTERN, makePublicId, normalizeHandle } from "./lib/identifiers";
 import { availableStock } from "./lib/inventory";
@@ -352,7 +353,7 @@ export const getByPublicId = query({
 
     const payment = order.settlementException
       ? await ctx.db.get(order.settlementException.paymentId)
-      : order.status === "paid" || order.status === "fulfilled"
+      : isOrderPaid(order.status)
         ? latestPayment
         : await findActivePayment(ctx.db, order._id);
 
@@ -374,9 +375,7 @@ export const getByPublicId = query({
       p2pKind: order.p2pKind ?? null,
       direction: isSeller ? ("in" as const) : ("out" as const),
       status: effectiveOrderStatus(order.status, deadline, Date.now()),
-      canRenew:
-        !order.settlementException &&
-        (order.status === "draft" || order.status === "awaiting_payment"),
+      canRenew: !order.settlementException && isOrderOpen(order.status),
       settlementException: order.settlementException ?? null,
       expiresAt: deadline,
       items: order.items,
@@ -562,7 +561,7 @@ export const fulfill = mutation({
       return { ok: true as const, status: "fulfilled" as const };
     }
 
-    if (order.status !== "paid") {
+    if (!canTransition(ORDER_TRANSITIONS, order.status, "fulfilled")) {
       throw new ConvexError("Solo puedes completar órdenes que ya fueron pagadas");
     }
 
@@ -592,7 +591,7 @@ export const cancel = mutation({
       return { ok: true as const, status: "cancelled" as const };
     }
 
-    if (order.status !== "draft" && order.status !== "awaiting_payment") {
+    if (!canTransition(ORDER_TRANSITIONS, order.status, "cancelled")) {
       throw new ConvexError("No puedes cancelar una orden ya pagada o cerrada");
     }
 

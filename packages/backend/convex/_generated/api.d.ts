@@ -26,6 +26,7 @@ import type * as lib_inventory from "../lib/inventory.js";
 import type * as lib_messageModeration from "../lib/messageModeration.js";
 import type * as lib_orderParties from "../lib/orderParties.js";
 import type * as lib_passwordRecovery from "../lib/passwordRecovery.js";
+import type * as lib_stateMachines from "../lib/stateMachines.js";
 import type * as lib_storage from "../lib/storage.js";
 import type * as messageSupport from "../messageSupport.js";
 import type * as messages from "../messages.js";
@@ -71,6 +72,7 @@ declare const fullApi: ApiFromModules<{
   "lib/messageModeration": typeof lib_messageModeration;
   "lib/orderParties": typeof lib_orderParties;
   "lib/passwordRecovery": typeof lib_passwordRecovery;
+  "lib/stateMachines": typeof lib_stateMachines;
   "lib/storage": typeof lib_storage;
   messageSupport: typeof messageSupport;
   messages: typeof messages;

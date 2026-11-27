@@ -37,6 +37,8 @@ const CHANNEL_LABELS: Record<OrderChannel, string> = {
   p2p: "Cozi",
 };
 
+type PendingAction = "generate" | "refresh" | "saveContact" | "fulfill" | "cancel" | "openThread";
+
 function statusChipColor(status: OrderStatus): "success" | "warning" | "danger" | "default" {
   if (status === "paid" || status === "fulfilled") {
     return "success";
@@ -95,19 +97,15 @@ export default function OrderScreen() {
   const { isImmersive, baseColor, cardColor, cardBorder } = useAppTheme();
   const success = useThemeColor("success");
   const muted = useThemeColor("muted");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isSavingContact, setIsSavingContact] = useState(false);
-  const [isFulfillingOrder, setIsFulfillingOrder] = useState(false);
-  const [isCancellingOrder, setIsCancellingOrder] = useState(false);
-  const [isOpeningThread, setIsOpeningThread] = useState(false);
+  // One action at a time: generating, cancelling and fulfilling all change the same order.
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
 
   const immersiveCard = isImmersive
     ? { backgroundColor: cardColor, borderColor: cardBorder, borderWidth: 1 }
     : undefined;
 
   async function generatePaymentLink(orderId: Id<"orders">) {
-    setIsGenerating(true);
+    setPendingAction("generate");
 
     try {
       await createPaymentLink({ orderId, expiresInMinutes: 1440 });
@@ -118,7 +116,7 @@ export default function OrderScreen() {
         label: getErrorMessage(error, "No pudimos generar el link"),
       });
     } finally {
-      setIsGenerating(false);
+      setPendingAction(null);
     }
   }
 
@@ -127,7 +125,7 @@ export default function OrderScreen() {
       return;
     }
 
-    setIsFulfillingOrder(true);
+    setPendingAction("fulfill");
 
     try {
       await fulfillOrder({ orderId: businessOrder.orderId });
@@ -138,7 +136,7 @@ export default function OrderScreen() {
         label: getErrorMessage(error, "No pudimos completar el pedido"),
       });
     } finally {
-      setIsFulfillingOrder(false);
+      setPendingAction(null);
     }
   }
 
@@ -153,7 +151,7 @@ export default function OrderScreen() {
         text: "Cancelar pedido",
         style: "destructive",
         onPress: () => {
-          setIsCancellingOrder(true);
+          setPendingAction("cancel");
           void cancelOrder({ orderId: businessOrder.orderId })
             .then(() => toast.show({ variant: "success", label: "Pedido cancelado" }))
             .catch((error: unknown) =>
@@ -162,7 +160,7 @@ export default function OrderScreen() {
                 label: getErrorMessage(error, "No pudimos cancelar el pedido"),
               }),
             )
-            .finally(() => setIsCancellingOrder(false));
+            .finally(() => setPendingAction(null));
         },
       },
     ]);
@@ -399,9 +397,9 @@ export default function OrderScreen() {
             {isBusinessSeller && businessOrder.canRenew ? (
               <Button
                 onPress={() => generatePaymentLink(businessOrder.orderId)}
-                isDisabled={isGenerating}
+                isDisabled={pendingAction !== null}
               >
-                {isGenerating ? (
+                {pendingAction === "generate" ? (
                   <Spinner size="sm" color="default" />
                 ) : (
                   <Button.Label>Renovar link</Button.Label>
@@ -417,9 +415,9 @@ export default function OrderScreen() {
           <Button
             className="mt-6"
             onPress={() => generatePaymentLink(businessOrder.orderId)}
-            isDisabled={isGenerating}
+            isDisabled={pendingAction !== null}
           >
-            {isGenerating ? (
+            {pendingAction === "generate" ? (
               <Spinner size="sm" color="default" />
             ) : (
               <Button.Label>Generar link de pago</Button.Label>
@@ -431,9 +429,9 @@ export default function OrderScreen() {
           <Button
             className="mt-3"
             onPress={handleFulfillBusinessOrder}
-            isDisabled={isFulfillingOrder}
+            isDisabled={pendingAction !== null}
           >
-            {isFulfillingOrder ? (
+            {pendingAction === "fulfill" ? (
               <Spinner size="sm" color="default" />
             ) : (
               <Button.Label>Marcar como completado</Button.Label>
@@ -446,9 +444,9 @@ export default function OrderScreen() {
             className="mt-3"
             variant="secondary"
             onPress={confirmCancelBusinessOrder}
-            isDisabled={isCancellingOrder}
+            isDisabled={pendingAction !== null}
           >
-            {isCancellingOrder ? (
+            {pendingAction === "cancel" ? (
               <Spinner size="sm" color="default" />
             ) : (
               <Button.Label>Cancelar pedido</Button.Label>
@@ -536,9 +534,9 @@ export default function OrderScreen() {
               className="mt-3"
               variant="secondary"
               onPress={() => handleOpenThread(businessOrder.publicId)}
-              isDisabled={isOpeningThread}
+              isDisabled={pendingAction !== null}
             >
-              {isOpeningThread ? (
+              {pendingAction === "openThread" ? (
                 <Spinner size="sm" color="default" />
               ) : (
                 <Button.Label>Mensaje</Button.Label>
@@ -634,7 +632,7 @@ export default function OrderScreen() {
       return;
     }
 
-    setIsRefreshing(true);
+    setPendingAction("refresh");
 
     try {
       await refreshPayment({ paymentId: current.payment.paymentId });
@@ -644,16 +642,16 @@ export default function OrderScreen() {
         label: getErrorMessage(error, "No pudimos revisar el pago"),
       });
     } finally {
-      setIsRefreshing(false);
+      setPendingAction(null);
     }
   }
 
   async function handleSaveCounterpart() {
-    if (!current.counterpartHandle || savedContact || isSavingContact) {
+    if (!current.counterpartHandle || savedContact || pendingAction !== null) {
       return;
     }
 
-    setIsSavingContact(true);
+    setPendingAction("saveContact");
 
     try {
       await saveContact({ handle: current.counterpartHandle });
@@ -664,12 +662,12 @@ export default function OrderScreen() {
         label: getErrorMessage(error, "No pudimos guardar el contacto"),
       });
     } finally {
-      setIsSavingContact(false);
+      setPendingAction(null);
     }
   }
 
   async function handleOpenThread(orderPublicId: string) {
-    setIsOpeningThread(true);
+    setPendingAction("openThread");
 
     try {
       const { threadId } = await openOrderThread({ orderPublicId });
@@ -680,7 +678,7 @@ export default function OrderScreen() {
         label: getErrorMessage(error, "No pudimos abrir la conversación"),
       });
     } finally {
-      setIsOpeningThread(false);
+      setPendingAction(null);
     }
   }
 
@@ -769,8 +767,8 @@ export default function OrderScreen() {
                 </Text>
               </View>
               {isIncoming && isRequest && current.canRenew ? (
-                <Button onPress={handleGenerateLink} isDisabled={isGenerating}>
-                  {isGenerating ? (
+                <Button onPress={handleGenerateLink} isDisabled={pendingAction !== null}>
+                  {pendingAction === "generate" ? (
                     <Spinner size="sm" color="default" />
                   ) : (
                     <Button.Label>Renovar link</Button.Label>
@@ -794,8 +792,12 @@ export default function OrderScreen() {
                 <Button onPress={handlePay}>
                   <Button.Label>Pagar ahora</Button.Label>
                 </Button>
-                <Button variant="secondary" onPress={handleRefresh} isDisabled={isRefreshing}>
-                  {isRefreshing ? (
+                <Button
+                  variant="secondary"
+                  onPress={handleRefresh}
+                  isDisabled={pendingAction !== null}
+                >
+                  {pendingAction === "refresh" ? (
                     <Spinner size="sm" color="default" />
                   ) : (
                     <Button.Label>Ya pagué</Button.Label>
@@ -804,8 +806,8 @@ export default function OrderScreen() {
               </>
             )
           ) : !isIncoming || isRequest ? (
-            <Button onPress={handleGenerateLink} isDisabled={isGenerating}>
-              {isGenerating ? (
+            <Button onPress={handleGenerateLink} isDisabled={pendingAction !== null}>
+              {pendingAction === "generate" ? (
                 <Spinner size="sm" color="default" />
               ) : (
                 <Button.Label>Generar link de pago</Button.Label>
@@ -831,9 +833,9 @@ export default function OrderScreen() {
             className="mt-3"
             variant="secondary"
             onPress={() => handleOpenThread(current.publicId)}
-            isDisabled={isOpeningThread}
+            isDisabled={pendingAction !== null}
           >
-            {isOpeningThread ? (
+            {pendingAction === "openThread" ? (
               <Spinner size="sm" color="default" />
             ) : (
               <Button.Label>Mensaje</Button.Label>
@@ -898,9 +900,9 @@ export default function OrderScreen() {
             className="mt-3"
             variant="secondary"
             onPress={handleSaveCounterpart}
-            isDisabled={isSavingContact}
+            isDisabled={pendingAction !== null}
           >
-            {isSavingContact ? (
+            {pendingAction === "saveContact" ? (
               <Spinner size="sm" color="default" />
             ) : (
               <Button.Label>Guardar contacto</Button.Label>
