@@ -285,7 +285,7 @@ function PersonalHome() {
             </Animated.View>
 
             {/* Top bar */}
-            <View className="flex-row items-center px-5">
+            <View className="flex-row items-center px-4">
               <Pressable
                 accessibilityLabel="Perfil y cuentas"
                 onPress={() => router.push("/profile")}
@@ -560,7 +560,10 @@ function PersonalHome() {
   }
 
   return (
-    <Container className="px-5" style={{ paddingTop: insets.top }}>
+    <Container
+      className="px-4"
+      style={{ paddingTop: insets.top, paddingBottom: insets.bottom + 80 }}
+    >
       <View className="flex-row items-center gap-3 pb-6 pt-4">
         <Pressable onPress={() => router.push("/profile")}>
           <Avatar size="md" color="success">
@@ -607,7 +610,9 @@ function PersonalHome() {
         </View>
       </View>
 
-      <ContactsStrip />
+      <View className="-mx-4">
+        <ContactsStrip />
+      </View>
 
       {!profile.hasReceivingAccount ? (
         <Pressable

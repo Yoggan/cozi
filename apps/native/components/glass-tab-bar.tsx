@@ -1,6 +1,6 @@
 import { selectionAsync } from "expo-haptics";
 import type { BottomTabBarProps } from "expo-router/js-tabs";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, {
@@ -9,11 +9,13 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from "react-native-svg";
 
 import { useAppTheme } from "@/contexts/app-theme-context";
 
 const ICON_SIZE = 20;
+
+// Same side margin as the tab screens' cards, so the edges line up.
+const SCREEN_GUTTER = 16;
 const TAB_BAR_HEIGHT = 66;
 const INSET_X = 6;
 const INSET_Y = 5;
@@ -42,43 +44,27 @@ export function GlassTabBar({
 }: BottomTabBarProps) {
   const { isLight, isImmersive } = useAppTheme();
   const dark = isImmersive || !isLight;
-  const gradientId = `glass-tab-${useId().replaceAll(":", "")}`;
-  const bloomId = `glass-bloom-${useId().replaceAll(":", "")}`;
 
+  // Dark values match the black theme's cards; solid so list text can't show through.
   const palette = dark
     ? {
-        base: "rgba(26, 32, 29, 0.78)",
-        border: "rgba(255, 255, 255, 0.28)",
-        activeFill: "rgba(255, 255, 255, 0.22)",
-        activeBorder: "rgba(255, 255, 255, 0.34)",
+        base: "#111111",
+        border: "rgba(255, 255, 255, 0.08)",
+        activeFill: "rgba(255, 255, 255, 0.10)",
+        activeBorder: "rgba(255, 255, 255, 0.10)",
         activeIcon: "#FFFFFF",
         activeLabel: "#FFFFFF",
         inactive: "rgba(255, 255, 255, 0.60)",
-        specular: "rgba(255, 255, 255, 0.42)",
       }
     : {
-        base: "rgba(255, 255, 255, 0.88)",
-        border: "rgba(0, 0, 0, 0.10)",
-        activeFill: "rgba(0, 0, 0, 0.09)",
-        activeBorder: "rgba(0, 0, 0, 0.11)",
+        base: "#FFFFFF",
+        border: "rgba(0, 0, 0, 0.08)",
+        activeFill: "rgba(0, 0, 0, 0.07)",
+        activeBorder: "rgba(0, 0, 0, 0.08)",
         activeIcon: "#09090B",
         activeLabel: "#09090B",
         inactive: "rgba(9, 9, 11, 0.50)",
-        specular: "rgba(255, 255, 255, 0.90)",
       };
-
-  const sheen = dark
-    ? [
-        { offset: "0%", opacity: 0.22 },
-        { offset: "28%", opacity: 0.1 },
-        { offset: "65%", opacity: 0.06 },
-        { offset: "100%", opacity: 0.11 },
-      ]
-    : [
-        { offset: "0%", opacity: 0.85 },
-        { offset: "40%", opacity: 0.2 },
-        { offset: "100%", opacity: 0 },
-      ];
 
   const visibleRoutes = state.routes.filter((route) => !descriptors[route.key].options.hidden);
   const focusedKey = state.routes[state.index]?.key;
@@ -90,7 +76,7 @@ export function GlassTabBar({
 
   const [innerWidth, setInnerWidth] = useState(0);
   const { width: screenWidth } = useWindowDimensions();
-  const dockWidth = Math.min(screenWidth - 48, Math.max(236, visibleRoutes.length * 118));
+  const dockWidth = screenWidth - SCREEN_GUTTER * 2;
   const trackWidth = Math.max(0, innerWidth - INSET_X * 2);
   const slotWidth = visibleRoutes.length > 0 ? trackWidth / visibleRoutes.length : 0;
   const translateIndex = useSharedValue(0);
@@ -119,31 +105,6 @@ export function GlassTabBar({
         ]}
       >
         <View style={styles.capsule}>
-          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-            <Svg width="100%" height="100%">
-              <Defs>
-                <LinearGradient id={gradientId} x1="0%" y1="0%" x2="0%" y2="100%">
-                  {sheen.map((stop) => (
-                    <Stop
-                      key={stop.offset}
-                      offset={stop.offset}
-                      stopColor="#FFFFFF"
-                      stopOpacity={stop.opacity}
-                    />
-                  ))}
-                </LinearGradient>
-                {dark ? (
-                  <RadialGradient id={bloomId} cx="50%" cy="6%" r="72%">
-                    <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.1} />
-                    <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
-                  </RadialGradient>
-                ) : null}
-              </Defs>
-              <Rect width="100%" height="100%" fill={`url(#${gradientId})`} />
-              {dark ? <Rect width="100%" height="100%" fill={`url(#${bloomId})`} /> : null}
-            </Svg>
-          </View>
-
           <View
             style={styles.row}
             onLayout={(event) => setInnerWidth(event.nativeEvent.layout.width)}
@@ -221,10 +182,6 @@ export function GlassTabBar({
             })}
           </View>
 
-          <View
-            pointerEvents="none"
-            style={[styles.specular, { backgroundColor: palette.specular }]}
-          />
           <View pointerEvents="none" style={[styles.border, { borderColor: palette.border }]} />
         </View>
       </View>
@@ -274,14 +231,6 @@ const styles = StyleSheet.create({
     borderRadius: 27,
     alignItems: "center",
     justifyContent: "center",
-  },
-  specular: {
-    position: "absolute",
-    top: 0,
-    left: 22,
-    right: 22,
-    height: 1,
-    borderRadius: 1,
   },
   border: {
     position: "absolute",

@@ -44,7 +44,10 @@ export function BusinessModeHome() {
   const pendingTotal = pendingOrders.reduce((sum, order) => sum + order.totalCents, 0);
 
   return (
-    <Container className="px-5" style={{ paddingTop: insets.top }}>
+    <Container
+      className="px-4"
+      style={{ paddingTop: insets.top, paddingBottom: insets.bottom + 80 }}
+    >
       <View className="flex-row items-center justify-between pb-6 pt-4">
         <View className="flex-row items-center gap-3">
           <Pressable accessibilityLabel="Perfil y cuentas" onPress={() => router.push("/profile")}>

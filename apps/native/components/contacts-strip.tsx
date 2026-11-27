@@ -70,7 +70,6 @@ export function ContactsStrip() {
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          paddingHorizontal: 4,
           marginBottom: 10,
         }}
       >
