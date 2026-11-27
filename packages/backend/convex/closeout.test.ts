@@ -4,7 +4,7 @@ import { createTestBackend, createUser, setupMealBusiness } from "../test-utils/
 import { api, internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { CLOSEOUT_SCAN_PAGE_SIZE } from "./closeout";
-import { businessCalendar } from "./lib/business-day";
+import { businessCalendar } from "./lib/businessDay";
 
 test("closeout includes only this business's orders paid during the local day", async () => {
   const t = createTestBackend();

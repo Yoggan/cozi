@@ -2,7 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import type { Infer } from "convex/values";
 
-import { businessTimeZones } from "./lib/business-day";
+import { businessTimeZones } from "./lib/businessDay";
 
 /** Canales desde los que nace una orden. */
 export const orderChannelValidator = v.union(

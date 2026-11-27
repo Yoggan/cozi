@@ -4,7 +4,7 @@ import {
   businessTimeZones,
   isBusinessDay,
   shiftBusinessDay,
-} from "@cozi/backend/convex/lib/business-day";
+} from "@cozi/backend/convex/lib/businessDay";
 import { Ionicons } from "@expo/vector-icons";
 import { useAction, useMutation, usePaginatedQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";

@@ -1,6 +1,6 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import type { DailySummaryResult } from "@cozi/backend/convex/closeout";
-import { businessTimeZones, isBusinessDay } from "@cozi/backend/convex/lib/business-day";
+import { businessTimeZones, isBusinessDay } from "@cozi/backend/convex/lib/businessDay";
 import { Button } from "@cozi/ui/components/button";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useAction, useMutation, usePaginatedQuery } from "convex/react";

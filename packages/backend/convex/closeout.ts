@@ -5,7 +5,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalQuery, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
-import { DEFAULT_BUSINESS_TIME_ZONE, businessCalendar, isBusinessDay } from "./lib/business-day";
+import { DEFAULT_BUSINESS_TIME_ZONE, businessCalendar, isBusinessDay } from "./lib/businessDay";
 
 /**
  * Maximum number of orders scanned in a single Convex query transaction.
