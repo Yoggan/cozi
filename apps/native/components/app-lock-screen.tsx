@@ -21,7 +21,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { ThemeBackdrop } from "@/components/theme-backdrop";
 import { useAppLock } from "@/contexts/app-lock-context";
 import { useAppTheme } from "@/contexts/app-theme-context";
-import { authClient } from "@/lib/auth-client";
+import { useMobileNotifications } from "@/contexts/mobile-notifications-context";
 import { getBackdropById } from "@/lib/themes";
 
 const PIN_LENGTH = 4;
@@ -220,6 +220,7 @@ export function PinKeypad({
 }
 
 export function AppLockScreen() {
+  const { signOut } = useMobileNotifications();
   const insets = useSafeAreaInsets();
   const { backdrop } = useAppTheme();
 
@@ -291,7 +292,7 @@ export function AppLockScreen() {
 
   async function handleSignOut() {
     try {
-      await authClient.signOut();
+      await signOut();
     } catch {
       // The escape hatch must work even if the user is offline.
     }

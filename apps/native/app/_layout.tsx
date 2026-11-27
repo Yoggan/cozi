@@ -5,7 +5,7 @@ import { ConvexReactClient } from "convex/react";
 import { Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { HeroUINativeProvider, useThemeColor } from "heroui-native";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -18,6 +18,11 @@ import { Splash } from "@/components/splash";
 import { AccountsProvider } from "@/contexts/accounts-context";
 import { AppLockProvider, useAppLock } from "@/contexts/app-lock-context";
 import { AppThemeProvider, useAppTheme } from "@/contexts/app-theme-context";
+import {
+  MobileNotificationRouter,
+  MobileNotificationsProvider,
+  useMobileNotifications,
+} from "@/contexts/mobile-notifications-context";
 import { ProfileProvider, useProfile } from "@/contexts/profile-context";
 import { authClient } from "@/lib/auth-client";
 import { consumeEphemeralSessionFlag } from "@/lib/remember-me";
@@ -59,6 +64,8 @@ function AccountOnboardingGate({ children }: { children: ReactNode }) {
 
 function RootNavigator() {
   const { isLoading, isAuthenticated } = useConvexAuth();
+  const { signOut } = useMobileNotifications();
+  const signOutRef = useRef(signOut);
   const pathname = usePathname();
   const [hasCheckedEphemeralSession, setHasCheckedEphemeralSession] = useState(false);
   const background = useThemeColor("background");
@@ -66,12 +73,16 @@ function RootNavigator() {
   const { isImmersive, isLight, baseColor } = useAppTheme();
 
   useEffect(() => {
+    signOutRef.current = signOut;
+  }, [signOut]);
+
+  useEffect(() => {
     let active = true;
 
     void (async () => {
       try {
         if (await consumeEphemeralSessionFlag()) {
-          await authClient.signOut();
+          await signOutRef.current();
         }
       } catch {
         // Offline sign-out must not keep the app on the splash screen.
@@ -173,7 +184,10 @@ function RootNavigator() {
         {isAuthenticated && !isRecoveryScreen ? (
           <AccountsProvider>
             <AppLockGate>
-              <AccountOnboardingGate>{navigator}</AccountOnboardingGate>
+              <AccountOnboardingGate>
+                <MobileNotificationRouter />
+                {navigator}
+              </AccountOnboardingGate>
             </AppLockGate>
           </AccountsProvider>
         ) : (
@@ -191,7 +205,9 @@ export default function Layout() {
         <KeyboardProvider>
           <AppThemeProvider>
             <HeroUINativeProvider>
-              <RootNavigator />
+              <MobileNotificationsProvider>
+                <RootNavigator />
+              </MobileNotificationsProvider>
             </HeroUINativeProvider>
           </AppThemeProvider>
         </KeyboardProvider>

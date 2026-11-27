@@ -14,6 +14,7 @@ import { AppState } from "react-native";
 
 import { authClient } from "@/lib/auth-client";
 import { useAppLock } from "./app-lock-context";
+import { useMobileNotifications } from "./mobile-notifications-context";
 import { useProfile } from "./profile-context";
 
 export type DeviceSession = {
@@ -38,6 +39,7 @@ export function AccountsProvider({ children }: PropsWithChildren) {
   const profile = useProfile();
   const { hasLoaded } = useAppLock();
   const { data: sessionData } = authClient.useSession();
+  const { startupDecision, markStartupReady, runAccountTransition } = useMobileNotifications();
 
   const [sessions, setSessions] = useState<Array<DeviceSession>>([]);
   const [isSessionsLoading, setIsSessionsLoading] = useState(true);
@@ -120,23 +122,40 @@ export function AccountsProvider({ children }: PropsWithChildren) {
   }, [refresh]);
 
   useEffect(() => {
-    if (enforcedPersonal.current || !hasLoaded || isLoading) {
+    if (enforcedPersonal.current || !hasLoaded || isLoading || startupDecision === "loading") {
       return;
     }
 
     enforcedPersonal.current = true;
 
-    if (
-      profile.accountType === "business" &&
-      personalSession &&
-      personalSession.session.id !== activeSessionId
-    ) {
-      void authClient.multiSession
-        .setActive({ sessionToken: personalSession.session.token })
-        .then(() => refresh())
-        .catch(() => {});
+    async function selectStartupAccount() {
+      if (
+        startupDecision !== "stay" &&
+        profile.accountType === "business" &&
+        personalSession &&
+        personalSession.session.id !== activeSessionId
+      ) {
+        await runAccountTransition(() =>
+          authClient.multiSession.setActive({ sessionToken: personalSession.session.token }),
+        );
+        await refresh();
+      }
     }
-  }, [activeSessionId, hasLoaded, isLoading, personalSession, profile.accountType, refresh]);
+
+    void selectStartupAccount()
+      .catch(() => {})
+      .finally(markStartupReady);
+  }, [
+    activeSessionId,
+    hasLoaded,
+    isLoading,
+    markStartupReady,
+    personalSession,
+    profile.accountType,
+    refresh,
+    runAccountTransition,
+    startupDecision,
+  ]);
 
   const isBusinessSession = useCallback(
     (sessionToken: string) => {
@@ -162,7 +181,9 @@ export function AccountsProvider({ children }: PropsWithChildren) {
       setIsSwitching(true);
 
       try {
-        const result = await authClient.multiSession.setActive({ sessionToken });
+        const result = await runAccountTransition(() =>
+          authClient.multiSession.setActive({ sessionToken }),
+        );
 
         if (result.error) {
           throw new Error(result.error.message ?? "No pudimos cambiar de cuenta");
@@ -173,7 +194,7 @@ export function AccountsProvider({ children }: PropsWithChildren) {
         setIsSwitching(false);
       }
     },
-    [activeSessionId, refresh, sessions],
+    [activeSessionId, refresh, runAccountTransition, sessions],
   );
 
   const value = useMemo(

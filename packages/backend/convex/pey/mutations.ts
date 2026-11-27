@@ -4,6 +4,7 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation } from "../_generated/server";
 import type { DatabaseReader, MutationCtx } from "../_generated/server";
+import { enqueueMobileNotification } from "../mobileNotifications";
 import { orderDeadline } from "../lib/expiry";
 import { closeInventoryReservation, holdsInventory, reserveInventory } from "../lib/inventory";
 import {
@@ -132,6 +133,10 @@ async function settlePayment(
     });
 
     await reconcileOrderInventoryOnSettlement(ctx, order, payment._id, consumedByProduct, now);
+
+    if (order.businessId) {
+      await enqueueMobileNotification(ctx, order.sellerId, { kind: "paidOrder", id: order._id });
+    }
 
     if (order.billSplitId) {
       await reconcileBillSplit(ctx, order.billSplitId, options.paidAt ?? now);

@@ -448,6 +448,8 @@ export default defineSchema({
     customerId: v.id("users"),
     ownerId: v.id("users"),
     channel: v.literal("app"),
+    ownerMuted: v.optional(v.boolean()),
+    customerMuted: v.optional(v.boolean()),
     externalThreadId: v.optional(v.string()), // futuro WhatsApp/Instagram
     customerLastReadAt: v.optional(v.number()),
     ownerLastReadAt: v.optional(v.number()),
@@ -461,6 +463,37 @@ export default defineSchema({
     .index("by_owner_last_message", ["ownerId", "lastMessageAt"]),
 
   /** Mensajes de texto de un hilo. Sin adjuntos ni notas de voz por ahora. */
+  mobileNotificationPreferences: defineTable({
+    userId: v.id("users"),
+    businessMessages: v.boolean(),
+    paidOrders: v.boolean(),
+  }).index("by_userId", ["userId"]),
+
+  mobileNotificationDevices: defineTable({
+    installationKey: v.string(),
+    revision: v.number(),
+    userId: v.optional(v.id("users")),
+    token: v.optional(v.string()),
+    boundAt: v.optional(v.number()),
+    clearedAt: v.optional(v.number()),
+  })
+    .index("by_installationKey", ["installationKey"])
+    .index("by_token", ["token"])
+    .index("by_userId", ["userId"])
+    .index("by_clearedAt", ["clearedAt"]),
+
+  mobileNotificationEvents: defineTable({
+    recipientId: v.id("users"),
+    source: v.union(
+      v.object({ kind: v.literal("businessMessage"), id: v.id("messages") }),
+      v.object({ kind: v.literal("paidOrder"), id: v.id("orders") }),
+    ),
+    claimed: v.boolean(),
+    expiresAt: v.number(),
+  })
+    .index("by_source_id", ["source.id"])
+    .index("by_expiresAt", ["expiresAt"]),
+
   messages: defineTable({
     threadId: v.id("messageThreads"),
     senderId: v.id("users"),

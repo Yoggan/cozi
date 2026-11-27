@@ -5,6 +5,12 @@ import { internal } from "./_generated/api";
 const crons = cronJobs();
 
 crons.interval(
+  "prune expired mobile notifications",
+  { hours: 6 },
+  internal.mobileNotifications.pruneExpired,
+);
+
+crons.interval(
   "reconcile aging Pey payments",
   { minutes: 5 },
   internal.pey.actions.reconcilePayments,

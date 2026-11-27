@@ -25,6 +25,7 @@ import type * as lib_passwordRecovery from "../lib/passwordRecovery.js";
 import type * as lib_storage from "../lib/storage.js";
 import type * as messageSupport from "../messageSupport.js";
 import type * as messages from "../messages.js";
+import type * as mobileNotifications from "../mobileNotifications.js";
 import type * as orders from "../orders.js";
 import type * as p2p from "../p2p.js";
 import type * as passwordResetEmail from "../passwordResetEmail.js";
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   "lib/storage": typeof lib_storage;
   messageSupport: typeof messageSupport;
   messages: typeof messages;
+  mobileNotifications: typeof mobileNotifications;
   orders: typeof orders;
   p2p: typeof p2p;
   passwordResetEmail: typeof passwordResetEmail;

@@ -16,6 +16,7 @@ import {
 import { ThemeBackdrop } from "@/components/theme-backdrop";
 import { useAccounts } from "@/contexts/accounts-context";
 import { useAppLock } from "@/contexts/app-lock-context";
+import { useMobileNotifications } from "@/contexts/mobile-notifications-context";
 import { clearPendingAccountType, setPendingAccountType } from "@/lib/account-type";
 import type { AccountType } from "@/lib/account-type";
 import { authClient } from "@/lib/auth-client";
@@ -28,6 +29,7 @@ export default function AddAccountScreen() {
   const theme = usePaymentTheme();
   const { toast } = useToast();
   const { refresh } = useAccounts();
+  const { runAccountTransition } = useMobileNotifications();
   const { isEnabled, verifyPin } = useAppLock();
 
   const [mode, setMode] = useState<Mode>("signin");
@@ -62,20 +64,24 @@ export default function AddAccountScreen() {
       if (signup) {
         await setPendingAccountType(accountType);
 
-        const result = await authClient.signUp.email({
-          name: name.trim(),
-          email: email.trim(),
-          password,
-        });
+        const result = await runAccountTransition(() =>
+          authClient.signUp.email({
+            name: name.trim(),
+            email: email.trim(),
+            password,
+          }),
+        );
 
         if (result.error) {
           throw new Error(result.error.message ?? "No pudimos crear la cuenta");
         }
       } else {
-        const result = await authClient.signIn.email({
-          email: email.trim(),
-          password,
-        });
+        const result = await runAccountTransition(() =>
+          authClient.signIn.email({
+            email: email.trim(),
+            password,
+          }),
+        );
 
         if (result.error) {
           throw new Error(result.error.message ?? "No pudimos entrar a la cuenta");
