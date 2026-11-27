@@ -10,7 +10,7 @@ import {
   normalizeHistoryPaginationOpts,
   normalizeHistorySearch,
   parseHistorySearchTerms,
-} from "./lib/history-pagination";
+} from "./lib/historyPagination";
 import { HANDLE_PATTERN, makePublicId, normalizeHandle } from "./lib/identifiers";
 import { readOrderBusiness, resolveOrderCounterpart } from "./lib/order-parties";
 import { findActivePayment } from "./pey/queries";
