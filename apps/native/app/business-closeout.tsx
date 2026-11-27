@@ -63,10 +63,11 @@ export default function BusinessCloseout() {
   const [draft, setDraft] = useState<string>();
   const [refreshNonce, setRefreshNonce] = useState(0);
 
-  const [summaryState, setSummaryState] = useState<{
-    key: string;
-    data: DailySummaryResult;
-  } | null>(null);
+  const [summaryState, setSummaryState] = useState<
+    | { key: string; status: "ready"; data: DailySummaryResult }
+    | { key: string; status: "error"; message: string }
+    | null
+  >(null);
 
   const [exporting, setExporting] = useState(false);
   const [savingZone, setSavingZone] = useState(false);
@@ -79,8 +80,10 @@ export default function BusinessCloseout() {
 
   const businessId = business?._id;
   const summaryKey = businessId ? `${businessId}:${day ?? "today"}:${now}:${refreshNonce}` : null;
-  const summary = summaryKey && summaryState?.key === summaryKey ? summaryState.data : null;
-  const loadingSummary = Boolean(summaryKey && summaryState?.key !== summaryKey);
+  const activeState = summaryKey && summaryState?.key === summaryKey ? summaryState : null;
+  const summary = activeState?.status === "ready" ? activeState.data : null;
+  const summaryError = activeState?.status === "error" ? activeState.message : null;
+  const loadingSummary = Boolean(summaryKey && activeState === null);
 
   useEffect(() => {
     if (!businessId || !summaryKey) {
@@ -96,11 +99,13 @@ export default function BusinessCloseout() {
         const result = await getDailySummary({ businessId: currentBusinessId, day, now });
 
         if (!cancelled) {
-          setSummaryState({ key: currentKey, data: result });
+          setSummaryState({ key: currentKey, status: "ready", data: result });
         }
       } catch {
         if (!cancelled) {
-          toast.show({ variant: "danger", label: "No pudimos cargar el corte diario" });
+          const message = "No pudimos cargar el corte diario";
+          setSummaryState({ key: currentKey, status: "error", message });
+          toast.show({ variant: "danger", label: message });
         }
       }
     }
@@ -325,6 +330,17 @@ export default function BusinessCloseout() {
                   Por entregar ({awaitingCount})
                 </Text>
               </>
+            ) : summaryError ? (
+              <View className="gap-3 rounded-2xl bg-surface p-4">
+                <Text className="text-sm text-danger">{summaryError}</Text>
+                <Button
+                  variant="secondary"
+                  className="self-start"
+                  onPress={() => setRefreshNonce((current) => current + 1)}
+                >
+                  <Button.Label>Reintentar</Button.Label>
+                </Button>
+              </View>
             ) : (
               <Spinner accessibilityLabel="Cargando corte" className="self-center" />
             )}

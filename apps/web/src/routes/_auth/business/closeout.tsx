@@ -22,10 +22,11 @@ function Closeout() {
   const [now, setNow] = useState(Date.now);
   const [refreshNonce, setRefreshNonce] = useState(0);
 
-  const [summaryState, setSummaryState] = useState<{
-    key: string;
-    data: DailySummaryResult;
-  } | null>(null);
+  const [summaryState, setSummaryState] = useState<
+    | { key: string; status: "ready"; data: DailySummaryResult }
+    | { key: string; status: "error"; message: string }
+    | null
+  >(null);
 
   const [exporting, setExporting] = useState(false);
   const [savingZone, setSavingZone] = useState(false);
@@ -36,8 +37,10 @@ function Closeout() {
 
   const businessId = business?._id;
   const summaryKey = businessId ? `${businessId}:${day ?? "today"}:${now}:${refreshNonce}` : null;
-  const summary = summaryKey && summaryState?.key === summaryKey ? summaryState.data : null;
-  const loadingSummary = Boolean(summaryKey && summaryState?.key !== summaryKey);
+  const activeState = summaryKey && summaryState?.key === summaryKey ? summaryState : null;
+  const summary = activeState?.status === "ready" ? activeState.data : null;
+  const summaryError = activeState?.status === "error" ? activeState.message : null;
+  const loadingSummary = Boolean(summaryKey && activeState === null);
 
   useEffect(() => {
     if (!businessId || !summaryKey) {
@@ -53,11 +56,13 @@ function Closeout() {
         const result = await getDailySummary({ businessId: currentBusinessId, day, now });
 
         if (!cancelled) {
-          setSummaryState({ key: currentKey, data: result });
+          setSummaryState({ key: currentKey, status: "ready", data: result });
         }
       } catch (error: unknown) {
         if (!cancelled) {
-          toast.error(errorMessage(error, "No pudimos cargar el corte diario"));
+          const message = errorMessage(error, "No pudimos cargar el corte diario");
+          setSummaryState({ key: currentKey, status: "error", message });
+          toast.error(message);
         }
       }
     }
@@ -241,6 +246,17 @@ function Closeout() {
                 )}
               </section>
             </>
+          ) : summaryError ? (
+            <div className="panel stack">
+              <p className="text-sm text-destructive">{summaryError}</p>
+              <Button
+                variant="secondary"
+                className="w-fit"
+                onClick={() => setRefreshNonce((current) => current + 1)}
+              >
+                Reintentar
+              </Button>
+            </div>
           ) : (
             <Loading />
           )}
