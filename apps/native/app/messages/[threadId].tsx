@@ -163,7 +163,7 @@ export default function ConversationScreen() {
   function confirmReport() {
     Alert.alert(
       "Reportar conversación",
-      "Soporte de Cozi podrá revisar hasta los 20 mensajes más recientes.",
+      "Soporte de Cozi podrá revisar hasta 20 mensajes, incluido el último que recibiste.",
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -224,9 +224,9 @@ export default function ConversationScreen() {
             >
               <Text className="text-sm font-medium text-foreground">{blockLabel}</Text>
             </Pressable>
-            {current.reportedByViewer ? (
+            {current.reportStatus !== "available" ? (
               <Text accessibilityLiveRegion="polite" className="text-sm text-muted">
-                Reporte enviado
+                {current.reportStatus === "pending" ? "Reporte enviado" : "Reporte revisado"}
               </Text>
             ) : (
               <Pressable

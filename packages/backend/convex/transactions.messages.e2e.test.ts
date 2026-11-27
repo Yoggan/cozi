@@ -322,7 +322,7 @@ describe("Messaging guardrails", () => {
         threadId: businessThread,
         text: "Respuesta",
       });
-      vi.setSystemTime(Date.now() + 3000);
+      vi.setSystemTime(Date.now() + 4000);
       await customer.client.mutation(api.messages.sendMessage, {
         threadId: orderThread,
         text: "Otro mensaje",
@@ -430,7 +430,7 @@ describe("Messaging guardrails", () => {
     });
   });
 
-  test("deduplicates reports and confines support review to captured evidence", async () => {
+  test("deduplicates reports, allows new incidents after review, and protects evidence", async () => {
     const { t, customer, owner, orderThread } = await setupGuardrailThreads();
 
     const outsider = await createUser(t, {
@@ -473,7 +473,7 @@ describe("Messaging guardrails", () => {
       customer.client.mutation(api.messages.reportThread, reportArgs),
       customer.client.mutation(api.messages.reportThread, reportArgs),
     ]);
-    await owner.client.mutation(api.messages.sendMessage, {
+    await customer.client.mutation(api.messages.sendMessage, {
       threadId: orderThread,
       text: "Mensaje posterior",
     });
@@ -492,10 +492,10 @@ describe("Messaging guardrails", () => {
     await expect(support.query(api.messages.getThread, reportArgs)).resolves.toBeNull();
     await expect(support.query(api.messages.listThreads, {})).resolves.toEqual([]);
     await expect(customer.client.query(api.messages.getThread, reportArgs)).resolves.toMatchObject({
-      reportedByViewer: true,
+      reportStatus: "pending",
     });
     await expect(owner.client.query(api.messages.getThread, reportArgs)).resolves.toMatchObject({
-      reportedByViewer: false,
+      reportStatus: "available",
     });
 
     const reviewArgs = { reportId: report.reportId };
@@ -518,6 +518,29 @@ describe("Messaging guardrails", () => {
     await customer.client.mutation(api.messages.reportThread, reportArgs);
     await expect(t.run((ctx) => ctx.db.get(report.reportId))).resolves.toEqual(reviewed);
     await expect(support.query(api.messageSupport.listPendingReports, {})).resolves.toEqual([]);
+    await expect(customer.client.query(api.messages.getThread, reportArgs)).resolves.toMatchObject({
+      reportStatus: "reviewed",
+    });
+
+    const freshMessage = await owner.client.mutation(api.messages.sendMessage, {
+      threadId: orderThread,
+      text: "Nuevo incidente",
+    });
+
+    await expect(customer.client.query(api.messages.getThread, reportArgs)).resolves.toMatchObject({
+      reportStatus: "available",
+    });
+    await Promise.all([
+      customer.client.mutation(api.messages.reportThread, reportArgs),
+      customer.client.mutation(api.messages.reportThread, reportArgs),
+    ]);
+
+    const followUps = await support.query(api.messageSupport.listPendingReports, {});
+    expect(followUps).toHaveLength(1);
+    expect(followUps?.[0]?.reportId).not.toBe(report.reportId);
+    expect(followUps?.[0]?.evidence).toContainEqual(
+      expect.objectContaining({ messageId: freshMessage.messageId, text: "Nuevo incidente" }),
+    );
 
     await t.run((ctx) => ctx.db.delete(reviewerId));
     await expect(support.query(api.messageSupport.listPendingReports, {})).resolves.toBeNull();

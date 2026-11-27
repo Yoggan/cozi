@@ -5,14 +5,19 @@ import { components } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import {
+  readBlockState,
+  readModerationState,
+  requireMessagingAvailable,
+  setBlock,
+  submitReport,
+} from "./lib/messageModeration";
 
 const DEFAULT_THREAD_LIMIT = 30;
 const MAX_THREAD_LIMIT = 50;
 const MAX_MESSAGES = 200;
 const MAX_MESSAGE_LENGTH = 1000;
 const UNREAD_SCAN_LIMIT = 100;
-const REPORT_EVIDENCE_LIMIT = 20;
-const MESSAGING_UNAVAILABLE = "No se pueden enviar mensajes en esta conversación";
 
 const rateLimiter = new RateLimiter(components.rateLimiter, {
   sendMessage: { kind: "token bucket", rate: 20, period: MINUTE, capacity: 10 },
@@ -62,51 +67,6 @@ async function requireParticipant(ctx: MutationCtx, threadId: Id<"messageThreads
   }
 
   return { thread, viewerId: viewer._id, counterpartId: getCounterpartId(thread, viewer._id) };
-}
-
-function findBlock(ctx: QueryCtx | MutationCtx, blockerId: Id<"users">, blockedId: Id<"users">) {
-  return ctx.db
-    .query("messageBlocks")
-    .withIndex("by_blockerId_and_blockedId", (q) =>
-      q.eq("blockerId", blockerId).eq("blockedId", blockedId),
-    )
-    .unique();
-}
-
-async function readBlockState(
-  ctx: QueryCtx | MutationCtx,
-  viewerId: Id<"users">,
-  counterpartId: Id<"users">,
-) {
-  const [outgoing, incoming] = await Promise.all([
-    findBlock(ctx, viewerId, counterpartId),
-    findBlock(ctx, counterpartId, viewerId),
-  ]);
-
-  return { blockedByViewer: outgoing !== null, canSend: outgoing === null && incoming === null };
-}
-
-async function requireMessagingAvailable(
-  ctx: MutationCtx,
-  viewerId: Id<"users">,
-  counterpartId: Id<"users">,
-) {
-  if (!(await readBlockState(ctx, viewerId, counterpartId)).canSend) {
-    throw new ConvexError(MESSAGING_UNAVAILABLE);
-  }
-}
-
-function findReport(
-  ctx: QueryCtx | MutationCtx,
-  threadId: Id<"messageThreads">,
-  reporterId: Id<"users">,
-) {
-  return ctx.db
-    .query("messageReports")
-    .withIndex("by_threadId_and_reporterId", (q) =>
-      q.eq("threadId", threadId).eq("reporterId", reporterId),
-    )
-    .unique();
 }
 
 async function readUserSummary(
@@ -405,22 +365,19 @@ export const getThread = query({
 
     const counterpartId = getCounterpartId(thread, viewer._id);
 
-    const [summary, rows, blockState, report] = await Promise.all([
+    const [summary, rows, moderation] = await Promise.all([
       buildThreadSummary(ctx, thread, viewer._id),
       ctx.db
         .query("messages")
         .withIndex("by_thread_created", (q) => q.eq("threadId", thread._id))
         .order("desc")
         .take(MAX_MESSAGES),
-      readBlockState(ctx, viewer._id, counterpartId),
-      findReport(ctx, thread._id, viewer._id),
+      readModerationState(ctx, thread._id, viewer._id, counterpartId),
     ]);
 
     return {
       ...summary,
-      ...blockState,
-      canBlockOrReport: counterpartId !== viewer._id,
-      reportedByViewer: report !== null,
+      ...moderation,
       messages: rows.reverse().map((message) => toMessageView(message, viewer._id)),
     };
   },
@@ -473,17 +430,7 @@ export const setCounterpartBlocked = mutation({
   handler: async (ctx, args) => {
     const { viewerId, counterpartId } = await requireParticipant(ctx, args.threadId);
 
-    if (counterpartId === viewerId) {
-      throw new ConvexError("No puedes bloquear tu propia cuenta");
-    }
-
-    const existing = await findBlock(ctx, viewerId, counterpartId);
-
-    if (args.blocked && !existing) {
-      await ctx.db.insert("messageBlocks", { blockerId: viewerId, blockedId: counterpartId });
-    } else if (!args.blocked && existing) {
-      await ctx.db.delete(existing._id);
-    }
+    await setBlock(ctx, viewerId, counterpartId, args.blocked);
   },
 });
 
@@ -492,27 +439,7 @@ export const reportThread = mutation({
   handler: async (ctx, args) => {
     const { thread, viewerId, counterpartId } = await requireParticipant(ctx, args.threadId);
 
-    if (counterpartId === viewerId) {
-      throw new ConvexError("No puedes reportar tu propia cuenta");
-    }
-
-    if (await findReport(ctx, thread._id, viewerId)) {
-      return;
-    }
-
-    const evidence = await ctx.db
-      .query("messages")
-      .withIndex("by_thread_created", (q) => q.eq("threadId", thread._id))
-      .order("desc")
-      .take(REPORT_EVIDENCE_LIMIT);
-
-    await ctx.db.insert("messageReports", {
-      threadId: thread._id,
-      reporterId: viewerId,
-      reportedId: counterpartId,
-      evidenceIds: evidence.reverse().map((message) => message._id),
-      status: "pending",
-    });
+    await submitReport(ctx, thread._id, viewerId, counterpartId);
   },
 });
 

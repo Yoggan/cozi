@@ -417,7 +417,9 @@ export default defineSchema({
     senderId: v.id("users"),
     text: v.string(),
     createdAt: v.number(),
-  }).index("by_thread_created", ["threadId", "createdAt"]),
+  })
+    .index("by_thread_created", ["threadId", "createdAt"])
+    .index("by_threadId_and_senderId", ["threadId", "senderId"]),
 
   messageBlocks: defineTable({
     blockerId: v.id("users"),
@@ -428,6 +430,7 @@ export default defineSchema({
     threadId: v.id("messageThreads"),
     reporterId: v.id("users"),
     reportedId: v.id("users"),
+    sourceMessageId: v.optional(v.id("messages")),
     evidenceIds: v.array(v.id("messages")),
     status: v.union(v.literal("pending"), v.literal("reviewed")),
     reviewedBy: v.optional(v.string()),

@@ -107,9 +107,9 @@ function Thread() {
             >
               {thread.blockedByViewer ? "Desbloquear" : "Bloquear"}
             </Button>
-            {thread.reportedByViewer ? (
+            {thread.reportStatus !== "available" ? (
               <p role="status" className="text-sm text-muted-foreground">
-                Reporte enviado
+                {thread.reportStatus === "pending" ? "Reporte enviado" : "Reporte revisado"}
               </p>
             ) : (
               <Button
@@ -119,7 +119,7 @@ function Thread() {
                 onClick={() => {
                   if (
                     window.confirm(
-                      "¿Reportar esta conversación? Soporte de Cozi podrá revisar hasta los 20 mensajes más recientes.",
+                      "¿Reportar esta conversación? Soporte de Cozi podrá revisar hasta 20 mensajes, incluido el último que recibiste.",
                     )
                   ) {
                     void moderate(

@@ -108,8 +108,10 @@ Participants can block, unblock, or report from the conversation in the app or o
 disables sending in both directions across the two accounts and prevents new threads between
 them. Existing threads stay in both inboxes, and participants can still read and mark them as read.
 
-Each participant can submit one report per conversation. Support can see up to 20 messages
-from the time of the report and can mark it reviewed. Cozi records who reviewed it and when.
+Each participant can have one pending report per conversation. Once support marks it reviewed, the
+participant can report again after receiving a new message. Support can see up to 20 messages from
+the time of each report, including the latest incoming message if there is one. Cozi records who
+reviewed the report and when.
 
 To grant access, a deployment operator adds a row to `messageSupportReviewers` in the Convex
 dashboard. Set `tokenIdentifier` to `<CONVEX_SITE_URL>|<users.authUserId>` using the deployment's
