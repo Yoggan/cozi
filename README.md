@@ -35,6 +35,13 @@ Follow the prompts to create a new Convex project and connect it to your applica
 
 Copy environment variables from `packages/backend/.env.local` to `apps/*/.env`.
 
+Password recovery completes on the verified HTTPS web route configured in Convex
+as `SITE_URL`. Outbound email delivery is opt-in and disabled by default: set
+`PASSWORD_RESET_EMAIL_ENABLED=true`, `RESEND_API_KEY`, and
+`PASSWORD_RESET_EMAIL_FROM` on the Convex deployment once a verified Resend
+sender domain is provisioned. The backend password recovery tests mock delivery
+and run without provider credentials.
+
 Then, run the development server:
 
 ```bash
