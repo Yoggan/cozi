@@ -1,5 +1,5 @@
 import { api } from "@cozi/backend/convex/_generated/api";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { usePaginatedQuery } from "convex-helpers/react";
 import { useAssets } from "expo-asset";
 import { useFonts } from "expo-font";
@@ -202,7 +202,7 @@ export default function ActivityScreen() {
             style={palette.glassStyle}
           >
             {searchOpen ? (
-              <Ionicons name="close" size={20} color={palette.text} />
+              <Icon name="close" size={20} color={palette.text} />
             ) : (
               <SvgUri uri={searchAssets?.[palette.light ? 1 : 0]?.localUri ?? null} />
             )}
@@ -254,7 +254,7 @@ export default function ActivityScreen() {
                       setDebouncedSearch("");
                     }}
                   >
-                    <Ionicons name="close-circle" size={20} color={palette.muted} />
+                    <Icon name="close-circle" size={20} color={palette.muted} />
                   </Pressable>
                 ) : null}
               </View>

@@ -1,6 +1,6 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import type { OrderStatus } from "@cozi/backend/convex/schema";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { usePaginatedQuery } from "convex-helpers/react";
 import { useRouter } from "expo-router";
 import { Button, Chip, cn, Text, useThemeColor } from "heroui-native";
@@ -139,7 +139,7 @@ export default function BusinessOrdersScreen() {
       ) : status === "Exhausted" ? (
         <View className="items-center py-14">
           <View className="h-14 w-14 items-center justify-center rounded-full bg-surface-secondary">
-            <Ionicons name="receipt-outline" size={24} color={muted} />
+            <Icon name="receipt-outline" size={24} color={muted} />
           </View>
           <Text className="mt-4 text-base font-medium text-foreground" style={textPrimary}>
             {filter === "all" ? "Aún no hay pedidos" : "No hay pedidos con este estado"}
@@ -237,7 +237,7 @@ export default function BusinessOrdersScreen() {
                   <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
                     {formatMxn(order.totalCents)}
                   </Text>
-                  <Ionicons name="chevron-forward" size={16} color={muted} />
+                  <Icon name="chevron-forward" size={16} color={muted} />
                 </View>
               </Pressable>
             </Animated.View>

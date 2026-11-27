@@ -12,7 +12,7 @@ import {
   parseHistorySearchTerms,
 } from "./lib/historyPagination";
 import { HANDLE_PATTERN, makePublicId, normalizeHandle } from "./lib/identifiers";
-import { readOrderBusiness, resolveOrderCounterpart } from "./lib/order-parties";
+import { readOrderBusiness, resolveOrderCounterpart } from "./lib/orderParties";
 import { findActivePayment } from "./pey/queries";
 import schema, { orderStatusValidator } from "./schema";
 

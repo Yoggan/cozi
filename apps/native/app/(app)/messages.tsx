@@ -1,5 +1,5 @@
 import { api } from "@cozi/backend/convex/_generated/api";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useQuery } from "convex/react";
 import { useRouter } from "expo-router";
 import { Text, useThemeColor } from "heroui-native";
@@ -69,7 +69,7 @@ export default function MessagesScreen() {
         ) : threads.length === 0 ? (
           <View className="items-center py-14">
             <View className="h-14 w-14 items-center justify-center rounded-full bg-surface-secondary">
-              <Ionicons name="chatbubbles-outline" size={24} color={foreground} />
+              <Icon name="chatbubbles-outline" size={24} color={foreground} />
             </View>
             <Text className="mt-4 text-base font-medium text-foreground">Aún no hay mensajes</Text>
             <Text className="mt-1 max-w-[240px] text-center text-sm text-muted">
@@ -106,7 +106,7 @@ export default function MessagesScreen() {
                   className="flex-row items-center gap-3 py-3"
                 >
                   <View className="h-10 w-10 items-center justify-center rounded-full bg-surface-secondary">
-                    <Ionicons
+                    <Icon
                       name={thread.viewerRole === "owner" ? "storefront-outline" : "person-outline"}
                       size={18}
                       color={foreground}

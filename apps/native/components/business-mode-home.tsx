@@ -1,5 +1,5 @@
 import { api } from "@cozi/backend/convex/_generated/api";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useQuery } from "convex/react";
 import { useRouter } from "expo-router";
 import { Spinner, Text } from "heroui-native";
@@ -71,11 +71,7 @@ export function BusinessModeHome() {
           className="h-10 w-10 items-center justify-center rounded-full"
           style={glass}
         >
-          <Ionicons
-            name="settings-outline"
-            size={19}
-            color={isImmersive ? "#FFFFFF" : accent.hex}
-          />
+          <Icon name="settings-outline" size={19} color={isImmersive ? "#FFFFFF" : accent.hex} />
         </Pressable>
       </View>
 
@@ -92,7 +88,7 @@ export function BusinessModeHome() {
                 backgroundColor: accent.softHex,
               }}
             >
-              <Ionicons name="storefront" size={22} color={accent.hex} />
+              <Icon name="storefront" size={22} color={accent.hex} />
             </View>
             <View className="flex-1">
               <Text className="text-lg font-semibold text-foreground" style={textPrimary}>
@@ -154,11 +150,11 @@ export function BusinessModeHome() {
           className="flex-row items-center gap-3 rounded-2xl p-4"
           style={glass}
         >
-          <Ionicons name="add-circle-outline" size={20} color={accent.hex} />
+          <Icon name="add-circle-outline" size={20} color={accent.hex} />
           <Text className="flex-1 text-sm font-semibold text-foreground" style={textPrimary}>
             Nuevo pedido
           </Text>
-          <Ionicons name="chevron-forward" size={18} color={accent.hex} />
+          <Icon name="chevron-forward" size={18} color={accent.hex} />
         </Pressable>
 
         <Pressable
@@ -167,11 +163,11 @@ export function BusinessModeHome() {
           className="flex-row items-center gap-3 rounded-2xl p-4"
           style={glass}
         >
-          <Ionicons name="receipt-outline" size={20} color={accent.hex} />
+          <Icon name="receipt-outline" size={20} color={accent.hex} />
           <Text className="flex-1 text-sm font-semibold text-foreground" style={textPrimary}>
             Corte diario
           </Text>
-          <Ionicons name="chevron-forward" size={18} color={accent.hex} />
+          <Icon name="chevron-forward" size={18} color={accent.hex} />
         </Pressable>
 
         <Text className="mt-4 text-center text-xs text-muted" style={textSecondary}>

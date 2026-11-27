@@ -1,5 +1,5 @@
 import { api } from "@cozi/backend/convex/_generated/api";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -84,7 +84,7 @@ function QuantityControl({
           opacity: disabled || max === 0 ? 0.4 : pressed ? 0.7 : 1,
         })}
       >
-        <Ionicons name="add" size={15} color={theme.text} />
+        <Icon name="add" size={15} color={theme.text} />
         <Text style={{ color: theme.text, fontSize: 12, fontWeight: "600" }}>Agregar</Text>
       </Pressable>
     );
@@ -108,7 +108,7 @@ function QuantityControl({
           opacity: disabled ? 0.4 : pressed ? 0.7 : 1,
         })}
       >
-        <Ionicons name="remove" size={16} color={theme.text} />
+        <Icon name="remove" size={16} color={theme.text} />
       </Pressable>
       <Text
         style={{
@@ -138,7 +138,7 @@ function QuantityControl({
           opacity: disabled || quantity >= max ? 0.4 : pressed ? 0.7 : 1,
         })}
       >
-        <Ionicons name="add" size={16} color={theme.text} />
+        <Icon name="add" size={16} color={theme.text} />
       </Pressable>
     </View>
   );
@@ -205,7 +205,7 @@ export default function BusinessProfileScreen() {
           </View>
         </View>
         <View style={{ alignItems: "center", paddingTop: 48, paddingHorizontal: 32, gap: 8 }}>
-          <Ionicons name="storefront-outline" size={32} color={theme.icon} />
+          <Icon name="storefront-outline" size={32} color={theme.icon} />
           <Text style={{ color: theme.text, fontSize: 16, fontWeight: "600" }}>
             No encontramos este negocio
           </Text>
@@ -391,7 +391,7 @@ export default function BusinessProfileScreen() {
                   opacity: pressed || isOpeningThread ? 0.6 : 1,
                 })}
               >
-                <Ionicons name="chatbubble-outline" size={15} color={theme.text} />
+                <Icon name="chatbubble-outline" size={15} color={theme.text} />
                 <Text style={{ color: theme.text, fontSize: 12, fontWeight: "600" }}>
                   {isOpeningThread ? "Abriendo..." : "Mensaje al negocio"}
                 </Text>
@@ -412,7 +412,7 @@ export default function BusinessProfileScreen() {
                 borderColor: theme.warningBorder,
               }}
             >
-              <Ionicons name="alert-circle" size={18} color={theme.warningText} />
+              <Icon name="alert-circle" size={18} color={theme.warningText} />
               <Text
                 style={{
                   flex: 1,
@@ -432,7 +432,7 @@ export default function BusinessProfileScreen() {
             <View style={cardStyle}>
               {current.products.length === 0 ? (
                 <View style={{ alignItems: "center", paddingVertical: 28, paddingHorizontal: 18 }}>
-                  <Ionicons name="cube-outline" size={24} color={theme.icon} />
+                  <Icon name="cube-outline" size={24} color={theme.icon} />
                   <Text
                     style={{
                       color: theme.text,

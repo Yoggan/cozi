@@ -1,7 +1,7 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import type { Id } from "@cozi/backend/convex/_generated/dataModel";
 import type { BillSplitStatus } from "@cozi/backend/convex/schema";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -245,7 +245,7 @@ export default function SplitScreen() {
         className="flex-1 items-center justify-center gap-3 px-8"
         style={{ backgroundColor: theme.isImmersive ? theme.baseColor : theme.background }}
       >
-        <Ionicons name="receipt-outline" size={32} color={theme.icon} />
+        <Icon name="receipt-outline" size={32} color={theme.icon} />
         <Text style={{ color: theme.text, fontSize: 18, fontWeight: "600" }}>
           Cuenta no encontrada
         </Text>
@@ -338,7 +338,7 @@ export default function SplitScreen() {
                   opacity: pressed ? 0.82 : 1,
                 })}
               >
-                <Ionicons name="alert-circle" size={20} color={theme.warningText} />
+                <Icon name="alert-circle" size={20} color={theme.warningText} />
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: theme.text, fontSize: 14, fontWeight: "600" }}>
                     Primero vincula tu cuenta
@@ -347,7 +347,7 @@ export default function SplitScreen() {
                     Necesitas una CLABE verificada para cobrar tu parte.
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color={theme.icon} />
+                <Icon name="chevron-forward" size={16} color={theme.icon} />
               </Pressable>
             ) : null}
 
@@ -458,7 +458,7 @@ export default function SplitScreen() {
                               opacity: pressed || isSharing ? 0.6 : 1,
                             })}
                           >
-                            <Ionicons name="share-outline" size={14} color={theme.text} />
+                            <Icon name="share-outline" size={14} color={theme.text} />
                             <Text style={{ color: theme.text, fontSize: 12, fontWeight: "600" }}>
                               {isSharing ? "..." : "Cobrar"}
                             </Text>
@@ -540,7 +540,7 @@ export default function SplitScreen() {
                             : "Reparte el total en partes iguales"}
                         </Text>
                       </View>
-                      <Ionicons
+                      <Icon
                         name={includeCreator ? "checkmark-circle" : "ellipse-outline"}
                         size={24}
                         color={includeCreator ? theme.successText : theme.icon}
@@ -635,7 +635,7 @@ export default function SplitScreen() {
                             onPress={() => removeParticipant(participant.handle)}
                             style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}
                           >
-                            <Ionicons name="close-circle" size={20} color={theme.icon} />
+                            <Icon name="close-circle" size={20} color={theme.icon} />
                           </Pressable>
                         </View>
                       );

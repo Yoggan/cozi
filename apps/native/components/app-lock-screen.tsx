@@ -1,4 +1,5 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
+import type { IconName } from "@/components/icon";
 import {
   ImpactFeedbackStyle,
   NotificationFeedbackType,
@@ -108,7 +109,7 @@ function KeyButton({
   onPress,
 }: {
   label: string;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: IconName;
   size: number;
   busy?: boolean;
   onPress: () => void;
@@ -137,7 +138,7 @@ function KeyButton({
         {busy ? (
           <ActivityIndicator color="#FFFFFF" size="small" />
         ) : icon ? (
-          <Ionicons color="#FFFFFF" name={icon} size={Math.round(size * 0.34)} />
+          <Icon color="#FFFFFF" name={icon} size={Math.round(size * 0.34)} />
         ) : (
           <Text style={[styles.keyLabel, { fontSize: Math.round(size * 0.38) }]}>{label}</Text>
         )}
@@ -371,7 +372,7 @@ export function AppLockScreen() {
           }}
           style={styles.signOut}
         >
-          <Ionicons color="rgba(255,255,255,0.55)" name="log-out-outline" size={15} />
+          <Icon color="rgba(255,255,255,0.55)" name="log-out-outline" size={15} />
           <Text style={styles.signOutLabel}>Cerrar sesión</Text>
         </Pressable>
       </View>

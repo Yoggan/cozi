@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Text, useToast } from "heroui-native";
@@ -190,7 +190,7 @@ export default function AddAccountScreen() {
                       backgroundColor: selected ? theme.ctaFill : theme.fieldFill,
                     }}
                   >
-                    <Ionicons
+                    <Icon
                       name={option.icon}
                       size={18}
                       color={selected ? theme.ctaText : theme.icon}
@@ -224,11 +224,11 @@ export default function AddAccountScreen() {
                 padding: 12,
               }}
             >
-              <Ionicons name="lock-closed-outline" size={18} color={theme.warningText} />
+              <Icon name="lock-closed-outline" size={18} color={theme.warningText} />
               <Text style={{ flex: 1, color: theme.warningText, fontSize: 12, lineHeight: 18 }}>
                 Para crear una cuenta de negocio primero configura un PIN o biometría.
               </Text>
-              <Ionicons name="chevron-forward" size={16} color={theme.warningText} />
+              <Icon name="chevron-forward" size={16} color={theme.warningText} />
             </Pressable>
           ) : null}
 

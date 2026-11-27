@@ -9,7 +9,7 @@ import { effectiveOrderStatus, orderDeadline } from "./lib/expiry";
 import { normalizeHistoryPaginationOpts } from "./lib/historyPagination";
 import { HANDLE_PATTERN, makePublicId, normalizeHandle } from "./lib/identifiers";
 import { availableStock } from "./lib/inventory";
-import { readOrderBusiness, resolveOrderCounterpart } from "./lib/order-parties";
+import { readOrderBusiness, resolveOrderCounterpart } from "./lib/orderParties";
 import { closeUnpublishedPayment } from "./pey/mutations";
 import { findActivePayment } from "./pey/queries";
 import schema, { orderChannelValidator, orderStatusValidator } from "./schema";

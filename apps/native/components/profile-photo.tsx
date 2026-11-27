@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { Text } from "heroui-native";
 import { useState } from "react";
 import { Image, Pressable, View } from "react-native";
@@ -81,7 +81,7 @@ export function ProfilePhoto({
           justifyContent: "center",
         }}
       >
-        <Ionicons color={accent.foreground} name="camera" size={Math.round(badgeSize * 0.58)} />
+        <Icon color={accent.foreground} name="camera" size={Math.round(badgeSize * 0.58)} />
       </View>
     </Pressable>
   );

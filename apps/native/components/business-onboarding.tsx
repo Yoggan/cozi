@@ -1,6 +1,6 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import { handleBase } from "@cozi/backend/convex/lib/identifiers";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useMutation } from "convex/react";
 import { Button, cn, Input, Label, Spinner, Text, TextField, useToast } from "heroui-native";
 import { useState } from "react";
@@ -91,7 +91,7 @@ export function BusinessOnboarding({ businessAccount = false }: { businessAccoun
               justifyContent: "center",
             }}
           >
-            <Ionicons name="business" size={26} color={accent.hex} />
+            <Icon name="business" size={26} color={accent.hex} />
           </View>
 
           <Text className="mt-5 text-xs font-semibold uppercase tracking-widest text-muted">

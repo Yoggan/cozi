@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useForm } from "@tanstack/react-form";
 import { selectionAsync } from "expo-haptics";
 import { Link } from "expo-router";
@@ -217,7 +217,7 @@ export function SignIn() {
                 }}
                 style={({ pressed }) => [styles.rememberRow, pressed && styles.rememberRowPressed]}
               >
-                <Ionicons color="rgba(255,255,255,0.65)" name="time-outline" size={16} />
+                <Icon color="rgba(255,255,255,0.65)" name="time-outline" size={16} />
                 <Text style={styles.rememberTitle}>Recordarme</Text>
                 <Animated.View style={[styles.rememberTrack, rememberTrackStyle]}>
                   <Animated.View style={[styles.rememberThumb, rememberThumbStyle]} />

@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { ImpactFeedbackStyle, impactAsync, selectionAsync } from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Text } from "heroui-native";
@@ -67,7 +67,7 @@ export default function ThemeBackdropScreen() {
               justifyContent: "center",
             }}
           >
-            <Ionicons name="close" size={20} color="#FFFFFF" />
+            <Icon name="close" size={20} color="#FFFFFF" />
           </Pressable>
           <Text style={{ color: "#FFFFFF" }} className="text-lg font-semibold">
             Fondo
@@ -222,7 +222,7 @@ function WallpaperTile({
             >
               {item.name}
             </Text>
-            {selected ? <Ionicons name="checkmark-circle" size={14} color="#60A5FA" /> : null}
+            {selected ? <Icon name="checkmark-circle" size={14} color="#60A5FA" /> : null}
           </View>
         </Pressable>
       </Animated.View>

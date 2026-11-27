@@ -14,7 +14,7 @@ import {
   useThemeColor,
   useToast,
 } from "heroui-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useRouter } from "expo-router";
 import { Pressable, View } from "react-native";
 import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
@@ -137,7 +137,7 @@ export default function ProfileScreen() {
             hitSlop={10}
             className="h-10 w-10 items-center justify-center rounded-full bg-surface"
           >
-            <Ionicons name="arrow-back" size={20} color={muted} />
+            <Icon name="arrow-back" size={20} color={muted} />
           </Pressable>
           <Text
             className="text-2xl font-semibold tracking-tight text-foreground"
@@ -214,7 +214,7 @@ export default function ProfileScreen() {
               Cambiar de cuenta
             </Text>
           </View>
-          <Ionicons name="swap-horizontal" size={18} color={iconMuted} />
+          <Icon name="swap-horizontal" size={18} color={iconMuted} />
         </Pressable>
       </Animated.View>
 
@@ -237,7 +237,7 @@ export default function ProfileScreen() {
               justifyContent: "center",
             }}
           >
-            <Ionicons name="color-palette" size={19} color={accent.hex} />
+            <Icon name="color-palette" size={19} color={accent.hex} />
           </View>
           <View className="flex-1">
             <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
@@ -255,7 +255,7 @@ export default function ProfileScreen() {
               backgroundColor: accent.hex,
             }}
           />
-          <Ionicons name="chevron-forward" size={18} color={iconMuted} />
+          <Icon name="chevron-forward" size={18} color={iconMuted} />
         </Pressable>
       </Animated.View>
 
@@ -278,7 +278,7 @@ export default function ProfileScreen() {
               justifyContent: "center",
             }}
           >
-            <Ionicons name="shield-checkmark" size={19} color={accent.hex} />
+            <Icon name="shield-checkmark" size={19} color={accent.hex} />
           </View>
           <View className="flex-1">
             <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
@@ -288,7 +288,7 @@ export default function ProfileScreen() {
               {isLockEnabled ? "PIN activo" : "PIN y biometría"}
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={iconMuted} />
+          <Icon name="chevron-forward" size={18} color={iconMuted} />
         </Pressable>
       </Animated.View>
 
@@ -312,7 +312,7 @@ export default function ProfileScreen() {
                 justifyContent: "center",
               }}
             >
-              <Ionicons name="people" size={19} color={accent.hex} />
+              <Icon name="people" size={19} color={accent.hex} />
             </View>
             <View className="flex-1">
               <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
@@ -322,7 +322,7 @@ export default function ProfileScreen() {
                 Envía o cobra en un toque
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={iconMuted} />
+            <Icon name="chevron-forward" size={18} color={iconMuted} />
           </Pressable>
         </Animated.View>
       ) : null}
@@ -347,7 +347,7 @@ export default function ProfileScreen() {
                 justifyContent: "center",
               }}
             >
-              <Ionicons name="business" size={19} color={accent.hex} />
+              <Icon name="business" size={19} color={accent.hex} />
             </View>
             <View className="flex-1">
               <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
@@ -358,7 +358,7 @@ export default function ProfileScreen() {
                 {profile.business.handle ? ` · @${profile.business.handle}` : ""}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={iconMuted} />
+            <Icon name="chevron-forward" size={18} color={iconMuted} />
           </Pressable>
         </Animated.View>
       ) : null}
@@ -445,7 +445,7 @@ export default function ProfileScreen() {
             </View>
           ) : accounts.length === 0 ? (
             <View className="items-center py-8">
-              <Ionicons name="business-outline" size={24} color={iconMuted} />
+              <Icon name="business-outline" size={24} color={iconMuted} />
               <Text className="mt-2 text-sm font-medium text-foreground" style={textPrimary}>
                 Sin cuentas todavía
               </Text>
@@ -466,7 +466,7 @@ export default function ProfileScreen() {
                   className="flex-row items-center gap-3 py-3"
                 >
                   <View className="h-9 w-9 items-center justify-center rounded-full bg-surface-secondary">
-                    <Ionicons name="card-outline" size={18} color={iconMuted} />
+                    <Icon name="card-outline" size={18} color={iconMuted} />
                   </View>
                   <View className="flex-1">
                     <Text className="text-sm font-medium text-foreground" style={textPrimary}>
@@ -493,7 +493,7 @@ export default function ProfileScreen() {
                   >
                     <Chip.Label>{STATUS_LABELS[account.status] ?? account.status}</Chip.Label>
                   </Chip>
-                  <Ionicons name="chevron-forward" size={16} color={iconMuted} />
+                  <Icon name="chevron-forward" size={16} color={iconMuted} />
                 </Pressable>
 
                 {account.status === "pending" ? (
@@ -506,7 +506,7 @@ export default function ProfileScreen() {
                     }
                     className="mb-3 flex-row items-center gap-2 rounded-xl bg-warning-soft px-3 py-2"
                   >
-                    <Ionicons name="time-outline" size={14} color={warning} />
+                    <Icon name="time-outline" size={14} color={warning} />
                     <Text className="flex-1 text-xs font-medium text-warning-soft-foreground">
                       Activación CoDi con Banxico (1–5 días hábiles) · Toca para ver el progreso
                     </Text>
@@ -526,7 +526,7 @@ export default function ProfileScreen() {
         )}
         style={glass}
       >
-        <Ionicons name="log-out-outline" size={18} color={iconMuted} />
+        <Icon name="log-out-outline" size={18} color={iconMuted} />
         <Text className="text-sm font-medium text-foreground" style={textPrimary}>
           Cerrar sesión
         </Text>

@@ -6,7 +6,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { openBrowserAsync } from "expo-web-browser";
 import { useState } from "react";
 import { Button, Chip, Spinner, Text, useThemeColor, useToast } from "heroui-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { Alert, Share, View } from "react-native";
 
 import { Container } from "@/components/container";
@@ -227,7 +227,7 @@ export default function OrderScreen() {
               businessPaid ? "bg-success-soft" : "bg-surface-secondary"
             }`}
           >
-            <Ionicons
+            <Icon
               name={businessPaid ? "checkmark" : "storefront-outline"}
               size={30}
               color={businessPaid ? success : muted}
@@ -571,7 +571,7 @@ export default function OrderScreen() {
         className="flex-1 items-center justify-center gap-3 bg-background px-8"
         style={isImmersive ? { backgroundColor: baseColor } : undefined}
       >
-        <Ionicons name="receipt-outline" size={32} color={muted} />
+        <Icon name="receipt-outline" size={32} color={muted} />
         <Text className="text-center text-lg font-semibold text-foreground">
           Pago no encontrado
         </Text>
@@ -692,7 +692,7 @@ export default function OrderScreen() {
             isPaid ? "bg-success-soft" : "bg-surface-secondary"
           }`}
         >
-          <Ionicons
+          <Icon
             name={isPaid ? "checkmark" : "time-outline"}
             size={30}
             color={isPaid ? success : muted}

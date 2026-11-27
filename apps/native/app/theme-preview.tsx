@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { ImpactFeedbackStyle, impactAsync, selectionAsync } from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Text } from "heroui-native";
@@ -167,7 +167,7 @@ function ThemePreviewCard({
                 borderColor: "rgba(255,255,255,0.25)",
               }}
             >
-              <Ionicons name="image-outline" size={20} color={textColor} />
+              <Icon name="image-outline" size={20} color={textColor} />
             </Pressable>
           </View>
 
@@ -306,7 +306,7 @@ export default function ThemePreviewScreen() {
             justifyContent: "center",
           }}
         >
-          <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+          <Icon name="arrow-back" size={20} color="#FFFFFF" />
         </Pressable>
 
         <Text style={{ color: "#FFFFFF" }} className="text-base font-semibold">
@@ -324,7 +324,7 @@ export default function ThemePreviewScreen() {
             justifyContent: "center",
           }}
         >
-          <Ionicons name="refresh" size={19} color="#FFFFFF" />
+          <Icon name="refresh" size={19} color="#FFFFFF" />
         </Pressable>
       </View>
 
@@ -421,7 +421,7 @@ export default function ThemePreviewScreen() {
               justifyContent: "center",
             }}
           >
-            <Ionicons name="contrast" size={22} color="#FFFFFF" />
+            <Icon name="contrast" size={22} color="#FFFFFF" />
           </View>
           <Text style={{ color: "#E4E4E7" }} className="text-xs font-medium">
             {isDark ? "Oscuro" : "Claro"}
@@ -444,7 +444,7 @@ export default function ThemePreviewScreen() {
               justifyContent: "center",
             }}
           >
-            <Ionicons
+            <Icon
               name="color-palette"
               size={22}
               color={showColors ? accent.foreground : "#FFFFFF"}
@@ -471,7 +471,7 @@ export default function ThemePreviewScreen() {
               justifyContent: "center",
             }}
           >
-            <Ionicons name="images" size={21} color="#FFFFFF" />
+            <Icon name="images" size={21} color="#FFFFFF" />
           </View>
           <Text style={{ color: "#E4E4E7" }} className="text-xs font-medium">
             Fondo

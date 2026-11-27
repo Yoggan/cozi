@@ -1,6 +1,6 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import type { BankAccountStatus } from "@cozi/backend/convex/schema";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -376,7 +376,7 @@ export default function BusinessScreen() {
           </View>
         ) : accounts.length === 0 ? (
           <View className="items-center py-8">
-            <Ionicons name="card-outline" size={24} color={iconMuted} />
+            <Icon name="card-outline" size={24} color={iconMuted} />
             <Text className="mt-2 text-sm font-medium text-foreground" style={textPrimary}>
               Sin cuenta de negocio
             </Text>
@@ -397,7 +397,7 @@ export default function BusinessScreen() {
                 className="flex-row items-center gap-3 py-3"
               >
                 <View className="h-9 w-9 items-center justify-center rounded-full bg-surface-secondary">
-                  <Ionicons name="card-outline" size={18} color={iconMuted} />
+                  <Icon name="card-outline" size={18} color={iconMuted} />
                 </View>
                 <View className="flex-1">
                   <Text className="text-sm font-medium text-foreground" style={textPrimary}>
@@ -423,7 +423,7 @@ export default function BusinessScreen() {
                 >
                   <Chip.Label>{STATUS_LABELS[account.status] ?? account.status}</Chip.Label>
                 </Chip>
-                <Ionicons name="chevron-forward" size={16} color={iconMuted} />
+                <Icon name="chevron-forward" size={16} color={iconMuted} />
               </Pressable>
 
               {account.status === "pending" ? (
@@ -436,7 +436,7 @@ export default function BusinessScreen() {
                   }
                   className="mb-3 flex-row items-center gap-2 rounded-xl bg-warning-soft px-3 py-2"
                 >
-                  <Ionicons name="time-outline" size={14} color={warning} />
+                  <Icon name="time-outline" size={14} color={warning} />
                   <Text className="flex-1 text-xs font-medium text-warning-soft-foreground">
                     Activación CoDi con Banxico (1–5 días hábiles) · Toca para ver el progreso
                   </Text>
@@ -478,7 +478,7 @@ export default function BusinessScreen() {
             justifyContent: "center",
           }}
         >
-          <Ionicons name="business" size={22} color={accent.hex} />
+          <Icon name="business" size={22} color={accent.hex} />
         </View>
         <View className="flex-1">
           <Text className="text-lg font-semibold text-foreground" style={textPrimary}>
@@ -538,7 +538,7 @@ export default function BusinessScreen() {
               justifyContent: "center",
             }}
           >
-            <Ionicons name="pricetags" size={19} color={accent.hex} />
+            <Icon name="pricetags" size={19} color={accent.hex} />
           </View>
           <View className="flex-1">
             <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
@@ -548,7 +548,7 @@ export default function BusinessScreen() {
               Productos, precios y disponibilidad
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={iconMuted} />
+          <Icon name="chevron-forward" size={18} color={iconMuted} />
         </Pressable>
       </Animated.View>
 
@@ -561,7 +561,7 @@ export default function BusinessScreen() {
         )}
         style={glass}
       >
-        <Ionicons name="information-circle-outline" size={16} color={muted} />
+        <Icon name="information-circle-outline" size={16} color={muted} />
         <Text className="flex-1 text-xs leading-5 text-muted" style={textSecondary}>
           Para cobrar con CoDi necesitas una cuenta verificada del negocio. Tu @handle no se puede
           cambiar por ahora.

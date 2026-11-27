@@ -5,7 +5,7 @@ import {
   isBusinessDay,
   shiftBusinessDay,
 } from "@cozi/backend/convex/lib/businessDay";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useAction, useMutation, usePaginatedQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { Link } from "expo-router";
@@ -241,7 +241,7 @@ export default function BusinessCloseout() {
                 isDisabled={!previousDay || !isBusinessDay(previousDay)}
                 onPress={() => selectDay(previousDay)}
               >
-                <Ionicons name="chevron-back" size={18} color={foreground} />
+                <Icon name="chevron-back" size={18} color={foreground} />
               </Button>
               <Button
                 accessibilityLabel="Día siguiente"
@@ -250,7 +250,7 @@ export default function BusinessCloseout() {
                 isDisabled={!nextDay || !isBusinessDay(nextDay)}
                 onPress={() => selectDay(nextDay)}
               >
-                <Ionicons name="chevron-forward" size={18} color={foreground} />
+                <Icon name="chevron-forward" size={18} color={foreground} />
               </Button>
               <Button
                 accessibilityLabel="Actualizar corte"
@@ -259,7 +259,7 @@ export default function BusinessCloseout() {
                 isDisabled={loadingSummary || savingZone}
                 onPress={() => setRefreshNonce((current) => current + 1)}
               >
-                <Ionicons name="refresh" size={18} color={foreground} />
+                <Icon name="refresh" size={18} color={foreground} />
               </Button>
               <Button
                 className="ml-auto"

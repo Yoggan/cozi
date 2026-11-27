@@ -1,5 +1,5 @@
 import { api } from "@cozi/backend/convex/_generated/api";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -57,7 +57,7 @@ function QuantityButton({
         opacity: disabled ? 0.35 : pressed ? 0.6 : 1,
       })}
     >
-      <Ionicons name={icon} size={16} color={theme.text} />
+      <Icon name={icon} size={16} color={theme.text} />
     </Pressable>
   );
 }
@@ -231,7 +231,7 @@ export default function BusinessOrderScreen() {
                     borderColor: theme.warningBorder,
                   }}
                 >
-                  <Ionicons name="alert-circle" size={20} color={theme.warningText} />
+                  <Icon name="alert-circle" size={20} color={theme.warningText} />
                   <Text
                     style={{
                       flex: 1,

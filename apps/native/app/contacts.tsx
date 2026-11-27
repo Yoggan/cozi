@@ -1,6 +1,6 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import type { Id } from "@cozi/backend/convex/_generated/dataModel";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useMutation, useQuery } from "convex/react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -251,7 +251,7 @@ export default function ContactsScreen() {
                         borderColor: theme.pillBorder,
                       }}
                     >
-                      <Ionicons name="people-outline" size={20} color={theme.text} />
+                      <Icon name="people-outline" size={20} color={theme.text} />
                     </View>
                     <Text
                       style={{
@@ -369,7 +369,7 @@ export default function ContactsScreen() {
                             onPress={() => startEdit(managed)}
                             style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}
                           >
-                            <Ionicons name="pricetag-outline" size={18} color={theme.icon} />
+                            <Icon name="pricetag-outline" size={18} color={theme.icon} />
                           </Pressable>
                         ) : null}
                         <Pressable
@@ -381,7 +381,7 @@ export default function ContactsScreen() {
                           onPress={() => confirmRemove(managed)}
                           style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}
                         >
-                          <Ionicons name="trash-outline" size={18} color={theme.icon} />
+                          <Icon name="trash-outline" size={18} color={theme.icon} />
                         </Pressable>
                       </View>
                     );

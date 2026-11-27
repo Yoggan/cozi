@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Chip, Spinner, Text, useToast } from "heroui-native";
@@ -207,7 +207,7 @@ export default function AccountsScreen() {
                         : "rgba(34, 197, 94, 0.18)",
                     }}
                   >
-                    <Ionicons
+                    <Icon
                       name={business ? "storefront-outline" : "person-outline"}
                       size={20}
                       color={business ? "#A5B4FC" : "#4ADE80"}
@@ -253,11 +253,11 @@ export default function AccountsScreen() {
               padding: 12,
             }}
           >
-            <Ionicons name="lock-closed-outline" size={18} color={theme.warningText} />
+            <Icon name="lock-closed-outline" size={18} color={theme.warningText} />
             <Text style={{ flex: 1, color: theme.warningText, fontSize: 12, lineHeight: 18 }}>
               Configura un PIN para entrar a cuentas de negocio.
             </Text>
-            <Ionicons name="chevron-forward" size={16} color={theme.warningText} />
+            <Icon name="chevron-forward" size={16} color={theme.warningText} />
           </Pressable>
         ) : null}
 
@@ -318,7 +318,7 @@ export default function AccountsScreen() {
                   backgroundColor: "rgba(255, 255, 255, 0.10)",
                 }}
               >
-                <Ionicons name="lock-closed-outline" size={24} color={theme.text} />
+                <Icon name="lock-closed-outline" size={24} color={theme.text} />
               </View>
               <Text style={{ color: theme.text, fontSize: 18, fontWeight: "700" }}>
                 Entra a tu negocio
