@@ -181,14 +181,14 @@ export default function BusinessCatalogScreen() {
 
   if (!business) {
     return (
-      <Container className="px-5 pt-6">
+      <Container className="px-4 pt-6">
         <Text className="text-sm text-muted">Todavía no tienes un negocio.</Text>
       </Container>
     );
   }
 
   return (
-    <Container className="px-5 pt-4">
+    <Container className="px-4 pt-4">
       <Animated.View
         entering={FadeInDown.duration(220)}
         className="flex-row items-center justify-between gap-3"
@@ -350,6 +350,9 @@ export default function BusinessCatalogScreen() {
           pagar; si lo dejas vacío, no se controla.
         </Text>
       </View>
+
+      {/* Lets the last card scroll above the floating tab bar. */}
+      <View className="h-28" />
     </Container>
   );
 }

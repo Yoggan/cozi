@@ -22,8 +22,8 @@ import { getBackdropById } from "@/lib/themes";
 
 type Mode = "signin" | "signup";
 
-const BASE_COLOR = "#0E1B0D";
-const FOREST_BACKDROP = getBackdropById("forest");
+const BASE_COLOR = "#000000";
+const AUTH_BACKDROP = getBackdropById("pure-black");
 const ENTER = FadeInDown.duration(420);
 const SWITCH_TIMING = { duration: 180, easing: Easing.out(Easing.cubic) };
 
@@ -97,7 +97,7 @@ export default function AuthScreen() {
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
-      {FOREST_BACKDROP ? <ThemeBackdrop backdrop={FOREST_BACKDROP} height={460} /> : null}
+      {AUTH_BACKDROP ? <ThemeBackdrop backdrop={AUTH_BACKDROP} height={460} /> : null}
 
       <KeyboardAwareScrollView
         bottomOffset={28}
@@ -112,6 +112,7 @@ export default function AuthScreen() {
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
       >
         <View style={styles.column}>
           <Animated.View entering={ENTER} style={styles.badge}>
@@ -211,7 +212,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     padding: 4,
     borderRadius: 24,
-    backgroundColor: "rgba(16, 22, 16, 0.65)",
+    backgroundColor: "rgba(18, 18, 18, 0.80)",
     shadowColor: "#000000",
     shadowOpacity: 0.24,
     shadowRadius: 18,
@@ -263,7 +264,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.14)",
-    backgroundColor: "rgba(22, 36, 21, 0.72)",
+    backgroundColor: "rgba(18, 18, 18, 0.92)",
     overflow: "hidden",
     elevation: 10,
   },

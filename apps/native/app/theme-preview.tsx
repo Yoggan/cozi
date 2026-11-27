@@ -143,7 +143,7 @@ function ThemePreviewCard({
               style={{ color: textColor }}
               className="text-sm font-semibold tracking-tight opacity-95"
             >
-              Personal Â· MXN
+              Personal · MXN
             </Text>
             <Text style={{ color: textColor }} className="mt-0.5 text-xs opacity-65">
               {item.name}
@@ -336,6 +336,7 @@ export default function ThemePreviewScreen() {
           keyExtractor={(item) => item.id}
           horizontal
           showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
           initialScrollIndex={initialIndex}
           onScroll={onScroll}
           scrollEventThrottle={16}

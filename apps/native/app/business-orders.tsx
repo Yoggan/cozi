@@ -76,15 +76,19 @@ export default function BusinessOrdersScreen() {
 
   if (!business) {
     return (
-      <Container className="px-5 pt-6">
+      <Container className="px-4 pt-6">
         <Text className="text-sm text-muted">Todavía no tienes un negocio.</Text>
       </Container>
     );
   }
 
   return (
-    <Container className="px-5 pt-4">
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+    <Container className="px-4 pt-4">
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
+      >
         <View className="flex-row gap-2 pb-1">
           {FILTERS.map((option) => {
             const active = option.value === filter;
@@ -193,6 +197,9 @@ export default function BusinessOrdersScreen() {
       </View>
 
       <View style={{ height: 32 }} />
+
+      {/* Lets the last card scroll above the floating tab bar. */}
+      <View className="h-28" />
     </Container>
   );
 }

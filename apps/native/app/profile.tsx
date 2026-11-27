@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AccountsAvatar } from "@/components/accounts-avatar";
 import { Container } from "@/components/container";
+import { ProfileCodeCard } from "@/components/profile-code-card";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAppLock } from "@/contexts/app-lock-context";
@@ -188,6 +189,12 @@ export default function ProfileScreen() {
           <Button.Label>Editar</Button.Label>
         </Button>
       </Animated.View>
+
+      {profile.accountType === "personal" && profile.handle ? (
+        <View className="mt-4">
+          <ProfileCodeCard handle={profile.handle} canReceive={profile.hasReceivingAccount} />
+        </View>
+      ) : null}
 
       <Animated.View entering={FadeInDown.duration(220).delay(30)}>
         <Pressable

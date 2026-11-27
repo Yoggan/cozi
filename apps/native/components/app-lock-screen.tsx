@@ -25,7 +25,7 @@ import { authClient } from "@/lib/auth-client";
 import { getBackdropById } from "@/lib/themes";
 
 const PIN_LENGTH = 4;
-const FOREST = getBackdropById("forest");
+const DEFAULT_BACKDROP = getBackdropById("pure-black");
 const KEY_TIMING = { duration: 90, easing: Easing.out(Easing.quad) };
 const DOT_TIMING = { duration: 120, easing: Easing.out(Easing.cubic) };
 
@@ -238,7 +238,7 @@ export function AppLockScreen() {
   const [biometricBusy, setBiometricBusy] = useState(false);
   const biometricAttempted = useRef(false);
 
-  const background = backdrop ?? FOREST;
+  const background = backdrop ?? DEFAULT_BACKDROP;
 
   const handleBiometric = useCallback(async () => {
     if (biometricBusy) {

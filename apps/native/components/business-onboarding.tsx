@@ -78,6 +78,7 @@ export function BusinessOnboarding({ businessAccount = false }: { businessAccoun
         }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
       >
         <Animated.View entering={FadeInDown.duration(320)}>
           <View

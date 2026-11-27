@@ -70,7 +70,6 @@ export function ContactsStrip() {
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          paddingHorizontal: 4,
           marginBottom: 10,
         }}
       >
@@ -127,6 +126,7 @@ export function ContactsStrip() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={{ gap: 14, paddingRight: 16 }}
         >
           {contacts.map((contact) => (

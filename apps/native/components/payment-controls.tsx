@@ -12,6 +12,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { useAppTheme } from "@/contexts/app-theme-context";
+import { COZI_DARK_COLORS, COZI_LIGHT_COLORS } from "@/lib/themes";
 
 const PRESS_TIMING = { duration: 100, easing: Easing.out(Easing.quad) };
 const QUICK_AMOUNTS = [100, 200, 500, 1000];
@@ -45,8 +46,8 @@ export function usePaymentTheme() {
     pillBorder: dark ? "rgba(255, 255, 255, 0.18)" : "rgba(9, 9, 11, 0.08)",
     headerFill: dark ? "rgba(255, 255, 255, 0.12)" : "rgba(9, 9, 11, 0.05)",
     headerBorder: dark ? "rgba(255, 255, 255, 0.18)" : "rgba(9, 9, 11, 0.08)",
-    ctaFill: dark ? "#FFFFFF" : "#09090B",
-    ctaText: dark ? "#09090B" : "#FFFFFF",
+    ctaFill: (dark ? COZI_DARK_COLORS : COZI_LIGHT_COLORS).primaryAction,
+    ctaText: (dark ? COZI_DARK_COLORS : COZI_LIGHT_COLORS).primaryActionText,
     successFill: dark ? "rgba(34, 197, 94, 0.16)" : "rgba(34, 197, 94, 0.10)",
     successBorder: dark ? "rgba(74, 222, 128, 0.40)" : "rgba(22, 163, 74, 0.28)",
     successText: dark ? "#86EFAC" : "#15803D",

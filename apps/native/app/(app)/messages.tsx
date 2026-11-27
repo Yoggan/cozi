@@ -35,7 +35,10 @@ export default function MessagesScreen() {
   const { isImmersive, cardColor, cardBorder } = useAppTheme();
 
   return (
-    <Container className="px-5" style={{ paddingTop: insets.top }}>
+    <Container
+      className="px-4"
+      style={{ paddingTop: insets.top, paddingBottom: insets.bottom + 80 }}
+    >
       <View className="pb-4 pt-4">
         <Text
           className="text-2xl font-semibold tracking-tight text-foreground"

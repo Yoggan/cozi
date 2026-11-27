@@ -3,7 +3,14 @@ import { setBackgroundColorAsync } from "expo-system-ui";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Uniwind, useUniwind } from "uniwind";
 
-import { DEFAULT_PRESET_ID, getAccentById, getBackdropById, getPresetById } from "@/lib/themes";
+import {
+  COZI_DARK_COLORS,
+  COZI_LIGHT_COLORS,
+  DEFAULT_PRESET_ID,
+  getAccentById,
+  getBackdropById,
+  getPresetById,
+} from "@/lib/themes";
 import type { AccentOption, BackdropOption, ThemePreset } from "@/lib/themes";
 
 type ThemeName = "light" | "dark";
@@ -96,6 +103,16 @@ export const AppThemeProvider = ({ children }: { children: React.ReactNode }) =>
   const baseColor = backdrop?.baseColor ?? preset.baseColor;
   const cardColor = backdrop?.cardColor ?? preset.cardColor;
   const cardBorder = backdrop?.cardBorder ?? preset.cardBorder;
+
+  // Backdrops stay dark even in light mode, so buttons there must keep the dark-mode colors.
+  useEffect(() => {
+    const button = isImmersive ? COZI_DARK_COLORS : COZI_LIGHT_COLORS;
+
+    Uniwind.updateCSSVariables("light", {
+      "--accent": button.primaryAction,
+      "--accent-foreground": button.primaryActionText,
+    });
+  }, [isImmersive]);
 
   // Android edge-to-edge system bars are transparent; the root view color shows through.
   useEffect(() => {

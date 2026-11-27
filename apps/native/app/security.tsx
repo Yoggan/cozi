@@ -250,6 +250,7 @@ export default function SecurityScreen() {
           paddingBottom: Math.max(insets.bottom, 20) + 24,
         }}
         showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
       >
         <View style={styles.column}>
           <Animated.View entering={FadeInDown.duration(220)} style={styles.header}>

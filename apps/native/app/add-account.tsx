@@ -124,6 +124,7 @@ export default function AddAccountScreen() {
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
       >
         <View style={{ width: "100%", maxWidth: 460, alignSelf: "center", gap: 18 }}>
           <View style={{ flexDirection: "row", gap: 8 }}>

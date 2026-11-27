@@ -15,6 +15,8 @@ type ThemeBackdropProps = {
  */
 export function ThemeBackdrop({ backdrop, height, fadeToBase = true }: ThemeBackdropProps) {
   const containerStyle = height ? [styles.wrapper, { height }] : StyleSheet.absoluteFill;
+  // A single-color gradient (e.g. pure black) should stay flat, without the highlight glow.
+  const solid = backdrop.gradientColors?.every((color) => color === backdrop.baseColor) ?? false;
 
   return (
     <View style={containerStyle} pointerEvents="none">
@@ -35,7 +37,7 @@ export function ThemeBackdrop({ backdrop, height, fadeToBase = true }: ThemeBack
             </RadialGradient>
           </Defs>
           <Rect width="100%" height="100%" fill={`url(#bg-${backdrop.id})`} />
-          <Rect width="100%" height="100%" fill={`url(#glow-${backdrop.id})`} />
+          {solid ? null : <Rect width="100%" height="100%" fill={`url(#glow-${backdrop.id})`} />}
         </Svg>
       )}
 

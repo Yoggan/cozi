@@ -1,5 +1,25 @@
 import type { ImageSourcePropType } from "react-native";
 
+export const COZI_DARK_COLORS = {
+  glass: "rgba(10, 42, 32, 0.62)",
+  subtleBorder: "rgba(245, 239, 227, 0.10)",
+  primaryText: "#FFFFFF",
+  secondaryText: "#BCC6C0",
+  primaryAction: "#FFFFFF",
+  primaryActionText: "#09090B",
+};
+
+export const COZI_LIGHT_COLORS = {
+  canvas: "#FBF8F2",
+  glass: "rgba(255, 255, 255, 0.72)",
+  subtleBorder: "rgba(11, 15, 13, 0.08)",
+  primaryText: "#0B0F0D",
+  secondaryText: "#26302B",
+  primaryAction: "#09090B",
+  primaryActionText: "#FFFFFF",
+  secondaryAction: "#E8DFCF",
+};
+
 export type BackdropCategory = "todos" | "naturaleza" | "abstracto" | "seda" | "metal";
 
 export type AccentOption = {
@@ -20,6 +40,8 @@ export type BackdropOption = {
   baseColor: string;
   cardColor: string;
   cardBorder: string;
+  glassColor?: string;
+  glassBorder?: string;
   defaultAccentId: string;
 };
 
@@ -91,6 +113,19 @@ export const ACCENT_OPTIONS: Array<AccentOption> = [
 
 export const BACKDROP_OPTIONS: Array<BackdropOption> = [
   {
+    id: "pure-black",
+    name: "Negro",
+    category: "abstracto",
+    kind: "gradient",
+    gradientColors: ["#000000", "#000000", "#000000"],
+    baseColor: "#000000",
+    cardColor: "rgba(18, 18, 18, 0.92)",
+    cardBorder: "rgba(255, 255, 255, 0.08)",
+    glassColor: "rgba(18, 18, 18, 0.92)",
+    glassBorder: "rgba(245, 239, 227, 0.08)",
+    defaultAccentId: "emerald",
+  },
+  {
     id: "forest",
     name: "Bosque",
     category: "naturaleza",
@@ -99,6 +134,7 @@ export const BACKDROP_OPTIONS: Array<BackdropOption> = [
     baseColor: "#0E1B0D",
     cardColor: "rgba(28, 46, 26, 0.72)",
     cardBorder: "rgba(255, 255, 255, 0.10)",
+    glassColor: COZI_DARK_COLORS.glass,
     defaultAccentId: "emerald",
   },
   {
@@ -110,6 +146,7 @@ export const BACKDROP_OPTIONS: Array<BackdropOption> = [
     baseColor: "#080B1A",
     cardColor: "rgba(20, 25, 52, 0.74)",
     cardBorder: "rgba(255, 255, 255, 0.10)",
+    glassColor: "rgba(20, 25, 52, 0.70)",
     defaultAccentId: "indigo",
   },
   {
@@ -121,6 +158,7 @@ export const BACKDROP_OPTIONS: Array<BackdropOption> = [
     baseColor: "#141C14",
     cardColor: "rgba(35, 46, 35, 0.72)",
     cardBorder: "rgba(255, 255, 255, 0.10)",
+    glassColor: "rgba(35, 46, 35, 0.70)",
     defaultAccentId: "emerald",
   },
   {
@@ -132,6 +170,8 @@ export const BACKDROP_OPTIONS: Array<BackdropOption> = [
     baseColor: "#0D1624",
     cardColor: "rgba(24, 36, 56, 0.74)",
     cardBorder: "rgba(255, 255, 255, 0.11)",
+    glassColor: "rgba(24, 36, 56, 0.72)",
+    glassBorder: "rgba(245, 239, 227, 0.11)",
     defaultAccentId: "sky",
   },
   {
@@ -154,6 +194,7 @@ export const BACKDROP_OPTIONS: Array<BackdropOption> = [
     baseColor: "#09091A",
     cardColor: "rgba(26, 24, 58, 0.74)",
     cardBorder: "rgba(255, 255, 255, 0.10)",
+    glassColor: "rgba(26, 24, 58, 0.72)",
     defaultAccentId: "indigo",
   },
   {
@@ -165,6 +206,7 @@ export const BACKDROP_OPTIONS: Array<BackdropOption> = [
     baseColor: "#141A13",
     cardColor: "rgba(36, 44, 34, 0.74)",
     cardBorder: "rgba(255, 255, 255, 0.10)",
+    glassColor: "rgba(36, 44, 34, 0.72)",
     defaultAccentId: "amber",
   },
   {
@@ -187,11 +229,25 @@ export const BACKDROP_OPTIONS: Array<BackdropOption> = [
     baseColor: "#09090B",
     cardColor: "rgba(28, 28, 33, 0.80)",
     cardBorder: "rgba(255, 255, 255, 0.09)",
+    glassColor: "rgba(28, 28, 33, 0.78)",
+    glassBorder: "rgba(245, 239, 227, 0.09)",
     defaultAccentId: "silver",
   },
 ];
 
 export const THEME_PRESETS: Array<ThemePreset> = [
+  {
+    id: "negro",
+    name: "Negro",
+    subtitle: "Principal",
+    immersive: true,
+    backdropId: "pure-black",
+    baseColor: "#000000",
+    cardColor: "rgba(18, 18, 18, 0.92)",
+    cardBorder: "rgba(255, 255, 255, 0.08)",
+    defaultAccentId: "emerald",
+    defaultMode: "dark",
+  },
   {
     id: "bosque",
     name: "Bosque",
@@ -266,7 +322,7 @@ export const THEME_PRESETS: Array<ThemePreset> = [
   },
 ];
 
-export const DEFAULT_PRESET_ID = "bosque";
+export const DEFAULT_PRESET_ID = "negro";
 
 export function getPresetById(id: string | null | undefined): ThemePreset {
   return THEME_PRESETS.find((preset) => preset.id === id) ?? THEME_PRESETS[0];
