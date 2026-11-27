@@ -43,7 +43,7 @@
   --secondary: #e8dfcf;
   --muted: #f5efe3;
   --muted-foreground: #26302b;
-  --destructive: #dc2626;
+  --destructive: #b91c1c; /* red-700: 4.5:1 on its own 10% tint */
   --success: #15803d;
   --warning: #b45309;
   --border: #0b0f0d14;
