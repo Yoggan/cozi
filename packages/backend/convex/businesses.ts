@@ -7,6 +7,7 @@ import { businessStatusValidator } from "./schema";
 import { isVerifiedReceivingAccount } from "./lib/bankAccounts";
 import { claimHandle } from "./lib/handles";
 import { HANDLE_PATTERN, handleBase, normalizeHandle } from "./lib/identifiers";
+import { availableStock } from "./lib/inventory";
 
 async function requireUser(ctx: QueryCtx | MutationCtx): Promise<Doc<"users">> {
   const identity = await ctx.auth.getUserIdentity();
@@ -246,7 +247,7 @@ export const getByHandle = query({
           imageUrl: product.imageStorageId
             ? await ctx.storage.getUrl(product.imageStorageId)
             : null,
-          stock: product.stock ?? null,
+          stock: availableStock(product),
         })),
       ),
     };

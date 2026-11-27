@@ -29,6 +29,7 @@ import { normalizePaymentStatus } from "./types";
  */
 const DEFAULT_BASE_URL = "https://api.pey.mx";
 const CODI_EXPIRATION_SECONDS = 600;
+export const CODI_QR_EXPIRY_GRACE_MS = 60_000;
 
 const ROUTES = {
   bankAccount: "/bank-account",
@@ -143,6 +144,15 @@ function numericRef(reference: string): string {
   return digits.length > 0 ? digits : String(Date.now()).slice(-7);
 }
 
+export class PeyHttpError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 async function peyFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const baseUrl = getBaseUrl();
 
@@ -158,7 +168,10 @@ async function peyFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     // La respuesta puede contener datos del titular: no la persistimos.
     const detail = await response.text();
-    throw new Error(`Pey ${response.status} ${path}: ${detail.slice(0, 300)}`);
+    throw new PeyHttpError(
+      response.status,
+      `Pey ${response.status} ${path}: ${detail.slice(0, 300)}`,
+    );
   }
 
   // SAFETY: el cliente confía en el contrato de Pey; los campos se validan al mapear.
@@ -431,7 +444,7 @@ export const pey: PeyClient = {
         successUrl: orderUrl,
         backUrl: orderUrl,
         hasTip: false,
-        clientReferenceId: input.reference,
+        clientReferenceId: input.attemptId ?? input.reference,
         metadata: {
           orderId: input.reference,
           bankAccountId: input.bankAccountId,
@@ -498,13 +511,31 @@ export async function getPaymentStatus(
   lookup: PaymentLookup | null,
   options: PaymentLookupOptions,
 ): Promise<PeyPaymentUpdate> {
+  if (
+    lookup &&
+    options.expiresAt !== undefined &&
+    options.expiresAt <= Date.now() &&
+    lookup.id.startsWith("mock_")
+  ) {
+    return { status: "expired" };
+  }
+
   switch (lookup?.kind) {
     case "transaction":
       return toUpdate(await pey.getTransaction(lookup.id, options.signal));
     case "link":
       return toUpdate(await pey.getPaymentLink(lookup.id, options));
-    case "codi":
-      return toUpdate(await pey.getCodiCharge(lookup.id, options));
+    case "codi": {
+      const charge = await pey.getCodiCharge(lookup.id, options);
+
+      const expiredWithoutPayment =
+        charge.status === "pending" &&
+        options.expiresAt !== undefined &&
+        options.expiresAt + CODI_QR_EXPIRY_GRACE_MS <= Date.now();
+
+      return toUpdate(expiredWithoutPayment ? { ...charge, status: "expired" } : charge);
+    }
+
     default:
       throw new Error("El pago no tiene referencia de Pey para consultar su estado");
   }
