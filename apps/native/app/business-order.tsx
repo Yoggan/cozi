@@ -17,6 +17,7 @@ import {
 } from "@/components/payment-controls";
 import { ThemeBackdrop } from "@/components/theme-backdrop";
 import { useProfile } from "@/contexts/profile-context";
+import { getErrorMessage } from "@/lib/errors";
 import { formatMxn, parseAmountToCents } from "@/lib/money";
 
 function cleanHandle(value: string): string {
@@ -152,12 +153,12 @@ export default function BusinessOrderScreen() {
       try {
         await createPaymentLink({ orderId: order.orderId, expiresInMinutes: 1440 });
       } catch (error) {
+        const detail = getErrorMessage(error, "");
         toast.show({
           variant: "danger",
-          label:
-            error instanceof Error
-              ? `Pedido creado, pero no pudimos generar el link: ${error.message}`
-              : "Pedido creado, pero no pudimos generar el link",
+          label: detail
+            ? `Pedido creado, pero no pudimos generar el link: ${detail}`
+            : "Pedido creado, pero no pudimos generar el link",
         });
       }
 
@@ -168,7 +169,7 @@ export default function BusinessOrderScreen() {
     } catch (error) {
       toast.show({
         variant: "danger",
-        label: error instanceof Error ? error.message : "No pudimos crear el pedido",
+        label: getErrorMessage(error, "No pudimos crear el pedido"),
       });
     } finally {
       setIsSubmitting(false);

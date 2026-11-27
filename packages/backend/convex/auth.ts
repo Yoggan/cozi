@@ -20,8 +20,41 @@ function requireEnv(name: string): string {
   return value;
 }
 
+const DEFAULT_EXPO_WEB_ORIGINS = ["http://localhost:8081"];
+
+function parseExactOrigins(raw: string | undefined, fallback: Array<string>): Array<string> {
+  if (raw === undefined) {
+    return fallback;
+  }
+
+  const parsed = raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => /^https?:\/\//i.test(entry) && !entry.includes("*"))
+    .flatMap((entry) => {
+      try {
+        const url = new URL(entry);
+
+        if (url.username || url.password) {
+          return [];
+        }
+
+        if (url.protocol !== "http:" && url.protocol !== "https:") {
+          return [];
+        }
+
+        return [url.origin];
+      } catch {
+        return [];
+      }
+    });
+
+  return parsed.length > 0 ? parsed : fallback;
+}
+
 const siteUrl = requireEnv("SITE_URL");
 const nativeAppUrl = process.env.NATIVE_APP_URL || "cozi://";
+const expoWebOrigins = parseExactOrigins(process.env.EXPO_WEB_ORIGINS, DEFAULT_EXPO_WEB_ORIGINS);
 
 export const authComponent = createClient<DataModel>(components.betterAuth);
 
@@ -34,8 +67,13 @@ function createAuth(ctx: GenericCtx<DataModel>) {
     advanced: {
       trustedProxyHeaders: true,
     },
-    trustedOrigins: [siteUrl, nativeAppUrl, "exp://", "http://localhost:8081"],
+    trustedOrigins: [...new Set([siteUrl, nativeAppUrl, "exp://", ...expoWebOrigins])],
     database: authComponent.adapter(ctx),
+    account: {
+      accountLinking: {
+        enabled: true,
+      },
+    },
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,

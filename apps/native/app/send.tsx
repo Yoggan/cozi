@@ -19,6 +19,7 @@ import {
   usePaymentTheme,
 } from "@/components/payment-controls";
 import { ThemeBackdrop } from "@/components/theme-backdrop";
+import { getErrorMessage } from "@/lib/errors";
 import { parseAmountToCents } from "@/lib/money";
 import { firstParam } from "@/lib/search-params";
 
@@ -164,7 +165,7 @@ export default function SendScreen() {
     } catch (error) {
       toast.show({
         variant: "danger",
-        label: error instanceof Error ? error.message : "No pudimos guardar el contacto",
+        label: getErrorMessage(error, "No pudimos guardar el contacto"),
       });
     } finally {
       setIsSavingContact(false);
@@ -190,7 +191,7 @@ export default function SendScreen() {
       } catch (error) {
         toast.show({
           variant: "danger",
-          label: error instanceof Error ? error.message : "No pudimos generar el link de pago",
+          label: getErrorMessage(error, "No pudimos generar el link de pago"),
         });
       }
 
@@ -201,7 +202,7 @@ export default function SendScreen() {
     } catch (error) {
       toast.show({
         variant: "danger",
-        label: error instanceof Error ? error.message : "No pudimos iniciar el envío",
+        label: getErrorMessage(error, "No pudimos iniciar el envío"),
       });
     } finally {
       setIsSubmitting(false);
@@ -342,8 +343,11 @@ export default function SendScreen() {
                 lineHeight: 18,
               }}
             >
-              Link de pago CoDi a nombre de @{cleanRecipient || "tu contacto"}. El dinero llega
-              directo a su cuenta, sin comisiones.
+              {recipientLookup && !recipientLookup.isSelf
+                ? recipientLookup.canReceive
+                  ? `Link de pago CoDi a nombre de @${cleanRecipient}. El dinero llega directo a su cuenta, sin comisiones.`
+                  : "Cuando active su cuenta receptora podrás enviarle dinero por CoDi, sin comisiones."
+                : "Pagos directos por CoDi, sin comisiones."}
             </Text>
           </View>
         </View>

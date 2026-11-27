@@ -1,6 +1,6 @@
 import { ImpactFeedbackStyle, impactAsync } from "expo-haptics";
 import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -84,9 +84,12 @@ export function GoogleSignInButton({ onError }: GoogleSignInButtonProps) {
     setInlineError(null);
 
     try {
+      const callbackURL =
+        Platform.OS === "web" && typeof window !== "undefined" ? window.location.origin : "/";
+
       const result = await authClient.signIn.social({
         provider: "google",
-        callbackURL: "/",
+        callbackURL,
       });
 
       if (result.error) {

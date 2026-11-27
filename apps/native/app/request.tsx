@@ -21,6 +21,7 @@ import {
 } from "@/components/payment-controls";
 import { ThemeBackdrop } from "@/components/theme-backdrop";
 import { useProfile } from "@/contexts/profile-context";
+import { getErrorMessage } from "@/lib/errors";
 import { parseAmountToCents } from "@/lib/money";
 import { firstParam } from "@/lib/search-params";
 
@@ -100,7 +101,7 @@ export default function RequestScreen() {
       } catch (error) {
         toast.show({
           variant: "danger",
-          label: error instanceof Error ? error.message : "No pudimos generar el link de pago",
+          label: getErrorMessage(error, "No pudimos generar el link de pago"),
         });
       }
 
@@ -111,7 +112,7 @@ export default function RequestScreen() {
     } catch (error) {
       toast.show({
         variant: "danger",
-        label: error instanceof Error ? error.message : "No pudimos crear el cobro",
+        label: getErrorMessage(error, "No pudimos crear el cobro"),
       });
     } finally {
       setIsSubmitting(false);

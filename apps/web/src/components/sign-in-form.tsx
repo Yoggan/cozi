@@ -1,128 +1,108 @@
 import { Button } from "@cozi/ui/components/button";
-import { Input } from "@cozi/ui/components/input";
-import { Label } from "@cozi/ui/components/label";
-import { useForm } from "@tanstack/react-form";
-import { useNavigate } from "@tanstack/react-router";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import z from "zod";
 
+import { Field, Form, field } from "@/components/cozi";
 import { authClient } from "@/lib/auth-client";
 
-export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
-  const navigate = useNavigate({
-    from: "/",
-  });
+export function AuthFields({ signup = false }: { signup?: boolean }) {
+  return (
+    <>
+      {signup && (
+        <Field
+          name="name"
+          label="Tu nombre"
+          autoComplete="name"
+          required
+          minLength={2}
+          maxLength={50}
+        />
+      )}
+      <Field name="email" label="Correo electrónico" type="email" autoComplete="email" required />
+      <Field
+        name="password"
+        label="Contraseña"
+        type="password"
+        autoComplete={signup ? "new-password" : "current-password"}
+        required
+        minLength={signup ? 8 : undefined}
+      />
+    </>
+  );
+}
 
-  const form = useForm({
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-    onSubmit: async ({ value }) => {
-      await authClient.signIn.email(
-        {
-          email: value.email,
-          password: value.password,
-        },
-        {
-          onSuccess: () => {
-            void navigate({
-              to: "/dashboard",
-            });
-            toast.success("Sign in successful");
-          },
-          onError: (error) => {
-            toast.error(error.error.message || error.error.statusText);
-          },
-        },
-      );
-    },
-    validators: {
-      onSubmit: z.object({
-        email: z.email("Invalid email address"),
-        password: z.string().min(8, "Password must be at least 8 characters"),
-      }),
-    },
-  });
+export function GoogleSignIn() {
+  const [busy, setBusy] = useState(false);
+  const pending = useRef(false);
+
+  async function signIn() {
+    if (pending.current) {
+      return;
+    }
+
+    pending.current = true;
+    setBusy(true);
+
+    try {
+      const { error } = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: window.location.href,
+        errorCallbackURL: window.location.href,
+      });
+
+      if (!error) {
+        return;
+      }
+    } catch {
+      // Both unavailable Google sign-in and connection failures can be retried.
+    }
+
+    toast.error("No pudimos iniciar sesión con Google. Intenta de nuevo.");
+    pending.current = false;
+    setBusy(false);
+  }
 
   return (
-    <div className="mx-auto w-full mt-10 max-w-md p-6">
-      <h1 className="mb-6 text-center text-3xl font-bold">Welcome Back</h1>
+    <Button
+      type="button"
+      variant="outline"
+      className="w-full"
+      onClick={() => void signIn()}
+      disabled={busy}
+    >
+      {busy ? "Abriendo Google…" : "Continuar con Google"}
+    </Button>
+  );
+}
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          void form.handleSubmit();
+export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
+  return (
+    <div className="panel space-y-4">
+      <Form
+        className="stack"
+        submit="Inicia sesión"
+        fallback="No pudimos iniciar sesión. Revisa tu correo y contraseña."
+        onSubmit={async (data) => {
+          const { error } = await authClient.signIn.email({
+            email: field(data, "email"),
+            password: String(data.get("password") ?? ""),
+          });
+
+          if (error) {
+            throw new Error(error.code);
+          }
         }}
-        className="space-y-4"
       >
-        <div>
-          <form.Field name="email">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor={field.name}>Email</Label>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  type="email"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-                {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
-                    {error?.message}
-                  </p>
-                ))}
-              </div>
-            )}
-          </form.Field>
-        </div>
-
-        <div>
-          <form.Field name="password">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor={field.name}>Password</Label>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  type="password"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-                {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
-                    {error?.message}
-                  </p>
-                ))}
-              </div>
-            )}
-          </form.Field>
-        </div>
-
-        <form.Subscribe
-          selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}
-        >
-          {({ canSubmit, isSubmitting }) => (
-            <Button type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>
-              {isSubmitting ? "Submitting..." : "Sign In"}
-            </Button>
-          )}
-        </form.Subscribe>
-      </form>
-
-      <div className="mt-4 text-center">
-        <Button
-          variant="link"
-          onClick={onSwitchToSignUp}
-          className="text-indigo-600 hover:text-indigo-800"
-        >
-          Need an account? Sign Up
-        </Button>
-      </div>
+        <AuthFields />
+      </Form>
+      <GoogleSignIn />
+      <button
+        type="button"
+        className="min-h-11 text-sm font-semibold underline underline-offset-4"
+        onClick={onSwitchToSignUp}
+      >
+        Crea tu cuenta
+      </button>
     </div>
   );
 }

@@ -26,6 +26,7 @@ import { normalizePaymentStatus } from "./types";
  * `PEY_API_KEY` (y opcionalmente `PEY_MODE=live`).
  */
 const DEFAULT_BASE_URL = "https://api.pey.mx";
+const CODI_EXPIRATION_SECONDS = 600;
 
 const ROUTES = {
   bankAccount: "/bank-account",
@@ -73,8 +74,51 @@ function getBaseUrl(): string {
   return (process.env.PEY_API_BASE_URL?.trim() || DEFAULT_BASE_URL).replace(/\/$/, "");
 }
 
-function getSiteUrl(): string {
-  return (process.env.SITE_URL?.trim() || "https://cozi.app").replace(/\/$/, "");
+const DEFAULT_SITE_URL = "https://cozi.app";
+
+function parseOrigin(raw: string | undefined, requireHttps: boolean): string | null {
+  const value = raw?.trim();
+
+  if (!value) {
+    return null;
+  }
+
+  if (requireHttps ? !/^https:\/\//i.test(value) : !/^https?:\/\//i.test(value)) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(value);
+
+    if (parsed.username || parsed.password) {
+      return null;
+    }
+
+    if (requireHttps && parsed.protocol !== "https:") {
+      return null;
+    }
+
+    if (!requireHttps && parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      return null;
+    }
+
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
+function getMockSiteOrigin(): string {
+  return parseOrigin(process.env.SITE_URL, false) ?? DEFAULT_SITE_URL;
+}
+
+function getPeyReturnOrigin(): string {
+  // Pey exige URLs HTTPS en successUrl/backUrl; en desarrollo SITE_URL suele ser http://localhost.
+  return (
+    parseOrigin(process.env.PEY_RETURN_ORIGIN, true) ??
+    parseOrigin(process.env.SITE_URL, true) ??
+    DEFAULT_SITE_URL
+  );
 }
 
 function requireEnv(name: string): string {
@@ -177,6 +221,10 @@ function summarizeCodiTransactions(
   };
 }
 
+function pngDataUrl(image: string): string {
+  return image.startsWith("data:image/png;base64,") ? image : `data:image/png;base64,${image}`;
+}
+
 function mapCodiCharge(raw: PeyCodiChargeRaw): PeyCodiChargeResult {
   const id = requireString(raw.codiQrId ?? raw.id ?? raw.transactionId, "id");
 
@@ -187,7 +235,9 @@ function mapCodiCharge(raw: PeyCodiChargeRaw): PeyCodiChargeResult {
   return {
     id,
     status: normalizePaymentStatus(raw.status) ?? "pending",
-    qrImageUrl: optionalString(raw.qr_image_url ?? raw.qr ?? raw.qrCode),
+    qrImageUrl: raw.qrImage
+      ? pngDataUrl(raw.qrImage)
+      : optionalString(raw.qr_image_url ?? raw.qr ?? raw.qrCode),
     deepLink: optionalString(raw.deepLink ?? raw.deep_link),
     expiresAt,
     transactionId: optionalString(raw.transactionId ?? raw.transaction_id),
@@ -287,7 +337,7 @@ export const pey: PeyClient = {
         id,
         status: "pending",
         deepLink: `codi://pay?ref=${encodeURIComponent(input.reference)}`,
-        expiresAt: Date.now() + 10 * 60 * 1000,
+        expiresAt: Date.now() + CODI_EXPIRATION_SECONDS * 1000,
       };
     }
 
@@ -311,13 +361,19 @@ export const pey: PeyClient = {
       body: JSON.stringify({
         amount: input.amountCents / 100,
         concept: input.description,
-        expiration: 600,
+        expiration: CODI_EXPIRATION_SECONDS,
+        generateImage: true,
         numRef: numericRef(input.reference),
         bankAccountId: input.bankAccountId,
       }),
     });
 
-    return mapCodiCharge(raw);
+    const charge = mapCodiCharge(raw);
+
+    return {
+      ...charge,
+      expiresAt: charge.expiresAt ?? Date.now() + CODI_EXPIRATION_SECONDS * 1000,
+    };
   },
 
   async createPaymentLink(input: CreatePaymentLinkInput): Promise<PeyPaymentLinkResult> {
@@ -325,17 +381,23 @@ export const pey: PeyClient = {
       const id = `mock_pl_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`;
       console.info("[pey:mock] createPaymentLink", { id, reference: input.reference });
 
+      const mockUrl = new URL(`/pay/${encodeURIComponent(input.reference)}`, getMockSiteOrigin());
+      mockUrl.searchParams.set("mock", id);
+
       return {
         id,
         status: "pending",
-        url: `${getSiteUrl()}/pay/${encodeURIComponent(input.reference)}?mock=${id}`,
+        url: mockUrl.toString(),
         expiresAt: input.expiresInMinutes
           ? Date.now() + input.expiresInMinutes * 60 * 1000
           : Date.now() + 24 * 60 * 60 * 1000,
       };
     }
 
-    const orderUrl = `${getSiteUrl()}/order/${encodeURIComponent(input.reference)}`;
+    const orderUrl = new URL(
+      `/order/${encodeURIComponent(input.reference)}`,
+      getPeyReturnOrigin(),
+    ).toString();
 
     const raw = await peyFetch<PeyPaymentLinkRaw>(ROUTES.paymentLinkCreate, {
       method: "POST",
@@ -380,7 +442,7 @@ export const pey: PeyClient = {
       return {
         id,
         status: "succeeded",
-        url: `${getSiteUrl()}/pay/${id}`,
+        url: new URL(`/pay/${encodeURIComponent(id)}`, getMockSiteOrigin()).toString(),
       };
     }
 

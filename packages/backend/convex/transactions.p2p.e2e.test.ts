@@ -98,6 +98,49 @@ describe("E2E: P2P transfers, requests, and bank account activation webhooks", (
     expect(receiverView?.counterpartHandle).toBe("sofia_m");
   });
 
+  test("a draft request can only be reopened by asking for a new link", async () => {
+    const t = createTestBackend();
+
+    const requester = await createUser(t, {
+      subject: "auth_expired_request",
+      name: "María Ponce",
+      email: "maria@gmail.com",
+      handle: "maria_p",
+    });
+
+    await linkReceivingClabe(requester.client, {
+      clabe: "012180015826225713",
+      holderName: "Maria Ponce",
+    });
+
+    const request = await requester.client.mutation(api.p2p.createRequest, { amountCents: 2500 });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(request.orderId, { expiresAt: Date.now() - 1000 });
+    });
+
+    await expect(
+      requester.client.action(api.pey.actions.createPaymentLink, {
+        orderId: request.orderId,
+        preserveOrderExpiry: true,
+      }),
+    ).rejects.toThrow("Este cobro venció");
+    await expect(
+      requester.client.action(api.pey.actions.createCodiCharge, {
+        orderId: request.orderId,
+        method: "qr",
+      }),
+    ).rejects.toThrow("Este cobro venció");
+
+    await requester.client.action(api.pey.actions.createPaymentLink, { orderId: request.orderId });
+
+    const renewed = await requester.client.query(api.orders.getByPublicId, {
+      publicId: request.publicId,
+    });
+
+    expect(renewed?.status).toBe("awaiting_payment");
+    expect(renewed?.expiresAt).toBeGreaterThan(Date.now());
+  });
+
   test("P2P request (Cobrar) settles via Payment Link webhook", async () => {
     const t = createTestBackend();
 
@@ -124,16 +167,25 @@ describe("E2E: P2P transfers, requests, and bank account activation webhooks", (
       payerHandle: "mateo_c",
       amountCents: 15_000,
       note: "Uber al aeropuerto",
+      expiresInMinutes: 120,
     });
 
-    await requester.client.action(api.pey.actions.createPaymentLink, {
+    const initialOrder = await requester.client.query(api.orders.getByPublicId, {
+      publicId: request.publicId,
+    });
+
+    await payer.client.action(api.pey.actions.createPaymentLink, {
       orderId: request.orderId,
-      expiresInMinutes: 120,
+      expiresInMinutes: 1440,
+      preserveOrderExpiry: true,
     });
 
     const pending = await payer.client.query(api.orders.getByPublicId, {
       publicId: request.publicId,
     });
+
+    expect(pending?.expiresAt).toBe(initialOrder?.expiresAt);
+    expect(pending?.counterpart.handle).toBe("lucia_v");
 
     const webhook = await sendSignedPeyWebhook(t, {
       type: "payment_link.status_updated",

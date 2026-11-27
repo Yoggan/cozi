@@ -136,6 +136,19 @@ describe("E2E: User paying a meal business", () => {
     expect(updatedMenu.find((p) => p._id === tacos.productId)?.stock).toBe(8);
     expect(updatedMenu.find((p) => p._id === horchata.productId)?.stock).toBe(3);
 
+    await expect(
+      owner.client.mutation(api.products.update, {
+        productId: tacos.productId,
+        stock: 12,
+        expectedStock: 10,
+      }),
+    ).rejects.toThrow("El inventario cambió");
+
+    await owner.client.mutation(api.products.update, {
+      productId: tacos.productId,
+      name: "Tacos al pastor",
+    });
+
     // 7. Reentrega duplicada del mismo webhook no vuelve a descontar inventario.
     const duplicateRes = await sendSignedPeyWebhook(
       t,
