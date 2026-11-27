@@ -1,10 +1,10 @@
-import { useAssets } from "expo-asset";
 import { useFonts } from "expo-font";
 import { Button, useToast } from "heroui-native";
 import qrcode from "qrcode-generator";
 import { useMemo } from "react";
 import { Clipboard, Share, Text, View } from "react-native";
-import Svg, { G, Path, SvgUri } from "react-native-svg";
+import Svg, { G, Path } from "react-native-svg";
+import { LocalSvg } from "react-native-svg/css";
 
 import mediumFont from "@/assets/fonts/PlusJakartaSans_500Medium.ttf";
 import semiboldFont from "@/assets/fonts/PlusJakartaSans_600SemiBold.ttf";
@@ -15,7 +15,6 @@ import shareIcon from "@/assets/profile/share.svg";
 import { useCoziGlassPalette } from "@/lib/cozi-glass-palette";
 import { COZI_LIGHT_COLORS } from "@/lib/themes";
 
-const ICONS = [shareIcon, copyIcon, shareLightIcon, copyLightIcon];
 const FONTS = { PlusJakartaSansMedium: mediumFont, PlusJakartaSansSemiBold: semiboldFont };
 const QUIET_ZONE = 4;
 
@@ -72,12 +71,11 @@ function encodeProfileQr(url: string) {
 export function ProfileCodeCard({ handle, canReceive }: { handle: string; canReceive: boolean }) {
   const palette = useCoziGlassPalette();
   const { toast } = useToast();
-  const [assets] = useAssets(ICONS);
   const [fontsLoaded] = useFonts(FONTS);
   const url = `cozi://send?handle=${encodeURIComponent(handle)}`;
   const qr = useMemo(() => encodeProfileQr(url), [url]);
-  const shareAsset = assets?.[palette.light ? 2 : 0]?.localUri ?? null;
-  const copyAsset = assets?.[palette.light ? 3 : 1]?.localUri ?? null;
+  const shareAsset = palette.light ? shareLightIcon : shareIcon;
+  const copyAsset = palette.light ? copyLightIcon : copyIcon;
 
   const actionStyle = {
     backgroundColor: palette.secondaryAction,
@@ -147,7 +145,7 @@ export function ProfileCodeCard({ handle, canReceive }: { handle: string; canRec
           onPress={() => void shareLink()}
         >
           <View accessible={false} className="size-5">
-            <SvgUri uri={shareAsset} />
+            <LocalSvg asset={shareAsset} />
           </View>
           <Button.Label style={labelStyle}>Compartir</Button.Label>
         </Button>
@@ -159,7 +157,7 @@ export function ProfileCodeCard({ handle, canReceive }: { handle: string; canRec
           onPress={copyLink}
         >
           <View accessible={false} className="size-5">
-            <SvgUri uri={copyAsset} />
+            <LocalSvg asset={copyAsset} />
           </View>
           <Button.Label style={labelStyle}>Copiar enlace</Button.Label>
         </Button>

@@ -8,6 +8,7 @@ import { isVerifiedReceivingAccount } from "./lib/bankAccounts";
 import { activeHandleReservation, claimHandle, findHandle } from "./lib/handles";
 import { HANDLE_PATTERN, handleBase, normalizeHandle } from "./lib/identifiers";
 import { availableStock } from "./lib/inventory";
+import { BUSINESS_PROMPT_TRANSITIONS, canTransition, isTakingOrders } from "./lib/stateMachines";
 
 async function requireUser(ctx: QueryCtx | MutationCtx): Promise<Doc<"users">> {
   const identity = await ctx.auth.getUserIdentity();
@@ -124,7 +125,10 @@ export const create = mutation({
       createdAt: now,
     });
 
-    if (user.businessPromptState === "pending") {
+    if (
+      user.businessPromptState &&
+      canTransition(BUSINESS_PROMPT_TRANSITIONS, user.businessPromptState, "completed")
+    ) {
       await ctx.db.patch(user._id, { businessPromptState: "completed", updatedAt: now });
     }
 
@@ -299,7 +303,7 @@ export const firstPaymentReadiness = query({
     return {
       hasPublishedProduct: product !== null,
       receivingAccount: receivingAccountState(accounts),
-      ordersEnabled: business.status === "active" && business.acceptingOrders,
+      ordersEnabled: isTakingOrders(business),
     };
   },
 });

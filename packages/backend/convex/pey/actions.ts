@@ -55,7 +55,6 @@ function toHandle(payment: Doc<"payments">, reused: boolean): PaymentHandle {
     amountCents: payment.amountCents,
     qrImageUrl: payment.qrImageUrl,
     deepLink: payment.deepLink,
-    checkoutUrl: payment.checkoutUrl,
     expiresAt: payment.expiresAt,
     reused,
   };
@@ -70,6 +69,8 @@ export const createCodiCharge = action({
     orderId: v.id("orders"),
     method: v.union(v.literal("qr"), v.literal("push")),
     payerPhone: v.optional(v.string()),
+    // Solo al renovar un cobro vencido: fija un plazo nuevo para la orden.
+    expiresInMinutes: v.optional(v.number()),
   },
   handler: async (ctx, args): Promise<PaymentHandle> => {
     if (args.method === "push" && !args.payerPhone) {
@@ -77,6 +78,11 @@ export const createCodiCharge = action({
     }
 
     const data = await loadChargeContext(ctx, args.orderId);
+
+    const orderExpiresAt =
+      args.expiresInMinutes === undefined
+        ? undefined
+        : expiryFromMinutes(args.expiresInMinutes, Date.now());
 
     const bankAccountId = data.bankAccount.peyBankAccountId;
 
@@ -89,7 +95,8 @@ export const createCodiCharge = action({
       method: args.method === "qr" ? "codi_qr" : "codi_push",
       attemptId: crypto.randomUUID(),
       amountCents: data.order.totalCents,
-      requireOpenDeadline: true,
+      requireOpenDeadline: orderExpiresAt === undefined,
+      orderExpiresAt,
     });
 
     if (started.existing) {
@@ -116,6 +123,7 @@ export const createCodiCharge = action({
         qrImageUrl: charge.qrImageUrl,
         deepLink: charge.deepLink,
         expiresAt: charge.expiresAt,
+        orderExpiresAt,
       });
 
       return toHandle(payment, false);
@@ -137,76 +145,6 @@ export const createCodiCharge = action({
       }
 
       throw new ConvexError("No se pudo generar el cobro CoDi. Intenta de nuevo.");
-    }
-  },
-});
-
-/** Link de pago para WhatsApp, Instagram DM o la web sin app. */
-export const createPaymentLink = action({
-  args: {
-    orderId: v.id("orders"),
-    expiresInMinutes: v.optional(v.number()),
-    preserveOrderExpiry: v.optional(v.boolean()),
-  },
-  handler: async (ctx, args): Promise<PaymentHandle> => {
-    const data = await loadChargeContext(ctx, args.orderId);
-    const now = Date.now();
-    const hasDeadline = data.order.expiresAt !== undefined || data.order.p2pKind === "request";
-    const preserveExpiry = args.preserveOrderExpiry && hasDeadline;
-
-    const orderExpiresAt = preserveExpiry
-      ? undefined
-      : expiryFromMinutes(args.expiresInMinutes, now);
-
-    const bankAccountId = data.bankAccount.peyBankAccountId;
-
-    if (!bankAccountId) {
-      throw new ConvexError("La cuenta receptora aún no está registrada en Pey");
-    }
-
-    const started = await ctx.runMutation(internal.pey.mutations.beginPayment, {
-      orderId: args.orderId,
-      method: "payment_link",
-      attemptId: crypto.randomUUID(),
-      amountCents: data.order.totalCents,
-      requireOpenDeadline: args.preserveOrderExpiry,
-      orderExpiresAt,
-    });
-
-    if (started.existing) {
-      return toHandle(started.payment, true);
-    }
-
-    try {
-      const link = await pey.createPaymentLink({
-        amountCents: data.order.totalCents,
-        currency: "MXN",
-        description: chargeDescription(data.order, data.business),
-        reference: data.order.publicId,
-        attemptId: started.payment.reservedItems?.length ? started.payment.attemptId : undefined,
-        bankAccountId,
-        expiresInMinutes: args.expiresInMinutes,
-      });
-
-      const payment = await ctx.runMutation(internal.pey.mutations.attachProvider, {
-        paymentId: started.payment._id,
-        status: link.status,
-        peyReference: link.id,
-        peyPaymentLinkId: link.id,
-        peyTransactionId: link.transactionId,
-        checkoutUrl: link.url,
-        expiresAt: link.expiresAt,
-        orderExpiresAt,
-      });
-
-      return toHandle(payment, false);
-    } catch (error) {
-      console.error("Error creando link de pago", error);
-      await ctx.runMutation(internal.pey.mutations.failPayment, {
-        paymentId: started.payment._id,
-        reason: "No se pudo generar el link de pago",
-      });
-      throw new ConvexError("No se pudo generar el link de pago. Intenta de nuevo.");
     }
   },
 });

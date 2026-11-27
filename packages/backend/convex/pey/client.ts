@@ -2,7 +2,6 @@ import type { BankAccountStatus } from "../schema";
 import type { PaymentLookup } from "./paymentLookup";
 import type {
   CreateCodiChargeInput,
-  CreatePaymentLinkInput,
   PaymentLookupOptions,
   PeyBankAccountRaw,
   PeyBankAccountResult,
@@ -35,7 +34,6 @@ const ROUTES = {
   bankAccount: "/bank-account",
   codiQr: "/codi/qr",
   codiPush: "/codi/pn",
-  paymentLinkCreate: "/payment-link/create",
   paymentLink: "/payment-link",
   transactionsByCodiQr: "/transaction/codi/qr",
   transactionsByBankAccount: "/transaction/bank-account",
@@ -79,49 +77,14 @@ function getBaseUrl(): string {
 
 const DEFAULT_SITE_URL = "https://cozi.app";
 
-function parseOrigin(raw: string | undefined, requireHttps: boolean): string | null {
-  const value = raw?.trim();
-
-  if (!value) {
-    return null;
-  }
-
-  if (requireHttps ? !/^https:\/\//i.test(value) : !/^https?:\/\//i.test(value)) {
-    return null;
-  }
-
-  try {
-    const parsed = new URL(value);
-
-    if (parsed.username || parsed.password) {
-      return null;
-    }
-
-    if (requireHttps && parsed.protocol !== "https:") {
-      return null;
-    }
-
-    if (!requireHttps && parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-      return null;
-    }
-
-    return parsed.origin;
-  } catch {
-    return null;
-  }
-}
-
 function getMockSiteOrigin(): string {
-  return parseOrigin(process.env.SITE_URL, false) ?? DEFAULT_SITE_URL;
-}
+  try {
+    const { origin, protocol } = new URL(process.env.SITE_URL?.trim() ?? "");
 
-function getPeyReturnOrigin(): string {
-  // Pey exige URLs HTTPS en successUrl/backUrl; en desarrollo SITE_URL suele ser http://localhost.
-  return (
-    parseOrigin(process.env.PEY_RETURN_ORIGIN, true) ??
-    parseOrigin(process.env.SITE_URL, true) ??
-    DEFAULT_SITE_URL
-  );
+    return protocol === "http:" || protocol === "https:" ? origin : DEFAULT_SITE_URL;
+  } catch {
+    return DEFAULT_SITE_URL;
+  }
 }
 
 function requireEnv(name: string): string {
@@ -414,65 +377,18 @@ export const pey: PeyClient = {
     };
   },
 
-  async createPaymentLink(input: CreatePaymentLinkInput): Promise<PeyPaymentLinkResult> {
-    if (isMockMode()) {
-      const id = `mock_pl_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`;
-      console.info("[pey:mock] createPaymentLink", { id, reference: input.reference });
-
-      const mockUrl = new URL(`/pay/${encodeURIComponent(input.reference)}`, getMockSiteOrigin());
-      mockUrl.searchParams.set("mock", id);
-
-      return {
-        id,
-        status: "pending",
-        url: mockUrl.toString(),
-        expiresAt: input.expiresInMinutes
-          ? Date.now() + input.expiresInMinutes * 60 * 1000
-          : Date.now() + 24 * 60 * 60 * 1000,
-      };
-    }
-
-    const orderUrl = new URL(
-      `/order/${encodeURIComponent(input.reference)}`,
-      getPeyReturnOrigin(),
-    ).toString();
-
-    const raw = await peyFetch<PeyPaymentLinkRaw>(ROUTES.paymentLinkCreate, {
-      method: "POST",
-      body: JSON.stringify({
-        amount: input.amountCents / 100,
-        successUrl: orderUrl,
-        backUrl: orderUrl,
-        hasTip: false,
-        clientReferenceId: input.attemptId ?? input.reference,
-        metadata: {
-          orderId: input.reference,
-          bankAccountId: input.bankAccountId,
-        },
-      }),
-    });
-
-    return mapPaymentLink(raw);
-  },
-
   async getCodiCharge(id: string, options?: PaymentLookupOptions): Promise<PeyCodiChargeResult> {
     if (isMockMode() || id.startsWith("mock_")) {
       return { id, status: "succeeded" };
     }
 
-    const raw = await peyFetch<PeyCodiChargeRaw | Array<PeyTransactionRaw>>(
+    // Pey pagina las transacciones del QR: `{ items, nextToken }`, la más reciente primero.
+    const raw = await peyFetch<{ items?: Array<PeyTransactionRaw> }>(
       `${ROUTES.transactionsByCodiQr}/${encodeURIComponent(id)}`,
       { signal: options?.signal },
     );
 
-    if (!Array.isArray(raw) && !raw.transactions) {
-      return mapCodiCharge(raw);
-    }
-
-    const paid = findPaidTransaction(
-      Array.isArray(raw) ? raw : (raw.transactions ?? []),
-      options?.expectedAmountCents,
-    );
+    const paid = findPaidTransaction(raw.items ?? [], options?.expectedAmountCents);
 
     return paid ? { id, ...paid } : { id, status: "pending" };
   },

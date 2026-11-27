@@ -96,22 +96,20 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
       }),
     ).rejects.toThrow("La orden debe estar pagada antes de dividir la cuenta");
 
-    // Ana genera link de pago y Pey confirma el pago de la cena.
-    await ana.client.action(api.pey.actions.createPaymentLink, {
+    // Ana genera el QR de CoDi y Pey confirma el pago de la cena.
+    await ana.client.action(api.pey.actions.createCodiCharge, {
       orderId: mealOrder.orderId,
+      method: "qr",
     });
 
     const mealPending = await ana.client.query(api.orders.getByPublicId, {
       publicId: mealOrder.publicId,
     });
 
-    const mealPaymentLinkId = mealPending?.payment?.peyReference ?? "";
-
     const mealWebhook = await sendSignedPeyWebhook(t, {
-      type: "payment_link.status_updated",
+      type: "codi.qr.payment_received",
       data: {
-        paymentLinkId: mealPaymentLinkId,
-        status: "paid",
+        codiQrId: mealPending?.payment?.peyReference ?? "",
         amount: 1000,
         currency: "MXN",
       },
@@ -211,9 +209,10 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
       ana.client.mutation(api.splits.cancel, { billSplitId: split.billSplitId }),
     ).rejects.toThrow("No puedes cancelar una división que ya tiene pagos");
 
-    // 4. Carla paga su parte ($333.33 MXN) vía Payment Link + webhook firmado.
-    await carla.client.action(api.pey.actions.createPaymentLink, {
+    // 4. Carla paga su parte ($333.33 MXN) vía CoDi QR + webhook firmado.
+    await carla.client.action(api.pey.actions.createCodiCharge, {
       orderId: carlaShare.orderId,
+      method: "qr",
     });
 
     const carlaOrder = await carla.client.query(api.orders.getByPublicId, {
@@ -221,10 +220,9 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
     });
 
     const carlaWebhook = await sendSignedPeyWebhook(t, {
-      type: "payment_link.status_updated",
+      type: "codi.qr.payment_received",
       data: {
-        paymentLinkId: carlaOrder?.payment?.peyReference ?? "",
-        status: "paid",
+        codiQrId: carlaOrder?.payment?.peyReference ?? "",
         amount: 333.33,
         currency: "MXN",
       },
@@ -237,10 +235,9 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
     const carlaDup = await sendSignedPeyWebhook(
       t,
       {
-        type: "payment_link.status_updated",
+        type: "codi.qr.payment_received",
         data: {
-          paymentLinkId: carlaOrder?.payment?.peyReference ?? "",
-          status: "paid",
+          codiQrId: carlaOrder?.payment?.peyReference ?? "",
           amount: 333.33,
           currency: "MXN",
         },
@@ -333,7 +330,8 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
       ],
     });
 
-    const dinnerPayment = await ana.client.action(api.pey.actions.createPaymentLink, {
+    const dinnerPayment = await ana.client.action(api.pey.actions.createCodiCharge, {
+      method: "qr",
       orderId: dinner.orderId,
     });
 
@@ -354,7 +352,7 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
     expect(customSplit.creatorShareCents).toBe(25_000);
     expect(customSplit.requestedTotalCents).toBe(60_000);
 
-    // Beto paga vía CoDi push y Carla vía Payment Link.
+    // Beto paga vía CoDi push y Carla vía CoDi QR.
     const betoPush = await ana.client.action(api.pey.actions.createCodiCharge, {
       orderId: customSplit.shares[0].orderId,
       method: "push",
@@ -366,12 +364,13 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
       paymentId: betoPush.paymentId,
     });
 
-    const carlaLink = await carla.client.action(api.pey.actions.createPaymentLink, {
+    const carlaQr = await carla.client.action(api.pey.actions.createCodiCharge, {
+      method: "qr",
       orderId: customSplit.shares[1].orderId,
     });
 
     await carla.client.action(api.pey.actions.refreshPayment, {
-      paymentId: carlaLink.paymentId,
+      paymentId: carlaQr.paymentId,
     });
 
     const settledCustom = await ana.client.query(api.splits.getById, {
@@ -387,7 +386,8 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
       items: [{ productId: dessert.productId, quantity: 1 }],
     });
 
-    const dessertPayment = await ana.client.action(api.pey.actions.createPaymentLink, {
+    const dessertPayment = await ana.client.action(api.pey.actions.createCodiCharge, {
+      method: "qr",
       orderId: dessertOrder.orderId,
     });
 
@@ -447,7 +447,8 @@ describe("E2E: Post-payment bill splitting between multiple users", () => {
       items: [{ productId: pizzeria.products[0].productId, quantity: 1 }],
     });
 
-    const link = await ana.client.action(api.pey.actions.createPaymentLink, {
+    const link = await ana.client.action(api.pey.actions.createCodiCharge, {
+      method: "qr",
       orderId: pizzaOrder.orderId,
     });
 

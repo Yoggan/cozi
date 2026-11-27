@@ -8,6 +8,7 @@ import { enqueueMobileNotification } from "../mobileNotifications";
 import { orderDeadline } from "../lib/expiry";
 import { closeInventoryReservation, holdsInventory, reserveInventory } from "../lib/inventory";
 import {
+  BANK_ACCOUNT_TRANSITIONS,
   BILL_SPLIT_TRANSITIONS,
   canTransition,
   isOrderOpen,
@@ -396,10 +397,8 @@ export const attachProvider = internalMutation({
     status: paymentStatusValidator,
     peyReference: v.string(),
     peyPaymentId: v.optional(v.string()),
-    peyPaymentLinkId: v.optional(v.string()),
     peyCodiId: v.optional(v.string()),
     peyTransactionId: v.optional(v.string()),
-    checkoutUrl: v.optional(v.string()),
     qrImageUrl: v.optional(v.string()),
     deepLink: v.optional(v.string()),
     expiresAt: v.optional(v.number()),
@@ -426,10 +425,8 @@ export const attachProvider = internalMutation({
         payment.status === "pending" && args.status === "processing" ? args.status : payment.status,
       peyReference: args.peyReference,
       peyPaymentId: args.peyPaymentId,
-      peyPaymentLinkId: args.peyPaymentLinkId,
       peyCodiId: args.peyCodiId,
       peyTransactionId: args.peyTransactionId,
-      checkoutUrl: args.checkoutUrl,
       qrImageUrl: args.qrImageUrl,
       deepLink: args.deepLink,
       expiresAt: args.expiresAt,
@@ -687,6 +684,13 @@ export const updateBankAccountStatus = internalMutation({
     }
 
     const now = Date.now();
+
+    if (!canTransition(BANK_ACCOUNT_TRANSITIONS, account.status, args.status)) {
+      await ctx.db.patch(account._id, { lastCheckedAt: now });
+
+      return { found: true, status: account.status };
+    }
+
     await ctx.db.patch(account._id, {
       status: args.status,
       providerStatus: args.providerStatus,

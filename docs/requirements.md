@@ -17,7 +17,7 @@ Status legend:
 **Status:** Done in the app.
 
 From a paid order, the buyer can split the total equally or with exact amounts, add saved
-`@handles`, share each participant's payment link, track collected amounts, and cancel while
+`@handles`, collect each participant's share by CoDi QR or push, track collected amounts, and cancel while
 nobody has paid. Backend lives in `packages/backend/convex/splits.ts`; app screen is
 `apps/native/app/split.tsx`.
 
@@ -27,7 +27,7 @@ nobody has paid. Backend lives in `packages/backend/convex/splits.ts`; app scree
 
 The business owner can link, list, and check the status of the business CLABE from `Mi negocio`.
 `pey.actions.linkBankAccount` accepts a `businessId`, and `businesses.getByHandle` reports whether
-the business has a verified account. Business payment links and CoDi charges stay blocked until a
+the business has a verified account. Business CoDi charges stay blocked until a
 verified business account exists. App screen: `apps/native/app/business.tsx`.
 
 ### Business selling switches

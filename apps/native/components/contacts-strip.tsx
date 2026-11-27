@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 
+import { FrostedFill } from "@/components/frosted-fill";
 import { usePaymentTheme } from "@/components/payment-controls";
 import { useAppTheme } from "@/contexts/app-theme-context";
 import type { Contact } from "@/lib/contacts";
@@ -36,7 +37,7 @@ function ContactAvatar({ contact, size = 54 }: { contact: Contact; size?: number
 
 export function ContactsStrip() {
   const router = useRouter();
-  const { isImmersive, cardColor, cardBorder, accent } = useAppTheme();
+  const { isImmersive, baseColor, cardColor, cardBorder, accent } = useAppTheme();
   const theme = usePaymentTheme();
   const surface = useThemeColor("surface");
   const data = useQuery(api.contacts.suggestions);
@@ -233,11 +234,15 @@ export function ContactsStrip() {
               borderRadius: 28,
               borderWidth: 1,
               borderColor: isImmersive ? cardBorder : theme.fieldBorder,
-              backgroundColor: isImmersive ? cardColor : surface,
+              backgroundColor: surface,
+              overflow: "hidden",
               padding: 20,
               gap: 16,
             }}
           >
+            {isImmersive ? (
+              <FrostedFill id="contact-sheet-sheen" baseColor={baseColor} cardColor={cardColor} />
+            ) : null}
             {selected ? (
               <>
                 <View style={{ alignItems: "center", gap: 6 }}>

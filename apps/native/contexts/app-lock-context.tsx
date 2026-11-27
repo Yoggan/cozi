@@ -57,16 +57,31 @@ type AppLockContextType = {
   lockNow: () => void;
 };
 
+// One state instead of pin/isEnabled/isLocked/hasLoaded flags, so "locked without a PIN" cannot exist.
+type LockState =
+  | { status: "loading" }
+  | { status: "off" }
+  | { status: "locked" | "unlocked"; pin: string };
+
+function relock(state: LockState): LockState {
+  return state.status === "unlocked" ? { ...state, status: "locked" } : state;
+}
+
+function release(state: LockState): LockState {
+  return state.status === "locked" ? { ...state, status: "unlocked" } : state;
+}
+
 const AppLockContext = createContext<AppLockContextType | undefined>(undefined);
 
 export function AppLockProvider({ children }: { children: React.ReactNode }) {
-  const [pin, setPinValue] = useState<string | null>(null);
-  const [isEnabled, setIsEnabled] = useState(false);
+  const [lock, setLock] = useState<LockState>({ status: "loading" });
   const [biometricEnabled, setBiometricEnabledState] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricLabel, setBiometricLabel] = useState("Biometría");
-  const [isLocked, setIsLocked] = useState(false);
-  const [hasLoaded, setHasLoaded] = useState(false);
+  const pin = lock.status === "locked" || lock.status === "unlocked" ? lock.pin : null;
+  const isEnabled = pin !== null;
+  const isLocked = lock.status === "locked";
+  const hasLoaded = lock.status !== "loading";
 
   useEffect(() => {
     let active = true;
@@ -83,18 +98,12 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
         }
 
         const validPin = storedPin && PIN_PATTERN.test(storedPin) ? storedPin : null;
-        setPinValue(validPin);
-        setIsEnabled(Boolean(validPin));
+        setLock(validPin ? { status: "locked", pin: validPin } : { status: "off" });
         setBiometricEnabledState(Boolean(validPin) && storedBiometric === "1");
-
-        if (validPin) {
-          setIsLocked(true);
-        }
       } catch {
         // SecureStore is unavailable (for example on web): keep the lock off.
-      } finally {
         if (active) {
-          setHasLoaded(true);
+          setLock({ status: "off" });
         }
       }
     })();
@@ -161,7 +170,7 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
       backgroundedAt = null;
 
       if (elapsed > RELOCK_AFTER_MS) {
-        setIsLocked(true);
+        setLock(relock);
       }
     });
 
@@ -171,14 +180,12 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
   }, [isEnabled]);
 
   const unlock = useCallback(() => {
-    setIsLocked(false);
+    setLock(release);
   }, []);
 
   const lockNow = useCallback(() => {
-    if (pin) {
-      setIsLocked(true);
-    }
-  }, [pin]);
+    setLock(relock);
+  }, []);
 
   const setPin = useCallback(async (nextPin: string) => {
     if (!PIN_PATTERN.test(nextPin)) {
@@ -186,18 +193,14 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
     }
 
     await setItemAsync(PIN_KEY, nextPin);
-    setPinValue(nextPin);
-    setIsEnabled(true);
-    setIsLocked(false);
+    setLock({ status: "unlocked", pin: nextPin });
   }, []);
 
   const verifyPin = useCallback((candidate: string) => pin !== null && candidate === pin, [pin]);
 
   const disableLock = useCallback(async () => {
-    setPinValue(null);
-    setIsEnabled(false);
+    setLock({ status: "off" });
     setBiometricEnabledState(false);
-    setIsLocked(false);
 
     try {
       await Promise.all([deleteItemAsync(PIN_KEY), deleteItemAsync(BIOMETRIC_KEY)]);
@@ -242,7 +245,7 @@ export function AppLockProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      setIsLocked(false);
+      setLock(release);
 
       return true;
     } catch {

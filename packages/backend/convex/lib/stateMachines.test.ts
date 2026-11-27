@@ -1,11 +1,15 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  BANK_ACCOUNT_TRANSITIONS,
   BILL_SPLIT_TRANSITIONS,
+  BUSINESS_PROMPT_TRANSITIONS,
   canTransition,
   isOrderOpen,
   isOrderPaid,
+  isTakingOrders,
   isTerminal,
+  MESSAGE_REPORT_TRANSITIONS,
   ORDER_TRANSITIONS,
   PAYMENT_TRANSITIONS,
   WEBHOOK_EVENT_TRANSITIONS,
@@ -111,5 +115,37 @@ describe("order predicates", () => {
     expect(isOrderOpen("draft")).toBe(true);
     expect(isOrderOpen("awaiting_payment")).toBe(true);
     expect(isOrderOpen("expired")).toBe(false);
+  });
+});
+
+describe("BANK_ACCOUNT_TRANSITIONS", () => {
+  test("a late or unrecognized pending report never undoes a decision", () => {
+    for (const status of ["verified", "rejected", "disabled"] as const) {
+      expect(canTransition(BANK_ACCOUNT_TRANSITIONS, status, "pending")).toBe(false);
+    }
+  });
+
+  test("Pey can still move a decided account between verified, rejected and disabled", () => {
+    expect(canTransition(BANK_ACCOUNT_TRANSITIONS, "pending", "verified")).toBe(true);
+    expect(canTransition(BANK_ACCOUNT_TRANSITIONS, "verified", "disabled")).toBe(true);
+    expect(canTransition(BANK_ACCOUNT_TRANSITIONS, "rejected", "verified")).toBe(true);
+  });
+});
+
+describe("one-shot lifecycles", () => {
+  test("the business prompt and message reports are answered once", () => {
+    expect(canTransition(BUSINESS_PROMPT_TRANSITIONS, "pending", "dismissed")).toBe(true);
+    expect(canTransition(BUSINESS_PROMPT_TRANSITIONS, "dismissed", "completed")).toBe(false);
+    expect(isTerminal(BUSINESS_PROMPT_TRANSITIONS, "completed")).toBe(true);
+    expect(canTransition(MESSAGE_REPORT_TRANSITIONS, "pending", "reviewed")).toBe(true);
+    expect(isTerminal(MESSAGE_REPORT_TRANSITIONS, "reviewed")).toBe(true);
+  });
+});
+
+describe("isTakingOrders", () => {
+  test("needs an active business with orders switched on", () => {
+    expect(isTakingOrders({ status: "active", acceptingOrders: true })).toBe(true);
+    expect(isTakingOrders({ status: "paused", acceptingOrders: true })).toBe(false);
+    expect(isTakingOrders({ status: "active", acceptingOrders: false })).toBe(false);
   });
 });

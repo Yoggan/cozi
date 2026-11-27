@@ -1,7 +1,6 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import { Icon } from "@/components/icon";
 import { usePaginatedQuery } from "convex-helpers/react";
-import { useAssets } from "expo-asset";
 import { useFonts } from "expo-font";
 import { useNetworkState } from "expo-network";
 import { useRouter } from "expo-router";
@@ -10,7 +9,7 @@ import { Button, Skeleton, Text } from "heroui-native";
 import { useEffect, useState } from "react";
 import { FlatList, Keyboard, Pressable, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { SvgUri } from "react-native-svg";
+import { LocalSvg } from "react-native-svg/css";
 
 import searchIcon from "@/assets/activity/search.svg";
 import searchLightIcon from "@/assets/activity/search-light.svg";
@@ -32,7 +31,6 @@ const FILTERS = [
 
 type ActivityFilter = (typeof FILTERS)[number]["id"];
 
-const SEARCH_ICONS = [searchIcon, searchLightIcon];
 const ACTIVITY_FONTS = { PlusJakartaSansSemiBold: plusJakartaSansSemiBold };
 const SKELETON_ROWS = ["top", "middle", "bottom"];
 
@@ -116,7 +114,6 @@ export default function ActivityScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const network = useNetworkState();
-  const [searchAssets] = useAssets(SEARCH_ICONS);
   const [fontsLoaded] = useFonts(ACTIVITY_FONTS);
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -204,7 +201,7 @@ export default function ActivityScreen() {
             {searchOpen ? (
               <Icon name="close" size={20} color={palette.text} />
             ) : (
-              <SvgUri uri={searchAssets?.[palette.light ? 1 : 0]?.localUri ?? null} />
+              <LocalSvg asset={palette.light ? searchLightIcon : searchIcon} />
             )}
           </Pressable>
         ) : null}

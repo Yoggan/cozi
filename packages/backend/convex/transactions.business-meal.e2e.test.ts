@@ -243,14 +243,13 @@ describe("E2E: User paying a meal business", () => {
     expect(order.discountCents).toBe(2000);
     expect(order.totalCents).toBe(16_000);
 
-    // El negocio genera un link de pago.
-    const link = await owner.client.action(api.pey.actions.createPaymentLink, {
+    // El negocio genera el QR de CoDi.
+    const link = await owner.client.action(api.pey.actions.createCodiCharge, {
       orderId: order.orderId,
-      expiresInMinutes: 60,
+      method: "qr",
     });
 
-    expect(link.method).toBe("payment_link");
-    expect(link.checkoutUrl).toContain(`/pay/${order.publicId}`);
+    expect(link.method).toBe("codi_qr");
 
     // Simula pérdida de webhook: el comprador ejecuta refreshPayment como reconciliación.
     const refreshed = await diner.client.action(api.pey.actions.refreshPayment, {
@@ -444,7 +443,8 @@ describe("E2E: User paying a meal business", () => {
     expect(strangerView).toBeNull();
 
     await expect(
-      stranger.client.action(api.pey.actions.createPaymentLink, {
+      stranger.client.action(api.pey.actions.createCodiCharge, {
+        method: "qr",
         orderId: order.orderId,
       }),
     ).rejects.toThrow("No tienes acceso a esta orden");
@@ -457,7 +457,8 @@ describe("E2E: User paying a meal business", () => {
     expect(cancelled.status).toBe("cancelled");
 
     await expect(
-      buyer.client.action(api.pey.actions.createPaymentLink, {
+      buyer.client.action(api.pey.actions.createCodiCharge, {
+        method: "qr",
         orderId: order.orderId,
       }),
     ).rejects.toThrow("La orden está cerrada");

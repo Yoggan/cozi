@@ -98,7 +98,7 @@ describe("E2E: P2P transfers, requests, and bank account activation webhooks", (
     expect(receiverView?.counterpartHandle).toBe("sofia_m");
   });
 
-  test("a draft request can only be reopened by asking for a new link", async () => {
+  test("an expired request can only be reopened by renewing it", async () => {
     const t = createTestBackend();
 
     const requester = await createUser(t, {
@@ -119,19 +119,17 @@ describe("E2E: P2P transfers, requests, and bank account activation webhooks", (
     });
 
     await expect(
-      requester.client.action(api.pey.actions.createPaymentLink, {
-        orderId: request.orderId,
-        preserveOrderExpiry: true,
-      }),
-    ).rejects.toThrow("Este cobro venció");
-    await expect(
       requester.client.action(api.pey.actions.createCodiCharge, {
         orderId: request.orderId,
         method: "qr",
       }),
     ).rejects.toThrow("Este cobro venció");
 
-    await requester.client.action(api.pey.actions.createPaymentLink, { orderId: request.orderId });
+    await requester.client.action(api.pey.actions.createCodiCharge, {
+      orderId: request.orderId,
+      method: "qr",
+      expiresInMinutes: 1440,
+    });
 
     const renewed = await requester.client.query(api.orders.getByPublicId, {
       publicId: request.publicId,
@@ -141,7 +139,7 @@ describe("E2E: P2P transfers, requests, and bank account activation webhooks", (
     expect(renewed?.expiresAt).toBeGreaterThan(Date.now());
   });
 
-  test("P2P request (Cobrar) settles via Payment Link webhook", async () => {
+  test("P2P request (Cobrar) settles via CoDi push webhook", async () => {
     const t = createTestBackend();
 
     const requester = await createUser(t, {
@@ -174,10 +172,10 @@ describe("E2E: P2P transfers, requests, and bank account activation webhooks", (
       publicId: request.publicId,
     });
 
-    await payer.client.action(api.pey.actions.createPaymentLink, {
+    await payer.client.action(api.pey.actions.createCodiCharge, {
       orderId: request.orderId,
-      expiresInMinutes: 1440,
-      preserveOrderExpiry: true,
+      method: "push",
+      payerPhone: "5512345678",
     });
 
     const pending = await payer.client.query(api.orders.getByPublicId, {
@@ -188,10 +186,9 @@ describe("E2E: P2P transfers, requests, and bank account activation webhooks", (
     expect(pending?.counterpart.handle).toBe("lucia_v");
 
     const webhook = await sendSignedPeyWebhook(t, {
-      type: "payment_link.status_updated",
+      type: "codi.pn.payment_received",
       data: {
-        paymentLinkId: pending?.payment?.peyReference ?? "",
-        status: "paid",
+        codiId: pending?.payment?.peyReference ?? "",
         amount: 150,
         currency: "MXN",
       },

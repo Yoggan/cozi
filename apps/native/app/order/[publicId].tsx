@@ -1,15 +1,16 @@
 import { api } from "@cozi/backend/convex/_generated/api";
-import type { Id } from "@cozi/backend/convex/_generated/dataModel";
 import type { OrderChannel, OrderStatus, PaymentMethod } from "@cozi/backend/convex/schema";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { openBrowserAsync } from "expo-web-browser";
 import { useState } from "react";
 import { Button, Chip, Spinner, Text, useThemeColor, useToast } from "heroui-native";
 import { Icon } from "@/components/icon";
-import { Alert, Share, View } from "react-native";
+import { Alert, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { CodiPayment } from "@/components/codi-payment";
 import { Container } from "@/components/container";
+import { PaymentHeader } from "@/components/payment-controls";
 import { useAppTheme } from "@/contexts/app-theme-context";
 import { getErrorMessage } from "@/lib/errors";
 import { formatMxn } from "@/lib/money";
@@ -37,7 +38,7 @@ const CHANNEL_LABELS: Record<OrderChannel, string> = {
   p2p: "Cozi",
 };
 
-type PendingAction = "generate" | "refresh" | "saveContact" | "fulfill" | "cancel" | "openThread";
+type PendingAction = "saveContact" | "fulfill" | "cancel" | "openThread";
 
 function statusChipColor(status: OrderStatus): "success" | "warning" | "danger" | "default" {
   if (status === "paid" || status === "fulfilled") {
@@ -66,8 +67,6 @@ export default function OrderScreen() {
   const publicId = firstParam(params.publicId);
   const order = useQuery(api.p2p.getOrder, publicId ? { publicId } : "skip");
   const businessOrder = useQuery(api.orders.getByPublicId, publicId ? { publicId } : "skip");
-  const createPaymentLink = useAction(api.pey.actions.createPaymentLink);
-  const refreshPayment = useAction(api.pey.actions.refreshPayment);
   const saveContact = useMutation(api.contacts.save);
   const fulfillOrder = useMutation(api.orders.fulfill);
   const cancelOrder = useMutation(api.orders.cancel);
@@ -94,31 +93,22 @@ export default function OrderScreen() {
   );
 
   const { toast } = useToast();
+  const insets = useSafeAreaInsets();
   const { isImmersive, baseColor, cardColor, cardBorder } = useAppTheme();
   const success = useThemeColor("success");
   const muted = useThemeColor("muted");
-  // One action at a time: generating, cancelling and fulfilling all change the same order.
+  // One action at a time: cancelling and fulfilling both change the same order.
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+
+  const header = (
+    <View style={{ paddingTop: insets.top + 8 }}>
+      <PaymentHeader title="Pago" onBack={() => router.back()} />
+    </View>
+  );
 
   const immersiveCard = isImmersive
     ? { backgroundColor: cardColor, borderColor: cardBorder, borderWidth: 1 }
     : undefined;
-
-  async function generatePaymentLink(orderId: Id<"orders">) {
-    setPendingAction("generate");
-
-    try {
-      await createPaymentLink({ orderId, expiresInMinutes: 1440 });
-      toast.show({ variant: "success", label: "Link de pago listo" });
-    } catch (error) {
-      toast.show({
-        variant: "danger",
-        label: getErrorMessage(error, "No pudimos generar el link"),
-      });
-    } finally {
-      setPendingAction(null);
-    }
-  }
 
   async function handleFulfillBusinessOrder() {
     if (!businessOrder || businessOrder.channel === "p2p") {
@@ -166,18 +156,6 @@ export default function OrderScreen() {
     ]);
   }
 
-  async function handleShareBusinessOrder() {
-    if (!businessOrder?.payment?.checkoutUrl) {
-      return;
-    }
-
-    await Share.share({
-      message: `Pedido de ${formatMxn(businessOrder.totalCents)} en ${
-        businessOrder.business?.name ?? "Cozi"
-      }. Paga aquí: ${businessOrder.payment.checkoutUrl}`,
-    });
-  }
-
   if (businessOrder === undefined) {
     return (
       <View
@@ -207,8 +185,6 @@ export default function OrderScreen() {
       !hasSettlementException &&
       (businessOrder.status === "draft" || businessOrder.status === "awaiting_payment");
 
-    const businessCheckoutUrl = businessOrder.payment?.checkoutUrl ?? null;
-
     const customer =
       [
         businessOrder.customer.name,
@@ -219,6 +195,7 @@ export default function OrderScreen() {
 
     return (
       <Container className="px-5">
+        {header}
         <View className="items-center pb-8 pt-6">
           <View
             className={`h-16 w-16 items-center justify-center rounded-full ${
@@ -388,41 +365,20 @@ export default function OrderScreen() {
             <View className="rounded-2xl bg-surface p-4" style={immersiveCard}>
               <Text className="text-center text-sm text-muted">
                 {isBusinessSeller && businessOrder.canRenew
-                  ? "Este pedido expiró. Renueva el link para seguir cobrando."
+                  ? "Este pedido expiró. Renueva el cobro para seguir cobrando."
                   : isBusinessSeller
                     ? "Este pedido expiró. Crea un pedido nuevo para volver a cobrar."
-                    : "Este pedido expiró. Pide un link nuevo al negocio."}
+                    : "Este pedido expiró. Pide al negocio que lo renueve."}
               </Text>
             </View>
             {isBusinessSeller && businessOrder.canRenew ? (
-              <Button
-                onPress={() => generatePaymentLink(businessOrder.orderId)}
-                isDisabled={pendingAction !== null}
-              >
-                {pendingAction === "generate" ? (
-                  <Spinner size="sm" color="default" />
-                ) : (
-                  <Button.Label>Renovar link</Button.Label>
-                )}
-              </Button>
+              <CodiPayment orderId={businessOrder.orderId} payment={businessOrder.payment} renew />
             ) : null}
           </View>
-        ) : businessCheckoutUrl && canPay ? (
-          <Button className="mt-6" onPress={handleShareBusinessOrder}>
-            <Button.Label>Compartir link de pago</Button.Label>
-          </Button>
-        ) : businessCheckoutUrl === null && canPay && isBusinessSeller ? (
-          <Button
-            className="mt-6"
-            onPress={() => generatePaymentLink(businessOrder.orderId)}
-            isDisabled={pendingAction !== null}
-          >
-            {pendingAction === "generate" ? (
-              <Spinner size="sm" color="default" />
-            ) : (
-              <Button.Label>Generar link de pago</Button.Label>
-            )}
-          </Button>
+        ) : canPay ? (
+          <View className="mt-6">
+            <CodiPayment orderId={businessOrder.orderId} payment={businessOrder.payment} />
+          </View>
         ) : null}
 
         {canFulfill ? (
@@ -585,7 +541,6 @@ export default function OrderScreen() {
   const isExpired = current.status === "expired";
   const isIncoming = current.direction === "in";
   const isRequest = current.kind === "request";
-  const checkoutUrl = current.payment?.checkoutUrl ?? null;
 
   const counterpart = current.counterpartHandle
     ? `@${current.counterpartHandle}`
@@ -604,47 +559,6 @@ export default function OrderScreen() {
         ? "Te envió"
         : "Te quiere enviar"
       : "Enviaste a";
-
-  async function handleGenerateLink() {
-    await generatePaymentLink(current.orderId);
-  }
-
-  async function handleShare() {
-    if (!checkoutUrl) {
-      return;
-    }
-
-    await Share.share({
-      message: `Te cobré ${formatMxn(current.amountCents)} en Cozi. Paga aquí: ${checkoutUrl}`,
-    });
-  }
-
-  async function handlePay() {
-    if (!checkoutUrl) {
-      return;
-    }
-
-    await openBrowserAsync(checkoutUrl);
-  }
-
-  async function handleRefresh() {
-    if (!current.payment) {
-      return;
-    }
-
-    setPendingAction("refresh");
-
-    try {
-      await refreshPayment({ paymentId: current.payment.paymentId });
-    } catch (error) {
-      toast.show({
-        variant: "danger",
-        label: getErrorMessage(error, "No pudimos revisar el pago"),
-      });
-    } finally {
-      setPendingAction(null);
-    }
-  }
 
   async function handleSaveCounterpart() {
     if (!current.counterpartHandle || savedContact || pendingAction !== null) {
@@ -684,6 +598,7 @@ export default function OrderScreen() {
 
   return (
     <Container className="px-5">
+      {header}
       <View className="items-center pb-8 pt-6">
         <View
           className={`h-16 w-16 items-center justify-center rounded-full ${
@@ -760,59 +675,18 @@ export default function OrderScreen() {
               <View className="rounded-2xl bg-surface p-4" style={immersiveCard}>
                 <Text className="text-center text-sm text-muted">
                   {isIncoming && isRequest && current.canRenew
-                    ? "Este cobro expiró. Renueva el link para seguir cobrando."
+                    ? "Este cobro expiró. Renueva el cobro para seguir cobrando."
                     : isIncoming
                       ? "Este cobro expiró. Crea un cobro nuevo para volver a cobrar."
-                      : "Este cobro expiró. Pide un link nuevo a quien te cobró."}
+                      : "Este cobro expiró. Pide a quien te cobró que lo renueve."}
                 </Text>
               </View>
               {isIncoming && isRequest && current.canRenew ? (
-                <Button onPress={handleGenerateLink} isDisabled={pendingAction !== null}>
-                  {pendingAction === "generate" ? (
-                    <Spinner size="sm" color="default" />
-                  ) : (
-                    <Button.Label>Renovar link</Button.Label>
-                  )}
-                </Button>
+                <CodiPayment orderId={current.orderId} payment={current.payment} renew />
               ) : null}
             </>
-          ) : checkoutUrl ? (
-            isIncoming && isRequest ? (
-              <Button onPress={handleShare}>
-                <Button.Label>Compartir link</Button.Label>
-              </Button>
-            ) : isIncoming ? (
-              <View className="rounded-2xl bg-surface p-4" style={immersiveCard}>
-                <Text className="text-center text-sm text-muted">
-                  Te están enviando dinero. El pago se confirmará automáticamente.
-                </Text>
-              </View>
-            ) : (
-              <>
-                <Button onPress={handlePay}>
-                  <Button.Label>Pagar ahora</Button.Label>
-                </Button>
-                <Button
-                  variant="secondary"
-                  onPress={handleRefresh}
-                  isDisabled={pendingAction !== null}
-                >
-                  {pendingAction === "refresh" ? (
-                    <Spinner size="sm" color="default" />
-                  ) : (
-                    <Button.Label>Ya pagué</Button.Label>
-                  )}
-                </Button>
-              </>
-            )
           ) : !isIncoming || isRequest ? (
-            <Button onPress={handleGenerateLink} isDisabled={pendingAction !== null}>
-              {pendingAction === "generate" ? (
-                <Spinner size="sm" color="default" />
-              ) : (
-                <Button.Label>Generar link de pago</Button.Label>
-              )}
-            </Button>
+            <CodiPayment orderId={current.orderId} payment={current.payment} />
           ) : (
             <View className="rounded-2xl bg-surface p-4" style={immersiveCard}>
               <Text className="text-center text-sm text-muted">

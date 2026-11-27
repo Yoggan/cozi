@@ -1,6 +1,6 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import { Icon } from "@/components/icon";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { selectionAsync } from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -51,7 +51,6 @@ export default function RequestScreen() {
   const insets = useSafeAreaInsets();
   const theme = usePaymentTheme();
   const createRequest = useMutation(api.p2p.createRequest);
-  const createPaymentLink = useAction(api.pey.actions.createPaymentLink);
   const contactData = useQuery(api.contacts.suggestions);
   const contacts = contactData ? [...contactData.saved, ...contactData.recent] : [];
 
@@ -95,15 +94,6 @@ export default function RequestScreen() {
         note: note.trim() || undefined,
         expiresInMinutes: expiryMinutes,
       });
-
-      try {
-        await createPaymentLink({ orderId: order.orderId, expiresInMinutes: expiryMinutes });
-      } catch (error) {
-        toast.show({
-          variant: "danger",
-          label: getErrorMessage(error, "No pudimos generar el link de pago"),
-        });
-      }
 
       router.replace({
         pathname: "/order/[publicId]",

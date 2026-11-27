@@ -268,8 +268,7 @@ export default function BusinessScreen() {
             Aceptando pedidos
           </Text>
           <Text className="mt-1 text-xs leading-5 text-muted" style={textSecondary}>
-            Obligatorio para cobrar con CoDi o link de pago. Si está apagado, tus clientes no pueden
-            pagar.
+            Obligatorio para cobrar con CoDi. Si está apagado, tus clientes no pueden pagar.
           </Text>
         </View>
         <Switch
@@ -506,7 +505,7 @@ export default function BusinessScreen() {
             Ventas
           </Text>
           <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
-            Toma pedidos en el local y comparte el link de pago.
+            Toma pedidos en el local y cobra con CoDi.
           </Text>
         </View>
         <Button onPress={() => router.push("/business-order")}>

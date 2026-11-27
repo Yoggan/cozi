@@ -480,7 +480,6 @@ export const getOrder = query({
             paymentId: payment._id,
             method: payment.method,
             status: payment.status,
-            checkoutUrl: payment.checkoutUrl ?? null,
             qrImageUrl: payment.qrImageUrl ?? null,
             deepLink: payment.deepLink ?? null,
             expiresAt: payment.expiresAt ?? null,

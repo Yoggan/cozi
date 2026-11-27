@@ -8,7 +8,6 @@ import { useRouter } from "expo-router";
 import { Avatar, BottomSheet, Text, useThemeColor } from "heroui-native";
 import { useMemo, useState } from "react";
 import { Clipboard, Pressable, Share, StyleSheet, View } from "react-native";
-import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import Animated, {
   Easing,
   FadeInDown,
@@ -24,6 +23,7 @@ import { ActivityRow } from "@/components/activity-row";
 import { BusinessModeHome } from "@/components/business-mode-home";
 import { ContactsStrip } from "@/components/contacts-strip";
 import { Container } from "@/components/container";
+import { FrostedFill } from "@/components/frosted-fill";
 import { ThemeBackdrop } from "@/components/theme-backdrop";
 import { useAppTheme } from "@/contexts/app-theme-context";
 import { useProfile } from "@/contexts/profile-context";
@@ -50,36 +50,14 @@ function usePressScale() {
   };
 }
 
-// Opaque base + the theme's translucent card tint + a soft sheen: the frosted
-// look without relying on backdrop blur, which Android does not support.
 function createHandleSheetBackground(baseColor: string, cardColor: string, cardBorder: string) {
   return function HandleSheetBackground({ style, pointerEvents }: BottomSheetBackgroundProps) {
     return (
       <View
         pointerEvents={pointerEvents}
-        style={[
-          style,
-          {
-            overflow: "hidden",
-            backgroundColor: baseColor,
-            borderTopWidth: 1,
-            borderColor: cardBorder,
-          },
-        ]}
+        style={[style, { overflow: "hidden", borderTopWidth: 1, borderColor: cardBorder }]}
       >
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: cardColor }]} />
-        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          <Svg width="100%" height="100%">
-            <Defs>
-              <LinearGradient id="handle-sheet-sheen" x1="0%" y1="0%" x2="0%" y2="100%">
-                <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.1} />
-                <Stop offset="35%" stopColor="#FFFFFF" stopOpacity={0.03} />
-                <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
-              </LinearGradient>
-            </Defs>
-            <Rect width="100%" height="100%" fill="url(#handle-sheet-sheen)" />
-          </Svg>
-        </View>
+        <FrostedFill id="handle-sheet-sheen" baseColor={baseColor} cardColor={cardColor} />
       </View>
     );
   };
