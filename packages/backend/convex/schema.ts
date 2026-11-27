@@ -2,6 +2,8 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import type { Infer } from "convex/values";
 
+import { businessTimeZones } from "./lib/businessDay";
+
 /** Canales desde los que nace una orden. */
 export const orderChannelValidator = v.union(
   v.literal("pos"),
@@ -46,6 +48,10 @@ export const bankAccountStatusValidator = v.union(
 );
 
 export const businessStatusValidator = v.union(v.literal("active"), v.literal("paused"));
+
+export const businessTimeZoneValidator = v.union(
+  ...businessTimeZones.map(({ value }) => v.literal(value)),
+);
 
 export const businessPromptStateValidator = v.union(
   v.literal("pending"),
@@ -203,6 +209,7 @@ export default defineSchema({
     status: businessStatusValidator,
     acceptingOrders: v.boolean(),
     tipsEnabled: v.boolean(),
+    timeZone: v.optional(businessTimeZoneValidator),
     defaultBankAccountId: v.optional(v.id("bankAccounts")),
     channels: v.object({
       whatsapp: v.optional(
@@ -306,6 +313,8 @@ export default defineSchema({
   })
     .index("by_public_id", ["publicId"])
     .index("by_business_created", ["businessId", "createdAt"])
+    .index("by_business_paid_at", ["businessId", "paidAt"])
+    .index("by_business_status_paid_at", ["businessId", "status", "paidAt"])
     .index("by_business_status_created", ["businessId", "status", "createdAt"])
     .index("by_business_channel_created", ["businessId", "channel", "createdAt"])
     .index("by_seller_created", ["sellerId", "createdAt"])

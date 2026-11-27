@@ -66,6 +66,31 @@ The order screen reads `orders.getByPublicId` for business orders and shows the 
 subtotal, tip, buyer, channel, and fulfillment actions. App screen:
 `apps/native/app/order/[publicId].tsx`.
 
+### Daily business closeout
+
+**Status:** Done on mobile and web.
+
+The business owner can open **Corte diario**, choose a calendar date, and export a CSV. The
+initial date and **Hoy** use the current date in the business's saved Mexican time zone. The
+default is `America/Mexico_City`. The owner can change the time zone from the closeout view.
+The saved zone applies to every date, including historical reports.
+
+Reporting lives in `packages/backend/convex/closeout.ts` and uses bounded pagination so busy
+days never hit Convex read/return limits or silently truncate totals:
+
+- `closeout.getDailySummary` computes an on-demand full-day snapshot by paginating paid orders
+  in `paidAt` range from local midnight (inclusive) to the next local midnight (exclusive). It
+  counts paid and fulfilled orders and sums their MXN totals (which include tips), tips, and
+  orders still awaiting fulfillment.
+- `closeout.listAwaitingFulfillment` reactively paginates the selected day's `paid` orders still
+  awaiting fulfillment via the `by_business_status_paid_at` index.
+- `closeout.exportDailyCsv` runs on demand when exporting and paginates the same orders to build
+  a CSV with one row per paid order (business date, time zone, order reference, UTC payment
+  timestamp, current fulfillment state, total, and tip).
+
+Accuracy of day boundaries depends on provider settlement `paidAt` persisted on orders during
+payment settlement and reconciliation.
+
 ### Buyer-side business profile and checkout
 
 **Status:** Done in the app.

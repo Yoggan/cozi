@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as businesses from "../businesses.js";
+import type * as closeout from "../closeout.js";
 import type * as contacts from "../contacts.js";
 import type * as crons from "../crons.js";
 import type * as healthCheck from "../healthCheck.js";
@@ -49,6 +50,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   businesses: typeof businesses;
+  closeout: typeof closeout;
   contacts: typeof contacts;
   crons: typeof crons;
   healthCheck: typeof healthCheck;
