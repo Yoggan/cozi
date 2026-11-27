@@ -4,7 +4,7 @@ import { Link } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex/react";
 import { usePaginatedQuery } from "convex-helpers/react";
-import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { ArrowDownLeftIcon, ArrowUpRightIcon } from "@phosphor-icons/react";
 
 import { Amount, Empty, Loading } from "@/components/cozi";
 import { dateTime, orderLabels, paid } from "@/lib/cozi";
@@ -75,7 +75,7 @@ function ActivityRows({
     <ul className="panel divide-y py-0 sm:py-0">
       {items.map((item) => {
         const received = item.direction === "in";
-        const Icon = received ? ArrowDownLeft : ArrowUpRight;
+        const Icon = received ? ArrowDownLeftIcon : ArrowUpRightIcon;
 
         return (
           <li key={item.publicId}>

@@ -1,7 +1,7 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { Circle, CircleAlert, CircleCheck, Clock } from "lucide-react";
+import { CircleIcon, WarningCircleIcon, CheckCircleIcon, ClockIcon } from "@phosphor-icons/react";
 
 import type { Profile } from "@/lib/profile";
 
@@ -13,10 +13,10 @@ const destinations = {
 } as const;
 
 const statusIndicators = {
-  complete: { Icon: CircleCheck, color: "text-success" },
-  todo: { Icon: Circle, color: "text-muted-foreground" },
-  pending: { Icon: Clock, color: "text-warning" },
-  rejected: { Icon: CircleAlert, color: "text-destructive" },
+  complete: { Icon: CheckCircleIcon, color: "text-success" },
+  todo: { Icon: CircleIcon, color: "text-muted-foreground" },
+  pending: { Icon: ClockIcon, color: "text-warning" },
+  rejected: { Icon: WarningCircleIcon, color: "text-destructive" },
 };
 
 const accountSteps = {
@@ -87,7 +87,7 @@ export function FirstPaymentChecklist({ business }: { business: Business }) {
   return (
     <section className="panel space-y-4" aria-labelledby="first-payment-title">
       <h2 id="first-payment-title" className="section-title flex items-center gap-2">
-        {ready && <CircleCheck className="size-5 text-success" aria-hidden="true" />}
+        {ready && <CheckCircleIcon className="size-5 text-success" aria-hidden="true" />}
         {ready ? "Todo listo para cobrar" : "Prepara tu primer cobro"}
       </h2>
       {!ready && (

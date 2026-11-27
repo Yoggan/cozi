@@ -8,7 +8,7 @@ import {
   useMessageScrollerScrollable,
   useMessageScrollerVisibility,
 } from "@shadcn/react/message-scroller";
-import { ArrowDownIcon } from "lucide-react";
+import { ArrowDownIcon } from "@phosphor-icons/react";
 import type { ComponentProps } from "react";
 
 function MessageScrollerProvider(props: ComponentProps<typeof MessageScrollerPrimitive.Provider>) {

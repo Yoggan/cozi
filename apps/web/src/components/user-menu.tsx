@@ -1,6 +1,6 @@
 import { buttonVariants } from "@cozi/ui/components/button";
 import { Link } from "@tanstack/react-router";
-import { CircleUserRound } from "lucide-react";
+import { UserCircleIcon } from "@phosphor-icons/react";
 
 export default function UserMenu() {
   return (
@@ -10,7 +10,7 @@ export default function UserMenu() {
       className={buttonVariants({ variant: "ghost", size: "icon" })}
       activeProps={{ className: "bg-highlight text-highlight-foreground" }}
     >
-      <CircleUserRound aria-hidden="true" className="size-5" />
+      <UserCircleIcon aria-hidden="true" className="size-5" />
     </Link>
   );
 }

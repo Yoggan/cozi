@@ -4,7 +4,7 @@ import { businessTimeZones, isBusinessDay } from "@cozi/backend/convex/lib/busin
 import { Button } from "@cozi/ui/components/button";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useAction, useMutation, usePaginatedQuery } from "convex/react";
-import { Download, RefreshCw } from "lucide-react";
+import { DownloadSimpleIcon, ArrowsClockwiseIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -154,7 +154,7 @@ function Closeout() {
               disabled={loadingSummary || savingZone}
               onClick={() => setRefreshNonce((current) => current + 1)}
             >
-              <RefreshCw aria-hidden="true" />
+              <ArrowsClockwiseIcon aria-hidden="true" />
               Actualizar
             </Button>
             <Button
@@ -162,7 +162,7 @@ function Closeout() {
               disabled={!summary || loadingSummary || exporting || savingZone}
               onClick={() => void downloadCsv()}
             >
-              <Download aria-hidden="true" />
+              <DownloadSimpleIcon aria-hidden="true" />
               {exporting ? "Exportando…" : "Exportar CSV"}
             </Button>
           </div>

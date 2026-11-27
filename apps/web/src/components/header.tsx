@@ -2,21 +2,21 @@ import { api } from "@cozi/backend/convex/_generated/api";
 import { buttonVariants } from "@cozi/ui/components/button";
 import { Link } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
-import { House, MessageCircle, ReceiptText, Store } from "lucide-react";
+import { WalletIcon, ChatCircleTextIcon, ReceiptIcon, StorefrontIcon } from "@phosphor-icons/react";
 
 import UserMenu from "@/components/user-menu";
 import { needsOnboarding } from "@/lib/profile";
 
 const personalNav = [
-  { to: "/dashboard", label: "Inicio", Icon: House },
-  { to: "/activity", label: "Actividad", Icon: ReceiptText },
-  { to: "/messages", label: "Mensajes", Icon: MessageCircle },
+  { to: "/dashboard", label: "Inicio", Icon: WalletIcon },
+  { to: "/activity", label: "Actividad", Icon: ReceiptIcon },
+  { to: "/messages", label: "Mensajes", Icon: ChatCircleTextIcon },
 ] as const;
 
 const businessNav = [
-  { to: "/dashboard", label: "Inicio", Icon: House },
-  { to: "/business", label: "Negocio", Icon: Store },
-  { to: "/messages", label: "Mensajes", Icon: MessageCircle },
+  { to: "/dashboard", label: "Inicio", Icon: WalletIcon },
+  { to: "/business", label: "Negocio", Icon: StorefrontIcon },
+  { to: "/messages", label: "Mensajes", Icon: ChatCircleTextIcon },
 ] as const;
 
 export default function Header() {
@@ -50,11 +50,21 @@ export default function Header() {
                 activeOptions={{ exact: to !== "/business" }}
                 activeProps={{
                   className:
-                    "bg-highlight text-highlight-foreground hover:bg-highlight hover:text-highlight-foreground",
+                    "bg-foreground/7 text-foreground hover:bg-foreground/7 dark:bg-foreground/10 dark:hover:bg-foreground/10",
                 }}
+                // 60% in light too: the guide's 50% fails 4.5:1 for the visible labels.
+                inactiveProps={{ className: "text-foreground/60" }}
               >
-                <Icon aria-hidden="true" className="size-5" />
-                <span className="hidden sm:inline">{label}</span>
+                {({ isActive }) => (
+                  <>
+                    <Icon
+                      aria-hidden="true"
+                      weight={isActive ? "fill" : "regular"}
+                      className="size-5"
+                    />
+                    <span className="hidden sm:inline">{label}</span>
+                  </>
+                )}
               </Link>
             ))}
           </nav>
