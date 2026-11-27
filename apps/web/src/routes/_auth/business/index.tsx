@@ -62,6 +62,7 @@ function Business() {
       </nav>
       <div className="grid items-start gap-6 md:grid-cols-2">
         <Form
+          id="configurar-pedidos"
           submit="Guardar negocio"
           onSubmit={async (data) => {
             await update({
@@ -103,7 +104,7 @@ function Business() {
             propinas
           </label>
         </Form>
-        <div className="stack">
+        <div id="cuenta-receptora" className="stack">
           <h2 className="section-title">Cuenta bancaria del negocio</h2>
           <BankAccounts businessId={business._id} />
         </div>

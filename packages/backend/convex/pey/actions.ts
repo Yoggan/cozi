@@ -4,12 +4,25 @@ import { ConvexError, v } from "convex/values";
 
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
-import { action } from "../_generated/server";
+import { action, internalAction } from "../_generated/server";
 import type { ActionCtx } from "../_generated/server";
-import { expiryFromMinutes, orderDeadline } from "../lib/expiry";
-import type { BankAccountStatus, PaymentStatus } from "../schema";
-import { getPaymentStatus, pey } from "./client";
+import { expiryFromMinutes } from "../lib/expiry";
+import type { BankAccountStatus, PaymentStatus, SettlementExceptionKind } from "../schema";
+import { getPaymentStatus, isMockMode, PeyHttpError, pey } from "./client";
+import { getPaymentLookup } from "./paymentLookup";
 import type { PaymentHandle } from "./types";
+
+const RECONCILIATION_CONCURRENCY = 4;
+
+function isDefinitiveProvisioningFailure(error: unknown): boolean {
+  return (
+    error instanceof PeyHttpError &&
+    error.status >= 400 &&
+    error.status < 500 &&
+    error.status !== 408 &&
+    error.status !== 429
+  );
+}
 
 async function getAuthUserId(ctx: ActionCtx): Promise<string> {
   const identity = await ctx.auth.getUserIdentity();
@@ -26,12 +39,6 @@ async function loadChargeContext(ctx: ActionCtx, orderId: Id<"orders">) {
     orderId,
     authUserId: await getAuthUserId(ctx),
   });
-}
-
-function assertOrderOpen(deadline: number, now: number) {
-  if (deadline > 0 && deadline <= now) {
-    throw new ConvexError("Este cobro venció. Pide un enlace nuevo.");
-  }
 }
 
 function chargeDescription(order: Doc<"orders">, business: Doc<"businesses"> | null): string {
@@ -70,11 +77,6 @@ export const createCodiCharge = action({
     }
 
     const data = await loadChargeContext(ctx, args.orderId);
-    assertOrderOpen(orderDeadline(data.order), Date.now());
-
-    if (data.activePayment) {
-      return toHandle(data.activePayment, true);
-    }
 
     const bankAccountId = data.bankAccount.peyBankAccountId;
 
@@ -87,6 +89,7 @@ export const createCodiCharge = action({
       method: args.method === "qr" ? "codi_qr" : "codi_push",
       attemptId: crypto.randomUUID(),
       amountCents: data.order.totalCents,
+      requireOpenDeadline: true,
     });
 
     if (started.existing) {
@@ -118,10 +121,21 @@ export const createCodiCharge = action({
       return toHandle(payment, false);
     } catch (error) {
       console.error("Error creando cobro CoDi", error);
-      await ctx.runMutation(internal.pey.mutations.failPayment, {
-        paymentId: started.payment._id,
-        reason: "No se pudo generar el cobro CoDi",
-      });
+
+      // Si se perdió la respuesta de un push (timeout/429/5xx), Pey pudo haberlo enviado
+      // al banco; la reserva se libera al vencer su ventana en expireUnpublished.
+      // Ante un rechazo definitivo 4xx de Pey, la liberamos de inmediato.
+      if (
+        args.method === "qr" ||
+        !started.payment.reservedItems?.length ||
+        isDefinitiveProvisioningFailure(error)
+      ) {
+        await ctx.runMutation(internal.pey.mutations.failPayment, {
+          paymentId: started.payment._id,
+          reason: "No se pudo generar el cobro CoDi",
+        });
+      }
+
       throw new ConvexError("No se pudo generar el cobro CoDi. Intenta de nuevo.");
     }
   },
@@ -137,28 +151,12 @@ export const createPaymentLink = action({
   handler: async (ctx, args): Promise<PaymentHandle> => {
     const data = await loadChargeContext(ctx, args.orderId);
     const now = Date.now();
-    const deadline = orderDeadline(data.order);
     const hasDeadline = data.order.expiresAt !== undefined || data.order.p2pKind === "request";
     const preserveExpiry = args.preserveOrderExpiry && hasDeadline;
 
     const orderExpiresAt = preserveExpiry
       ? undefined
       : expiryFromMinutes(args.expiresInMinutes, now);
-
-    if (args.preserveOrderExpiry) {
-      assertOrderOpen(deadline, now);
-    }
-
-    if (data.activePayment) {
-      if (orderExpiresAt !== undefined) {
-        await ctx.runMutation(internal.pey.mutations.setOrderExpiry, {
-          orderId: args.orderId,
-          expiresAt: orderExpiresAt,
-        });
-      }
-
-      return toHandle(data.activePayment, true);
-    }
 
     const bankAccountId = data.bankAccount.peyBankAccountId;
 
@@ -171,6 +169,8 @@ export const createPaymentLink = action({
       method: "payment_link",
       attemptId: crypto.randomUUID(),
       amountCents: data.order.totalCents,
+      requireOpenDeadline: args.preserveOrderExpiry,
+      orderExpiresAt,
     });
 
     if (started.existing) {
@@ -183,6 +183,7 @@ export const createPaymentLink = action({
         currency: "MXN",
         description: chargeDescription(data.order, data.business),
         reference: data.order.publicId,
+        attemptId: started.payment.reservedItems?.length ? started.payment.attemptId : undefined,
         bankAccountId,
         expiresInMinutes: args.expiresInMinutes,
       });
@@ -216,17 +217,30 @@ export const createPaymentLink = action({
  */
 export const refreshPayment = action({
   args: { paymentId: v.id("payments") },
-  handler: async (ctx, args): Promise<{ status: PaymentStatus }> => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ status: PaymentStatus; settlementException?: SettlementExceptionKind }> => {
     const { payment } = await ctx.runQuery(internal.pey.queries.getPaymentForRefresh, {
       paymentId: args.paymentId,
       authUserId: await getAuthUserId(ctx),
     });
 
     if (payment.status === "succeeded" || payment.status === "refunded") {
+      if (payment.settlementException) {
+        return {
+          status: payment.status,
+          settlementException: payment.settlementException,
+        };
+      }
+
       return { status: payment.status };
     }
 
-    const remote = await getPaymentStatus(payment).catch((error: unknown) => {
+    const remote = await getPaymentStatus(getPaymentLookup(payment), {
+      expectedAmountCents: payment.amountCents,
+      expiresAt: payment.method === "codi_qr" ? payment.expiresAt : undefined,
+    }).catch((error: unknown) => {
       console.error("Error consultando pago en Pey", error);
       throw new ConvexError("No se pudo consultar el pago con Pey");
     });
@@ -239,7 +253,50 @@ export const refreshPayment = action({
       failureReason: remote.failureReason,
     });
 
+    if (result.settlementException) {
+      return {
+        status: result.status,
+        settlementException: result.settlementException,
+      };
+    }
+
     return { status: result.status };
+  },
+});
+
+export const reconcilePayments = internalAction({
+  args: {},
+  handler: async (ctx): Promise<void> => {
+    // The development mock returns a successful payment for every lookup.
+    if (isMockMode()) {
+      return;
+    }
+
+    const batch = await ctx.runMutation(internal.pey.reconciliation.claimReconciliationBatch, {});
+
+    for (let offset = 0; offset < batch.length; offset += RECONCILIATION_CONCURRENCY) {
+      const group = batch.slice(offset, offset + RECONCILIATION_CONCURRENCY);
+
+      await Promise.all(
+        group.map(async ({ paymentId, lookup, attempt, amountCents, expiresAt }) => {
+          try {
+            const remote = await getPaymentStatus(lookup, {
+              expectedAmountCents: amountCents,
+              expiresAt,
+              signal: AbortSignal.timeout(10_000),
+            });
+
+            await ctx.runMutation(internal.pey.mutations.applyProviderStatus, {
+              paymentId,
+              ...remote,
+              reconciliationAttempt: attempt,
+            });
+          } catch {
+            console.warn("Pey payment reconciliation failed", { paymentId, attempt });
+          }
+        }),
+      );
+    }
   },
 });
 

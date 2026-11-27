@@ -84,6 +84,7 @@ export default function BankAccounts({ businessId }: { businessId?: Id<"business
       )}
       <Form
         key={formVersion}
+        id={businessId ? "vincular-cuenta" : undefined}
         submit="Vincular cuenta"
         fallback="No pudimos vincular tu cuenta. Revisa los datos e intenta de nuevo."
         onSubmit={async (data) => {

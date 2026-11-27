@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useForm } from "@tanstack/react-form";
 import { selectionAsync } from "expo-haptics";
+import { Link } from "expo-router";
 import { useToast } from "heroui-native";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -202,6 +203,10 @@ export function SignIn() {
 
               <AuthErrorBanner message={validationError} />
 
+              <Link href="/forgot-password" style={styles.recoveryLink}>
+                Olvidé mi contraseña
+              </Link>
+
               <Pressable
                 accessibilityLabel="Recordarme"
                 accessibilityRole="switch"
@@ -248,6 +253,14 @@ const styles = StyleSheet.create({
   },
   fields: {
     gap: 14,
+  },
+  recoveryLink: {
+    alignSelf: "flex-start",
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+    textDecorationLine: "underline",
+    paddingVertical: 12,
   },
   rememberRow: {
     minHeight: 44,
