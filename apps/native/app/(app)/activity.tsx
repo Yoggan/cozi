@@ -7,7 +7,7 @@ import { useNetworkState } from "expo-network";
 import { useRouter } from "expo-router";
 import type { ErrorBoundaryProps } from "expo-router";
 import { Button, Skeleton, Text } from "heroui-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FlatList, Keyboard, Pressable, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SvgUri } from "react-native-svg";
@@ -41,10 +41,6 @@ const DATE_LABEL = new Intl.DateTimeFormat("es-MX", {
   month: "long",
   year: "numeric",
 });
-
-function normalizeSearch(value: string) {
-  return value.normalize("NFD").replaceAll(/\p{M}/gu, "").toLocaleLowerCase("es-MX").trim();
-}
 
 function groupByDay(items: Array<ActivityItem>) {
   const groups = new Map<string, { label: string; items: Array<ActivityItem> }>();
@@ -124,31 +120,38 @@ export default function ActivityScreen() {
   const [fontsLoaded] = useFonts(ACTIVITY_FONTS);
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filter, setFilter] = useState<ActivityFilter>("all");
+  const activeSearch = search.trim() ? debouncedSearch : "";
 
-  const { results, status, loadMore } = usePaginatedQuery(
-    api.p2p.listActivityPage,
-    FILTERS.find((option) => option.id === filter)?.args ?? {},
-    { initialNumItems: PAGE_SIZE },
-  );
+  useEffect(() => {
+    const trimmed = search.trim();
+
+    if (!trimmed) {
+      return;
+    }
+
+    const timer = setTimeout(() => setDebouncedSearch(trimmed), 200);
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const filterArgs = FILTERS.find((option) => option.id === filter)?.args ?? {};
+  const queryArgs = activeSearch ? { ...filterArgs, search: activeSearch } : filterArgs;
+
+  const { results, status, loadMore } = usePaginatedQuery(api.p2p.listActivityPage, queryArgs, {
+    initialNumItems: PAGE_SIZE,
+  });
 
   const palette = useCoziGlassPalette();
   const offline = network.isConnected === false || network.isInternetReachable === false;
   const loading = status === "LoadingFirstPage";
   const exhausted = status === "Exhausted";
-  const isEmpty = exhausted && results.length === 0 && filter === "all";
-  const canSearch = searchOpen || results.length > 0;
-  const searchTerms = normalizeSearch(search).split(/\s+/u).filter(Boolean);
+  const hasActiveQuery = filter !== "all" || activeSearch !== "";
+  const isEmpty = exhausted && results.length === 0 && !hasActiveQuery && !searchOpen;
+  const canSearch = searchOpen || (!loading && !isEmpty);
 
-  const groups = groupByDay(
-    results.filter((item) => {
-      const searchable = normalizeSearch(
-        `@${item.counterpartHandle ?? ""} ${item.counterpartName} ${item.note}`,
-      );
-
-      return searchTerms.every((term) => searchable.includes(term));
-    }),
-  );
+  const groups = groupByDay(results);
 
   const rows = groups.flatMap(([, { label, items }]) =>
     items.map((item, index) => ({
@@ -165,6 +168,7 @@ export default function ActivityScreen() {
   function toggleSearch() {
     if (searchOpen) {
       setSearch("");
+      setDebouncedSearch("");
       Keyboard.dismiss();
     }
 
@@ -174,6 +178,7 @@ export default function ActivityScreen() {
   function resetFilters() {
     setFilter("all");
     setSearch("");
+    setDebouncedSearch("");
     Keyboard.dismiss();
   }
 
@@ -244,17 +249,15 @@ export default function ActivityScreen() {
                     accessibilityLabel="Borrar búsqueda"
                     accessibilityRole="button"
                     className="size-11 items-center justify-center"
-                    onPress={() => setSearch("")}
+                    onPress={() => {
+                      setSearch("");
+                      setDebouncedSearch("");
+                    }}
                   >
                     <Ionicons name="close-circle" size={20} color={palette.muted} />
                   </Pressable>
                 ) : null}
               </View>
-              {!exhausted ? (
-                <Text className="text-xs" style={{ color: palette.muted }}>
-                  La búsqueda incluye los movimientos cargados.
-                </Text>
-              ) : null}
             </View>
           ) : null}
           <View className="flex-row flex-wrap gap-2">
@@ -312,6 +315,21 @@ export default function ActivityScreen() {
       {isEmpty ? (
         <View className="flex-1 items-center justify-center py-6">
           <ActivityEmptyState onSend={() => router.push("/send")} />
+        </View>
+      ) : null}
+
+      {!isEmpty && !loading && !exhausted && rows.length === 0 ? (
+        <View className="items-center gap-2 py-10">
+          <Text
+            accessibilityRole="header"
+            className="text-center text-base"
+            style={[semibold, { color: palette.text }]}
+          >
+            Sin coincidencias en los movimientos revisados
+          </Text>
+          <Text className="text-center text-sm" style={{ color: palette.muted }}>
+            Aún hay movimientos anteriores por revisar. Carga más para seguir buscando.
+          </Text>
         </View>
       ) : null}
 

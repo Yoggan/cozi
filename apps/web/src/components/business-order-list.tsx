@@ -46,7 +46,18 @@ export function BusinessOrderList({
 
   return (
     <>
-      {results.length > 0 || status === "Exhausted" ? <BusinessOrderRows orders={results} /> : null}
+      {results.length > 0 || status === "Exhausted" ? (
+        <BusinessOrderRows
+          orders={results}
+          emptyMessage={
+            orderStatus ? "No hay pedidos con este estado." : "No hay pedidos para mostrar."
+          }
+        />
+      ) : (
+        <Empty>
+          No encontramos coincidencias en los pedidos revisados. Carga más para seguir buscando.
+        </Empty>
+      )}
       {status === "CanLoadMore" || status === "LoadingMore" ? (
         <Button
           className="self-start"
@@ -63,11 +74,13 @@ export function BusinessOrderList({
 
 function BusinessOrderRows({
   orders,
+  emptyMessage = "No hay pedidos para mostrar.",
 }: {
   orders: FunctionReturnType<typeof api.orders.listBusinessOrders>;
+  emptyMessage?: string;
 }) {
   if (!orders.length) {
-    return <Empty>No hay pedidos para mostrar.</Empty>;
+    return <Empty>{emptyMessage}</Empty>;
   }
 
   return (

@@ -32,7 +32,20 @@ export default function ActivityList({ direction }: { direction: Direction }) {
 
   return (
     <>
-      {results.length > 0 || status === "Exhausted" ? <ActivityRows items={results} /> : null}
+      {results.length > 0 || status === "Exhausted" ? (
+        <ActivityRows
+          items={results}
+          emptyMessage={
+            direction === "all"
+              ? "Tus envíos y cobros aparecerán aquí."
+              : "No hay movimientos con este filtro."
+          }
+        />
+      ) : (
+        <Empty>
+          No encontramos coincidencias en los movimientos revisados. Carga más para seguir buscando.
+        </Empty>
+      )}
       {status === "CanLoadMore" || status === "LoadingMore" ? (
         <Button
           className="self-start"
@@ -47,9 +60,15 @@ export default function ActivityList({ direction }: { direction: Direction }) {
   );
 }
 
-function ActivityRows({ items }: { items: FunctionReturnType<typeof api.p2p.listActivity> }) {
+function ActivityRows({
+  items,
+  emptyMessage = "Tus envíos y cobros aparecerán aquí.",
+}: {
+  items: FunctionReturnType<typeof api.p2p.listActivity>;
+  emptyMessage?: string;
+}) {
   if (items.length === 0) {
-    return <Empty>Tus envíos y cobros aparecerán aquí.</Empty>;
+    return <Empty>{emptyMessage}</Empty>;
   }
 
   return (

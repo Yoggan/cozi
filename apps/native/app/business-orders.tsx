@@ -150,7 +150,16 @@ export default function BusinessOrdersScreen() {
               : "Prueba con otro estado."}
           </Text>
         </View>
-      ) : null}
+      ) : (
+        <View className="items-center py-10">
+          <Text className="text-center text-sm font-medium text-foreground" style={textPrimary}>
+            Sin coincidencias en los pedidos revisados
+          </Text>
+          <Text className="mt-1 max-w-[260px] text-center text-xs text-muted" style={textSecondary}>
+            Aún hay pedidos anteriores por revisar. Carga más para seguir buscando.
+          </Text>
+        </View>
+      )}
     </View>
   );
 

@@ -6,6 +6,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { effectiveOrderStatus, orderDeadline } from "./lib/expiry";
+import { normalizeHistoryPaginationOpts } from "./lib/history-pagination";
 import { HANDLE_PATTERN, makePublicId, normalizeHandle } from "./lib/identifiers";
 import { readOrderBusiness, resolveOrderCounterpart } from "./lib/order-parties";
 import { findActivePayment } from "./pey/queries";
@@ -494,11 +495,7 @@ export const listBusinessOrdersPage = query({
           )
         : candidates;
 
-    const result = await matches.paginate({
-      ...paginationOpts,
-      numItems: Math.min(paginationOpts.numItems, 50),
-      maximumRowsRead: Math.min(paginationOpts.maximumRowsRead ?? 1000, 1000),
-    });
+    const result = await matches.paginate(normalizeHistoryPaginationOpts(paginationOpts));
 
     return { ...result, page: result.page.map((order) => businessOrderItem(order, asOf)) };
   },

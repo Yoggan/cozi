@@ -6,8 +6,13 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { effectiveOrderStatus, expiryFromMinutes, orderDeadline } from "./lib/expiry";
+import {
+  normalizeHistoryPaginationOpts,
+  normalizeHistorySearch,
+  parseHistorySearchTerms,
+} from "./lib/history-pagination";
 import { HANDLE_PATTERN, makePublicId, normalizeHandle } from "./lib/identifiers";
-import { resolveOrderCounterpart } from "./lib/order-parties";
+import { readOrderBusiness, resolveOrderCounterpart } from "./lib/order-parties";
 import { findActivePayment } from "./pey/queries";
 import schema, { orderStatusValidator } from "./schema";
 
@@ -280,6 +285,7 @@ export const listActivityPage = query({
     paginationOpts: paginationOptsValidator,
     direction: v.optional(activityDirection),
     kind: v.optional(activityKind),
+    search: v.optional(v.string()),
   },
   returns: paginationResultValidator(
     v.object({
@@ -295,9 +301,11 @@ export const listActivityPage = query({
       expiresAt: v.number(),
     }),
   ),
-  handler: async (ctx, { direction, kind, paginationOpts }) => {
+  handler: async (ctx, { direction, kind, search, paginationOpts }) => {
     const { user } = await getViewer(ctx);
     const orders = stream(ctx.db, schema).query("orders");
+    const searchTerms = parseHistorySearchTerms(search);
+    const counterpartResolver = createCounterpartResolver(ctx, user._id);
 
     const incoming = orders
       .withIndex("by_seller_created", (q) => q.eq("sellerId", user._id))
@@ -314,26 +322,89 @@ export const listActivityPage = query({
       ["createdAt"],
     );
 
-    const matches = kind
-      ? activity.filterWith(async (order) => (order.p2pKind ?? "send") === kind)
-      : activity;
+    const matches =
+      kind || searchTerms.length > 0
+        ? activity.filterWith(async (order) => {
+            if (kind && (order.p2pKind ?? "send") !== kind) {
+              return false;
+            }
 
-    const result = await matches.paginate({
-      ...paginationOpts,
-      numItems: Math.min(paginationOpts.numItems, 50),
-      maximumRowsRead: Math.min(paginationOpts.maximumRowsRead ?? 1000, 1000),
-    });
+            if (searchTerms.length === 0) {
+              return true;
+            }
 
-    return { ...result, page: await activityItems(ctx, result.page, user._id) };
+            const counterpart = await counterpartResolver(order);
+            const note = order.note ?? order.items[0]?.name ?? "Pago Cozi";
+
+            const searchable = normalizeHistorySearch(
+              `@${counterpart.handle ?? ""} ${counterpart.name} ${note}`,
+            );
+
+            return searchTerms.every((term) => searchable.includes(term));
+          })
+        : activity;
+
+    const result = await matches.paginate(normalizeHistoryPaginationOpts(paginationOpts));
+
+    return {
+      ...result,
+      page: await activityItems(ctx, result.page, user._id, counterpartResolver),
+    };
   },
 });
 
-async function activityItems(ctx: QueryCtx, orders: Array<Doc<"orders">>, userId: Id<"users">) {
+type CounterpartResolver = (
+  order: Doc<"orders">,
+) => Promise<{ name: string; handle: string | null }>;
+
+function createCounterpartResolver(ctx: QueryCtx, userId: Id<"users">): CounterpartResolver {
+  const businessCache = new Map<Id<"businesses">, Awaited<ReturnType<typeof readOrderBusiness>>>();
+  const userCache = new Map<Id<"users">, { name: string; handle: string | null }>();
+
+  return async (order) => {
+    if (order.sellerId === userId) {
+      return {
+        name: order.customer.name?.trim() || "Alguien",
+        handle: order.customer.handle ?? null,
+      };
+    }
+
+    if (order.businessId) {
+      let business = businessCache.get(order.businessId);
+
+      if (business === undefined) {
+        business = await readOrderBusiness(ctx, order.businessId);
+        businessCache.set(order.businessId, business);
+      }
+
+      if (business) {
+        return { name: business.name, handle: business.handle };
+      }
+    }
+
+    let seller = userCache.get(order.sellerId);
+
+    if (!seller) {
+      seller = await resolveOrderCounterpart(ctx, order, userId, null);
+      userCache.set(order.sellerId, seller);
+    }
+
+    return seller;
+  };
+}
+
+async function activityItems(
+  ctx: QueryCtx,
+  orders: Array<Doc<"orders">>,
+  userId: Id<"users">,
+  resolveCounterpart?: CounterpartResolver,
+) {
   const now = Date.now();
+  const getCounterpart = resolveCounterpart ?? createCounterpartResolver(ctx, userId);
 
   return await Promise.all(
     orders.map(async (order) => {
-      const counterpart = await resolveOrderCounterpart(ctx, order, userId);
+      const counterpart = await getCounterpart(order);
       const deadline = orderDeadline(order);
 
       return {

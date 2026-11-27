@@ -223,4 +223,105 @@ describe("history pagination", () => {
       }),
     ).rejects.toThrow("Negocio no encontrado");
   });
+
+  it("searches older activity server-side and continues past empty budgeted pages", async () => {
+    const { t, owner, customer } = await setup();
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("orders", {
+        ...orderFields("old-cafe-in", 1),
+        sellerId: owner.userId,
+        buyerId: customer.userId,
+        channel: "p2p",
+        p2pKind: "request",
+        status: "paid",
+        customer: { name: "Beto", handle: "beto" },
+        note: "Café de olla",
+      });
+
+      await ctx.db.insert("orders", {
+        ...orderFields("old-tacos-out", 2),
+        sellerId: customer.userId,
+        buyerId: owner.userId,
+        channel: "p2p",
+        p2pKind: "send",
+        status: "paid",
+        note: "Tacos al pastor",
+      });
+
+      for (let index = 0; index < 55; index += 1) {
+        await ctx.db.insert("orders", {
+          ...orderFields(`recent-${index}`, 10 + index),
+          sellerId: owner.userId,
+          buyerId: customer.userId,
+          channel: "p2p",
+          p2pKind: "send",
+          status: "paid",
+          customer: { name: "Otro", handle: "otro" },
+          note: "Renta mensual",
+        });
+      }
+    });
+
+    // Finds older records beyond the original 50-item cap with accent-insensitive multi-term search.
+    const cafeSearch = await owner.client.query(api.p2p.listActivityPage, {
+      search: "cafe @beto",
+      paginationOpts: { numItems: 20, cursor: null },
+    });
+
+    expect(cafeSearch.page.map((item) => item.publicId)).toEqual(["old-cafe-in"]);
+    expect(cafeSearch.isDone).toBe(true);
+
+    // Combines server-side search with direction filter and resolves outgoing seller handle/name.
+    const outgoingSearch = await owner.client.query(api.p2p.listActivityPage, {
+      direction: "out",
+      search: "beto tacos",
+      paginationOpts: { numItems: 20, cursor: null },
+    });
+
+    expect(outgoingSearch.page.map((item) => item.publicId)).toEqual(["old-tacos-out"]);
+    expect(outgoingSearch.isDone).toBe(true);
+
+    // Sparse match beyond the scan budget returns an empty intermediate page with a cursor,
+    // and continuing with that cursor reaches the older match.
+    const searchPage = (cursor: string | null, maximumRowsRead: number) =>
+      owner.client.query(api.p2p.listActivityPage, {
+        search: "cafe",
+        paginationOpts: { numItems: 20, cursor, maximumRowsRead },
+      });
+
+    const budgetedFirst = await searchPage(null, 10);
+
+    expect(budgetedFirst.page).toEqual([]);
+    expect(budgetedFirst.isDone).toBe(false);
+
+    let cursor: string | null = budgetedFirst.continueCursor;
+    let isDone = budgetedFirst.isDone;
+    const found: Array<string> = [];
+
+    while (!isDone) {
+      const next = await searchPage(cursor, 25);
+
+      found.push(...next.page.map((item) => item.publicId));
+      cursor = next.continueCursor;
+      isDone = next.isDone;
+    }
+
+    expect(found).toEqual(["old-cafe-in"]);
+
+    // Page size is clamped consistently by the shared policy (max 50, min 1).
+    const capped = await owner.client.query(api.p2p.listActivityPage, {
+      paginationOpts: { numItems: 100, cursor: null },
+    });
+
+    expect(capped.page).toHaveLength(50);
+    expect(capped.isDone).toBe(false);
+
+    const floored = await owner.client.query(api.p2p.listActivityPage, {
+      paginationOpts: { numItems: 0, cursor: null },
+    });
+
+    expect(floored.page).toHaveLength(1);
+    expect(floored.isDone).toBe(false);
+  });
 });
