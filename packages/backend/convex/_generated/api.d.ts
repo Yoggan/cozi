@@ -18,6 +18,7 @@ import type * as lib_expiry from "../lib/expiry.js";
 import type * as lib_handles from "../lib/handles.js";
 import type * as lib_identifiers from "../lib/identifiers.js";
 import type * as messages from "../messages.js";
+import type * as mobileNotifications from "../mobileNotifications.js";
 import type * as orders from "../orders.js";
 import type * as p2p from "../p2p.js";
 import type * as pey_actions from "../pey/actions.js";
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   "lib/handles": typeof lib_handles;
   "lib/identifiers": typeof lib_identifiers;
   messages: typeof messages;
+  mobileNotifications: typeof mobileNotifications;
   orders: typeof orders;
   p2p: typeof p2p;
   "pey/actions": typeof pey_actions;

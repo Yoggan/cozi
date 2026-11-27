@@ -45,6 +45,23 @@ Open [http://localhost:3001](http://localhost:3001) in your browser to see the w
 From `apps/native`, run the `ios` script for iOS or the `android` script for Android to build and launch the app. See [Expo development builds](https://docs.expo.dev/develop/development-builds/introduction/) for device setup.
 Your app will connect to the Convex cloud backend automatically.
 
+### Mobile notification development
+
+Build a native development client with `COZI_EXPO_PROJECT_ID` set to the Expo project UUID.
+For Android, set `COZI_GOOGLE_SERVICES_FILE` to the Firebase configuration file for the build's
+application ID and configure FCM v1 credentials in the Expo project. For iOS, configure APNs
+credentials and a provisioning profile with push notifications for the bundle ID. Rebuild after
+changing the native configuration. If Expo push security is enabled, set `EXPO_PUSH_ACCESS_TOKEN`
+in the Convex development deployment. [Expo push setup](https://docs.expo.dev/push-notifications/push-notifications-setup/)
+
+From **Perfil**, enable **Mensajes de negocio** or, on a business profile, **Pedidos pagados por preparar**.
+Background the app and send a business message from another account or settle a business order in
+Pey mock mode. Tap the alert to check the destination on the receiving account. Switch accounts,
+mute the conversation, and replay the payment event to exercise the delivery rules.
+
+Run the Convex integration tests with a mock Expo gateway using
+`pnpm --filter @cozi/backend test convex/mobileNotifications.e2e.test.ts`.
+
 ## UI Customization
 
 React web apps in this stack share shadcn/ui primitives through `packages/ui`.

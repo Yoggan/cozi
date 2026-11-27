@@ -18,6 +18,11 @@ import { Splash } from "@/components/splash";
 import { AccountsProvider } from "@/contexts/accounts-context";
 import { AppLockProvider, useAppLock } from "@/contexts/app-lock-context";
 import { AppThemeProvider, useAppTheme } from "@/contexts/app-theme-context";
+import {
+  MobileNotificationRouter,
+  MobileNotificationsProvider,
+  useMobileNotifications,
+} from "@/contexts/mobile-notifications-context";
 import { ProfileProvider, useProfile } from "@/contexts/profile-context";
 import { authClient } from "@/lib/auth-client";
 import { consumeEphemeralSessionFlag } from "@/lib/remember-me";
@@ -59,6 +64,7 @@ function AccountOnboardingGate({ children }: { children: ReactNode }) {
 
 function RootNavigator() {
   const { isLoading, isAuthenticated } = useConvexAuth();
+  const { signOut } = useMobileNotifications();
   const [hasCheckedEphemeralSession, setHasCheckedEphemeralSession] = useState(false);
   const background = useThemeColor("background");
   const foreground = useThemeColor("foreground");
@@ -70,7 +76,7 @@ function RootNavigator() {
     void (async () => {
       try {
         if (await consumeEphemeralSessionFlag()) {
-          await authClient.signOut();
+          await signOut();
         }
       } catch {
         // Offline sign-out must not keep the app on the splash screen.
@@ -84,7 +90,7 @@ function RootNavigator() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [signOut]);
 
   if (isLoading || !hasCheckedEphemeralSession) {
     return <Splash />;
@@ -165,7 +171,10 @@ function RootNavigator() {
         {isAuthenticated ? (
           <AccountsProvider>
             <AppLockGate>
-              <AccountOnboardingGate>{navigator}</AccountOnboardingGate>
+              <AccountOnboardingGate>
+                <MobileNotificationRouter />
+                {navigator}
+              </AccountOnboardingGate>
             </AppLockGate>
           </AccountsProvider>
         ) : (
@@ -183,7 +192,9 @@ export default function Layout() {
         <KeyboardProvider>
           <AppThemeProvider>
             <HeroUINativeProvider>
-              <RootNavigator />
+              <MobileNotificationsProvider>
+                <RootNavigator />
+              </MobileNotificationsProvider>
             </HeroUINativeProvider>
           </AppThemeProvider>
         </KeyboardProvider>

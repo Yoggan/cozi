@@ -2,10 +2,11 @@ import { api } from "@cozi/backend/convex/_generated/api";
 import type { Id } from "@cozi/backend/convex/_generated/dataModel";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Button, Text } from "heroui-native";
-import { authClient } from "@/lib/auth-client";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { PropsWithChildren } from "react";
 import { View } from "react-native";
+
+import { useMobileNotifications } from "./mobile-notifications-context";
 
 import { Splash } from "@/components/splash";
 import { consumePendingAccountType } from "@/lib/account-type";
@@ -35,6 +36,7 @@ export type Profile = {
 const ProfileContext = createContext<Profile | null>(null);
 
 export function ProfileProvider({ children }: PropsWithChildren) {
+  const { signOut } = useMobileNotifications();
   const { isAuthenticated } = useConvexAuth();
   const me = useQuery(api.users.getMe, isAuthenticated ? {} : "skip");
   const ensureProfile = useMutation(api.users.ensureProfile);
@@ -89,7 +91,7 @@ export function ProfileProvider({ children }: PropsWithChildren) {
         <Button onPress={runEnsure} isDisabled={ensuring}>
           <Button.Label>{ensuring ? "Reintentando..." : "Reintentar"}</Button.Label>
         </Button>
-        <Button variant="secondary" onPress={() => authClient.signOut()}>
+        <Button variant="secondary" onPress={signOut}>
           <Button.Label>Cerrar sesión</Button.Label>
         </Button>
       </View>

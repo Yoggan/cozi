@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppTheme } from "@/contexts/app-theme-context";
+import { authClient } from "@/lib/auth-client";
 import { formatMxn } from "@/lib/money";
 import { firstParam } from "@/lib/search-params";
 
@@ -50,9 +51,12 @@ export default function ConversationScreen() {
   const thread = useQuery(api.messages.getThread, threadId ? { threadId } : "skip");
   const sendMessage = useMutation(api.messages.sendMessage);
   const markRead = useMutation(api.messages.markRead);
+  const setMuted = useMutation(api.messages.setMuted);
+  const { data: session } = authClient.useSession();
 
   const [draft, setDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isSavingMute, setIsSavingMute] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const messageCount = thread?.messages.length ?? 0;
   const conversationId = thread?.threadId;
@@ -69,6 +73,26 @@ export default function ConversationScreen() {
 
   const cleaned = draft.trim();
   const canSend = cleaned.length > 0 && !isSending;
+
+  async function toggleMute() {
+    if (!thread || !session || isSavingMute) {
+      return;
+    }
+
+    setIsSavingMute(true);
+
+    try {
+      await setMuted({
+        threadId: thread.threadId,
+        muted: !thread.isMuted,
+        authUserId: session.user.id,
+      });
+    } catch {
+      toast.show({ variant: "danger", label: "No pudimos actualizar esta conversación" });
+    } finally {
+      setIsSavingMute(false);
+    }
+  }
 
   async function handleSend() {
     if (!thread || !canSend) {
@@ -126,7 +150,23 @@ export default function ConversationScreen() {
       style={{ flex: 1, backgroundColor: isImmersive ? baseColor : background }}
     >
       <View className="px-5 pb-2 pt-4">
-        <Text className="text-lg font-semibold text-foreground">{current.counterpartName}</Text>
+        <View className="flex-row items-center justify-between gap-3">
+          <Text className="flex-1 text-lg font-semibold text-foreground">
+            {current.counterpartName}
+          </Text>
+          {current.business || current.order?.isBusinessOrder ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={isSavingMute}
+              hitSlop={8}
+              onPress={() => void toggleMute()}
+            >
+              <Text className="text-sm font-medium text-muted">
+                {current.isMuted ? "Quitar silencio" : "Silenciar"}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
         {current.counterpartHandle ? (
           <Text className="mt-0.5 text-xs text-muted">@{current.counterpartHandle}</Text>
         ) : null}

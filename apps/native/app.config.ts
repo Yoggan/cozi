@@ -75,6 +75,8 @@ function parseVersionCode(raw: string | undefined): number {
 
 const isNightly = readEnv("APP_VARIANT") === "nightly";
 const appVersion = readEnv("APP_VERSION")?.trim() || "1.0.0";
+const pushProjectId = readEnv("COZI_EXPO_PROJECT_ID");
+const googleServicesFile = readEnv("COZI_GOOGLE_SERVICES_FILE");
 
 const config: ExpoConfig = {
   name: isNightly ? "Cozi Nightly" : "cozi",
@@ -89,6 +91,7 @@ const config: ExpoConfig = {
     bundleIdentifier: isNightly ? "com.cozi.app.nightly" : "com.anonymous.cozi",
   },
   android: {
+    googleServicesFile,
     adaptiveIcon: {
       backgroundColor: "#E6F4FE",
       foregroundImage: "./assets/images/android-icon-foreground.png",
@@ -99,6 +102,7 @@ const config: ExpoConfig = {
     package: isNightly ? "com.cozi.app.nightly" : "com.anonymous.cozi",
     versionCode: parseVersionCode(readEnv("ANDROID_VERSION_CODE")),
   },
+  extra: pushProjectId ? { eas: { projectId: pushProjectId } } : undefined,
   web: {
     bundler: "metro",
     output: "static",
@@ -106,6 +110,7 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
+    "expo-notifications",
     [
       "expo-image-picker",
       {

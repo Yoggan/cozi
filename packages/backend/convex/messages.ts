@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { enqueueMobileNotification } from "./mobileNotifications";
 
 const DEFAULT_THREAD_LIMIT = 30;
 const MAX_THREAD_LIMIT = 50;
@@ -93,6 +94,7 @@ async function readOrderContext(ctx: QueryCtx | MutationCtx, thread: Doc<"messag
 
   return {
     publicId: order.publicId,
+    isBusinessOrder: Boolean(order.businessId),
     status: order.status,
     amountCents: order.totalCents,
     concept: order.note ?? order.items[0]?.name ?? "Pago Cozi",
@@ -342,6 +344,7 @@ export const getThread = query({
 
     return {
       ...summary,
+      isMuted: (thread.ownerId === viewer._id ? thread.ownerMuted : thread.customerMuted) ?? false,
       messages: rows.reverse().map((message) => toMessageView(message, viewer._id)),
     };
   },
@@ -383,7 +386,28 @@ export const sendMessage = mutation({
       updatedAt: now,
     });
 
+    const recipientId = thread.ownerId === viewer._id ? thread.customerId : thread.ownerId;
+    await enqueueMobileNotification(ctx, recipientId, { kind: "businessMessage", id: messageId });
+
     return { messageId };
+  },
+});
+
+export const setMuted = mutation({
+  args: { threadId: v.id("messageThreads"), muted: v.boolean(), authUserId: v.string() },
+  handler: async (ctx, { threadId, muted, authUserId }) => {
+    const viewer = await getViewer(ctx);
+    const thread = await ctx.db.get(threadId);
+    const role = thread && getViewerRole(thread, viewer._id);
+
+    if (!role || viewer.authUserId !== authUserId) {
+      throw new ConvexError("Conversación no encontrada");
+    }
+
+    await ctx.db.patch(
+      threadId,
+      role === "owner" ? { ownerMuted: muted } : { customerMuted: muted },
+    );
   },
 });
 

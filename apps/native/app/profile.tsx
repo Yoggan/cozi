@@ -22,13 +22,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AccountsAvatar } from "@/components/accounts-avatar";
 import { Container } from "@/components/container";
+import { NotificationPreferences } from "@/components/notification-preferences";
 import { ProfileCodeCard } from "@/components/profile-code-card";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAppLock } from "@/contexts/app-lock-context";
 import { useAppTheme } from "@/contexts/app-theme-context";
+import { useMobileNotifications } from "@/contexts/mobile-notifications-context";
 import { useProfile } from "@/contexts/profile-context";
-import { authClient } from "@/lib/auth-client";
 
 type AccountType = "clabe" | "card";
 
@@ -60,11 +61,8 @@ function TypeButton({
   );
 }
 
-async function handleSignOut() {
-  await authClient.signOut();
-}
-
 export default function ProfileScreen() {
+  const { signOut: handleSignOut } = useMobileNotifications();
   const profile = useProfile();
   const accounts = useQuery(api.users.listBankAccounts);
   const linkBankAccount = useAction(api.pey.actions.linkBankAccount);
@@ -195,6 +193,8 @@ export default function ProfileScreen() {
           <ProfileCodeCard handle={profile.handle} canReceive={profile.hasReceivingAccount} />
         </View>
       ) : null}
+
+      <NotificationPreferences />
 
       <Animated.View entering={FadeInDown.duration(220).delay(30)}>
         <Pressable
