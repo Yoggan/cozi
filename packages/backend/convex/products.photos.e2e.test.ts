@@ -216,20 +216,24 @@ describe("E2E: fotos del catálogo", () => {
         async (ctx) => await ctx.storage.store(photoBlob("image/webp", 24)),
       );
 
-      expect(
-        await owner.client.mutation(api.products.stagePhotoUpload, {
-          businessId,
-          storageId: stagedId,
-        }),
-      ).toEqual({ status: "staged", storageId: stagedId });
+      const firstStage = await owner.client.mutation(api.products.stagePhotoUpload, {
+        businessId,
+        storageId: stagedId,
+      });
 
-      // Idempotent staging for the same owner/business succeeds without duplicating rows.
+      expect(firstStage).toEqual({
+        status: "staged",
+        storageId: stagedId,
+        expiresAt: expect.any(Number),
+      });
+
+      // Idempotent staging for the same owner/business preserves expiresAt without duplicating rows.
       expect(
         await owner.client.mutation(api.products.stagePhotoUpload, {
           businessId,
           storageId: stagedId,
         }),
-      ).toEqual({ status: "staged", storageId: stagedId });
+      ).toEqual(firstStage);
 
       // Stock conflict rejects update, preserving the staged upload for retry.
       await expect(

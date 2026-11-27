@@ -32,6 +32,8 @@ import { formatMxn, parseAmountToCents } from "@/lib/money";
 
 type CatalogProduct = FunctionReturnType<typeof api.products.listByBusiness>[number];
 
+const PENDING_UPLOAD_SAFETY_MS = 60 * 1000;
+
 export default function BusinessCatalogScreen() {
   const profile = useProfile();
   const business = profile.business;
@@ -60,7 +62,13 @@ export default function BusinessCatalogScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [isPickingPhoto, setIsPickingPhoto] = useState(false);
   const [photoDraft, setPhotoDraft] = useState<ImagePickerAsset | null>();
-  const pendingUploadRef = useRef<{ uri: string; storageId: Id<"_storage"> } | null>(null);
+
+  const pendingUploadRef = useRef<{
+    uri: string;
+    storageId: Id<"_storage">;
+    expiresAt: number;
+  } | null>(null);
+
   const [togglingId, setTogglingId] = useState<Id<"products"> | null>(null);
 
   const formBusy = isSaving || isPickingPhoto;
@@ -205,8 +213,14 @@ export default function BusinessCatalogScreen() {
         photoDraft === null ? null : undefined;
 
       if (photoDraft) {
-        if (pendingUploadRef.current?.uri === photoDraft.uri) {
-          imageStorageId = pendingUploadRef.current.storageId;
+        const reusablePending =
+          pendingUploadRef.current?.uri === photoDraft.uri &&
+          pendingUploadRef.current.expiresAt - PENDING_UPLOAD_SAFETY_MS > Date.now()
+            ? pendingUploadRef.current
+            : null;
+
+        if (reusablePending) {
+          imageStorageId = reusablePending.storageId;
         } else {
           discardPendingUpload();
           const local = await fetch(photoDraft.uri);
@@ -227,7 +241,11 @@ export default function BusinessCatalogScreen() {
             throw new ConvexError(staged.message);
           }
 
-          pendingUploadRef.current = { uri: photoDraft.uri, storageId: staged.storageId };
+          pendingUploadRef.current = {
+            uri: photoDraft.uri,
+            storageId: staged.storageId,
+            expiresAt: staged.expiresAt,
+          };
           imageStorageId = staged.storageId;
         }
       }
@@ -259,6 +277,10 @@ export default function BusinessCatalogScreen() {
       pendingUploadRef.current = null;
       closeForm(true);
     } catch (error) {
+      if (error instanceof ConvexError && error.data === "No encontramos la foto") {
+        pendingUploadRef.current = null;
+      }
+
       toast.show({
         variant: "danger",
         label:

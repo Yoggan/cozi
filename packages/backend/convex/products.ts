@@ -196,7 +196,7 @@ export const stagePhotoUpload = mutation({
         return { status: "rejected" as const, message: validationError };
       }
 
-      return { status: "staged" as const, storageId };
+      return { status: "staged" as const, storageId, expiresAt: existingPending.expiresAt };
     }
 
     const file = await ctx.db.system.get("_storage", storageId);
@@ -218,13 +218,14 @@ export const stagePhotoUpload = mutation({
     }
 
     const now = Date.now();
+    const expiresAt = now + PENDING_PHOTO_TTL_MS;
 
     const pendingId = await ctx.db.insert("pendingProductPhotos", {
       businessId: business._id,
       ownerId: user._id,
       storageId,
       createdAt: now,
-      expiresAt: now + PENDING_PHOTO_TTL_MS,
+      expiresAt,
     });
 
     await ctx.scheduler.runAfter(
@@ -233,7 +234,7 @@ export const stagePhotoUpload = mutation({
       { pendingId },
     );
 
-    return { status: "staged" as const, storageId };
+    return { status: "staged" as const, storageId, expiresAt };
   },
 });
 

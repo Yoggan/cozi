@@ -21,6 +21,8 @@ export const Route = createFileRoute("/_auth/business/catalog")({ component: Cat
 
 type Product = FunctionReturnType<typeof api.products.listByBusiness>[number];
 
+const PENDING_UPLOAD_SAFETY_MS = 60 * 1000;
+
 function Catalog() {
   const { business } = useProfile();
 
@@ -87,7 +89,13 @@ function ProductEditor({
   const [version, setVersion] = useState(0);
   const [stockDraft, setStockDraft] = useState<{ value: string; expected: number | null }>();
   const photoInput = useRef<HTMLInputElement>(null);
-  const pendingUploadRef = useRef<{ file: File; storageId: Id<"_storage"> } | null>(null);
+
+  const pendingUploadRef = useRef<{
+    file: File;
+    storageId: Id<"_storage">;
+    expiresAt: number;
+  } | null>(null);
+
   const [photoDraft, setPhotoDraft] = useState<File | null>();
   const currentStock = product?.stock ?? null;
 
@@ -164,8 +172,14 @@ function ProductEditor({
         if (photoDraft) {
           validateProductPhoto(photoDraft.size, photoDraft.type);
 
-          if (pendingUploadRef.current?.file === photoDraft) {
-            imageStorageId = pendingUploadRef.current.storageId;
+          const reusablePending =
+            pendingUploadRef.current?.file === photoDraft &&
+            pendingUploadRef.current.expiresAt - PENDING_UPLOAD_SAFETY_MS > Date.now()
+              ? pendingUploadRef.current
+              : null;
+
+          if (reusablePending) {
+            imageStorageId = reusablePending.storageId;
           } else {
             discardPendingUpload();
 
@@ -179,28 +193,40 @@ function ProductEditor({
               throw new ConvexError(staged.message);
             }
 
-            pendingUploadRef.current = { file: photoDraft, storageId: staged.storageId };
+            pendingUploadRef.current = {
+              file: photoDraft,
+              storageId: staged.storageId,
+              expiresAt: staged.expiresAt,
+            };
             imageStorageId = staged.storageId;
           }
         }
 
-        if (product) {
-          const stockChange =
-            stockDraft && stock !== stockDraft.expected
-              ? { stock, expectedStock: stockDraft.expected }
-              : {};
+        try {
+          if (product) {
+            const stockChange =
+              stockDraft && stock !== stockDraft.expected
+                ? { stock, expectedStock: stockDraft.expected }
+                : {};
 
-          await update({ ...fields, productId: product._id, imageStorageId, ...stockChange });
-          setStockDraft(undefined);
-        } else {
-          await create({
-            ...fields,
-            businessId,
-            imageStorageId: imageStorageId ?? undefined,
-            stock: stock ?? undefined,
-          });
-          setStockDraft(undefined);
-          setVersion((value) => value + 1);
+            await update({ ...fields, productId: product._id, imageStorageId, ...stockChange });
+            setStockDraft(undefined);
+          } else {
+            await create({
+              ...fields,
+              businessId,
+              imageStorageId: imageStorageId ?? undefined,
+              stock: stock ?? undefined,
+            });
+            setStockDraft(undefined);
+            setVersion((value) => value + 1);
+          }
+        } catch (error) {
+          if (error instanceof ConvexError && error.data === "No encontramos la foto") {
+            pendingUploadRef.current = null;
+          }
+
+          throw error;
         }
 
         pendingUploadRef.current = null;
