@@ -4,12 +4,15 @@ import { ConvexError, v } from "convex/values";
 
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
-import { action } from "../_generated/server";
+import { action, internalAction } from "../_generated/server";
 import type { ActionCtx } from "../_generated/server";
 import { expiryFromMinutes, orderDeadline } from "../lib/expiry";
 import type { BankAccountStatus, PaymentStatus } from "../schema";
-import { getPaymentStatus, pey } from "./client";
+import { getPaymentStatus, isMockMode, pey } from "./client";
+import { getPaymentLookup } from "./paymentLookup";
 import type { PaymentHandle } from "./types";
+
+const RECONCILIATION_CONCURRENCY = 4;
 
 async function getAuthUserId(ctx: ActionCtx): Promise<string> {
   const identity = await ctx.auth.getUserIdentity();
@@ -226,7 +229,9 @@ export const refreshPayment = action({
       return { status: payment.status };
     }
 
-    const remote = await getPaymentStatus(payment).catch((error: unknown) => {
+    const remote = await getPaymentStatus(getPaymentLookup(payment), {
+      expectedAmountCents: payment.amountCents,
+    }).catch((error: unknown) => {
       console.error("Error consultando pago en Pey", error);
       throw new ConvexError("No se pudo consultar el pago con Pey");
     });
@@ -240,6 +245,41 @@ export const refreshPayment = action({
     });
 
     return { status: result.status };
+  },
+});
+
+export const reconcilePayments = internalAction({
+  args: {},
+  handler: async (ctx): Promise<void> => {
+    // The development mock returns a successful payment for every lookup.
+    if (isMockMode()) {
+      return;
+    }
+
+    const batch = await ctx.runMutation(internal.pey.reconciliation.claimReconciliationBatch, {});
+
+    for (let offset = 0; offset < batch.length; offset += RECONCILIATION_CONCURRENCY) {
+      const group = batch.slice(offset, offset + RECONCILIATION_CONCURRENCY);
+
+      await Promise.all(
+        group.map(async ({ paymentId, lookup, attempt, amountCents }) => {
+          try {
+            const remote = await getPaymentStatus(lookup, {
+              expectedAmountCents: amountCents,
+              signal: AbortSignal.timeout(10_000),
+            });
+
+            await ctx.runMutation(internal.pey.mutations.applyProviderStatus, {
+              paymentId,
+              ...remote,
+              reconciliationAttempt: attempt,
+            });
+          } catch {
+            console.warn("Pey payment reconciliation failed", { paymentId, attempt });
+          }
+        }),
+      );
+    }
   },
 });
 

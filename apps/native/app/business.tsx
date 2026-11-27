@@ -2,7 +2,7 @@ import { api } from "@cozi/backend/convex/_generated/api";
 import type { BankAccountStatus } from "@cozi/backend/convex/schema";
 import { Ionicons } from "@expo/vector-icons";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   Button,
   Chip,
@@ -23,6 +23,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { Container } from "@/components/container";
 import { useAppTheme } from "@/contexts/app-theme-context";
 import { useProfile } from "@/contexts/profile-context";
+import { firstParam } from "@/lib/search-params";
 
 type Status = "active" | "paused";
 
@@ -62,6 +63,8 @@ export default function BusinessScreen() {
   const profile = useProfile();
   const business = profile.business;
   const router = useRouter();
+  const params = useLocalSearchParams<{ section?: string }>();
+  const section = firstParam(params.section);
   const updateBusiness = useMutation(api.businesses.update);
   const linkBankAccount = useAction(api.pey.actions.linkBankAccount);
 
@@ -80,7 +83,7 @@ export default function BusinessScreen() {
   const [status, setStatus] = useState<Status>(business?.status ?? "active");
   const [isSaving, setIsSaving] = useState(false);
   const [pendingToggle, setPendingToggle] = useState<SaleToggle | null>(null);
-  const [showAccountForm, setShowAccountForm] = useState(false);
+  const [showAccountForm, setShowAccountForm] = useState(section === "receiving-account");
   const [accountType, setAccountType] = useState<AccountType>("clabe");
   const [accountNumber, setAccountNumber] = useState("");
   const [holderName, setHolderName] = useState(business?.name ?? "");
@@ -206,178 +209,98 @@ export default function BusinessScreen() {
     );
   }
 
-  return (
-    <Container className="px-5 pt-4">
-      <Animated.View
-        entering={FadeInDown.duration(220)}
-        className={cn("flex-row items-center gap-4 rounded-3xl p-5", !isImmersive && "bg-surface")}
-        style={glass}
-      >
-        <View
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            backgroundColor: accent.softHex,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Ionicons name="business" size={22} color={accent.hex} />
+  const profileSettings = (
+    <Animated.View
+      entering={FadeInDown.duration(220).delay(60)}
+      className={cn("mt-4 gap-3 rounded-2xl p-4", !isImmersive && "bg-surface")}
+      style={glass}
+    >
+      <TextField>
+        <Label>Nombre del negocio</Label>
+        <Input value={name} onChangeText={setName} autoCapitalize="words" />
+      </TextField>
+
+      <TextField>
+        <Label>Categoría</Label>
+        <Input value={category} onChangeText={setCategory} placeholder="Ej. Cafetería" />
+      </TextField>
+
+      <View>
+        <Text className="mb-2 text-sm font-medium text-foreground" style={textPrimary}>
+          Estado
+        </Text>
+        <View className="flex-row rounded-xl bg-surface-secondary p-1">
+          <OptionButton
+            active={status === "active"}
+            label="Activo"
+            onPress={() => setStatus("active")}
+          />
+          <OptionButton
+            active={status === "paused"}
+            label="Pausado"
+            onPress={() => setStatus("paused")}
+          />
         </View>
+        <Text className="mt-2 text-xs text-muted" style={textSecondary}>
+          Pausado desactiva el cobro del negocio.
+        </Text>
+      </View>
+
+      <Button isDisabled={isSaving} onPress={handleSave}>
+        {isSaving ? (
+          <Spinner size="sm" color="default" />
+        ) : (
+          <Button.Label>Guardar cambios</Button.Label>
+        )}
+      </Button>
+    </Animated.View>
+  );
+
+  const orderSettings = (
+    <Animated.View
+      entering={FadeInDown.duration(220).delay(90)}
+      className={cn("mt-4 gap-4 rounded-2xl p-4", !isImmersive && "bg-surface")}
+      style={glass}
+    >
+      <View className="flex-row items-center gap-3">
         <View className="flex-1">
-          <Text className="text-lg font-semibold text-foreground" style={textPrimary}>
-            {business.name}
+          <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
+            Aceptando pedidos
           </Text>
-          <Text className="mt-0.5 text-sm text-muted" style={textSecondary}>
-            {business.handle ? `@${business.handle}` : "Sin @handle"}
-          </Text>
-        </View>
-        <Chip size="sm" variant="soft" color={business.status === "active" ? "success" : "warning"}>
-          <Chip.Label>{business.status === "active" ? "Activo" : "Pausado"}</Chip.Label>
-        </Chip>
-      </Animated.View>
-
-      <Animated.View
-        entering={FadeInDown.duration(220).delay(30)}
-        className={cn("mt-4 gap-3 rounded-2xl p-4", !isImmersive && "bg-surface")}
-        style={glass}
-      >
-        <View>
-          <Text className="text-base font-semibold text-foreground" style={textPrimary}>
-            Ventas
-          </Text>
-          <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
-            Toma pedidos en el local y comparte el link de pago.
+          <Text className="mt-1 text-xs leading-5 text-muted" style={textSecondary}>
+            Obligatorio para cobrar con CoDi o link de pago. Si está apagado, tus clientes no pueden
+            pagar.
           </Text>
         </View>
-        <Button onPress={() => router.push("/business-order")}>
-          <Button.Label>Nuevo pedido</Button.Label>
-        </Button>
-        <Button variant="secondary" onPress={() => router.push("/business-orders")}>
-          <Button.Label>Pedidos</Button.Label>
-        </Button>
-      </Animated.View>
+        <Switch
+          accessibilityLabel="Aceptando pedidos"
+          isSelected={business.acceptingOrders}
+          isDisabled={pendingToggle !== null}
+          onSelectedChange={(value) => handleSaleToggle("acceptingOrders", value)}
+        />
+      </View>
 
-      <Animated.View
-        entering={FadeInDown.duration(220).delay(60)}
-        className={cn("mt-4 gap-3 rounded-2xl p-4", !isImmersive && "bg-surface")}
-        style={glass}
-      >
-        <TextField>
-          <Label>Nombre del negocio</Label>
-          <Input value={name} onChangeText={setName} autoCapitalize="words" />
-        </TextField>
-
-        <TextField>
-          <Label>Categoría</Label>
-          <Input value={category} onChangeText={setCategory} placeholder="Ej. Cafetería" />
-        </TextField>
-
-        <View>
-          <Text className="mb-2 text-sm font-medium text-foreground" style={textPrimary}>
-            Estado
+      <View className="flex-row items-center gap-3 border-t border-border pt-4">
+        <View className="flex-1">
+          <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
+            Aceptar propinas
           </Text>
-          <View className="flex-row rounded-xl bg-surface-secondary p-1">
-            <OptionButton
-              active={status === "active"}
-              label="Activo"
-              onPress={() => setStatus("active")}
-            />
-            <OptionButton
-              active={status === "paused"}
-              label="Pausado"
-              onPress={() => setStatus("paused")}
-            />
-          </View>
-          <Text className="mt-2 text-xs text-muted" style={textSecondary}>
-            Pausado desactiva el cobro del negocio.
+          <Text className="mt-1 text-xs leading-5 text-muted" style={textSecondary}>
+            Permite que tus clientes agreguen propina al pagar.
           </Text>
         </View>
+        <Switch
+          accessibilityLabel="Aceptar propinas"
+          isSelected={business.tipsEnabled}
+          isDisabled={pendingToggle !== null}
+          onSelectedChange={(value) => handleSaleToggle("tipsEnabled", value)}
+        />
+      </View>
+    </Animated.View>
+  );
 
-        <Button isDisabled={isSaving} onPress={handleSave}>
-          {isSaving ? (
-            <Spinner size="sm" color="default" />
-          ) : (
-            <Button.Label>Guardar cambios</Button.Label>
-          )}
-        </Button>
-      </Animated.View>
-
-      <Animated.View
-        entering={FadeInDown.duration(220).delay(90)}
-        className={cn("mt-4 gap-4 rounded-2xl p-4", !isImmersive && "bg-surface")}
-        style={glass}
-      >
-        <View className="flex-row items-center gap-3">
-          <View className="flex-1">
-            <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
-              Aceptando pedidos
-            </Text>
-            <Text className="mt-1 text-xs leading-5 text-muted" style={textSecondary}>
-              Obligatorio para cobrar con CoDi o link de pago. Si está apagado, tus clientes no
-              pueden pagar.
-            </Text>
-          </View>
-          <Switch
-            accessibilityLabel="Aceptando pedidos"
-            isSelected={business.acceptingOrders}
-            isDisabled={pendingToggle !== null}
-            onSelectedChange={(value) => handleSaleToggle("acceptingOrders", value)}
-          />
-        </View>
-
-        <View className="flex-row items-center gap-3 border-t border-border pt-4">
-          <View className="flex-1">
-            <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
-              Aceptar propinas
-            </Text>
-            <Text className="mt-1 text-xs leading-5 text-muted" style={textSecondary}>
-              Permite que tus clientes agreguen propina al pagar.
-            </Text>
-          </View>
-          <Switch
-            accessibilityLabel="Aceptar propinas"
-            isSelected={business.tipsEnabled}
-            isDisabled={pendingToggle !== null}
-            onSelectedChange={(value) => handleSaleToggle("tipsEnabled", value)}
-          />
-        </View>
-      </Animated.View>
-
-      <Animated.View entering={FadeInDown.duration(220).delay(120)}>
-        <Pressable
-          onPress={() => router.push("/business-catalog")}
-          className={cn(
-            "mt-4 flex-row items-center gap-3 rounded-2xl p-4",
-            !isImmersive && "bg-surface",
-          )}
-          style={glass}
-        >
-          <View
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 19,
-              backgroundColor: accent.softHex,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Ionicons name="pricetags" size={19} color={accent.hex} />
-          </View>
-          <View className="flex-1">
-            <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
-              Catálogo
-            </Text>
-            <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
-              Productos, precios y disponibilidad
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={iconMuted} />
-        </Pressable>
-      </Animated.View>
-
+  const receivingAccountSettings = (
+    <>
       <Animated.View
         entering={FadeInDown.duration(220).delay(140)}
         className="mt-6 flex-row items-center justify-between gap-3"
@@ -523,6 +446,113 @@ export default function BusinessScreen() {
           ))
         )}
       </Animated.View>
+    </>
+  );
+
+  const focusAccount = section === "receiving-account";
+  const focusSalesSettings = section === "orders" || section === "business-status";
+
+  const ordersFirst = section === "orders";
+
+  const salesSettings = (
+    <>
+      {ordersFirst ? orderSettings : profileSettings}
+      {ordersFirst ? profileSettings : orderSettings}
+    </>
+  );
+
+  return (
+    <Container className="px-5 pt-4">
+      <Animated.View
+        entering={FadeInDown.duration(220)}
+        className={cn("flex-row items-center gap-4 rounded-3xl p-5", !isImmersive && "bg-surface")}
+        style={glass}
+      >
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: accent.softHex,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Ionicons name="business" size={22} color={accent.hex} />
+        </View>
+        <View className="flex-1">
+          <Text className="text-lg font-semibold text-foreground" style={textPrimary}>
+            {business.name}
+          </Text>
+          <Text className="mt-0.5 text-sm text-muted" style={textSecondary}>
+            {business.handle ? `@${business.handle}` : "Sin @handle"}
+          </Text>
+        </View>
+        <Chip size="sm" variant="soft" color={business.status === "active" ? "success" : "warning"}>
+          <Chip.Label>{business.status === "active" ? "Activo" : "Pausado"}</Chip.Label>
+        </Chip>
+      </Animated.View>
+
+      {focusAccount ? receivingAccountSettings : null}
+      {focusSalesSettings ? salesSettings : null}
+
+      <Animated.View
+        entering={FadeInDown.duration(220).delay(30)}
+        className={cn("mt-4 gap-3 rounded-2xl p-4", !isImmersive && "bg-surface")}
+        style={glass}
+      >
+        <View>
+          <Text className="text-base font-semibold text-foreground" style={textPrimary}>
+            Ventas
+          </Text>
+          <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
+            Toma pedidos en el local y comparte el link de pago.
+          </Text>
+        </View>
+        <Button onPress={() => router.push("/business-order")}>
+          <Button.Label>Nuevo pedido</Button.Label>
+        </Button>
+        <Button variant="secondary" onPress={() => router.push("/business-orders")}>
+          <Button.Label>Pedidos</Button.Label>
+        </Button>
+      </Animated.View>
+
+      {focusSalesSettings ? null : salesSettings}
+
+      <Animated.View entering={FadeInDown.duration(220).delay(120)}>
+        <Pressable
+          onPress={() => router.push("/business-catalog")}
+          className={cn(
+            "mt-4 flex-row items-center gap-3 rounded-2xl p-4",
+            !isImmersive && "bg-surface",
+          )}
+          style={glass}
+        >
+          <View
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              backgroundColor: accent.softHex,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name="pricetags" size={19} color={accent.hex} />
+          </View>
+          <View className="flex-1">
+            <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
+              Catálogo
+            </Text>
+            <Text className="mt-0.5 text-xs text-muted" style={textSecondary}>
+              Productos, precios y disponibilidad
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={iconMuted} />
+        </Pressable>
+      </Animated.View>
+
+      {focusAccount ? null : receivingAccountSettings}
 
       <View
         className={cn(

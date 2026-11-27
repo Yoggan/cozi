@@ -1,8 +1,33 @@
+import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalQuery } from "../_generated/server";
 import type { DatabaseReader, QueryCtx } from "../_generated/server";
+import { isVerifiedReceivingAccount } from "../lib/bankAccounts";
+
+export const listReconciliationIssues = internalQuery({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { paginationOpts }) => {
+    const result = await ctx.db
+      .query("payments")
+      .withIndex("by_reconciliationIssue", (q) => q.gt("reconciliationIssue", undefined))
+      .paginate(paginationOpts);
+
+    return {
+      ...result,
+      page: result.page.map((payment) => ({
+        paymentId: payment._id,
+        orderId: payment.orderId,
+        method: payment.method,
+        status: payment.status,
+        issue: payment.reconciliationIssue,
+        attempts: payment.reconciliationAttempts ?? 0,
+        createdAt: payment.createdAt,
+      })),
+    };
+  },
+});
 
 async function getViewerByAuthId(ctx: QueryCtx, authUserId: string) {
   return await ctx.db
@@ -52,7 +77,7 @@ async function getReceivingBankAccount(
   if (business?.defaultBankAccountId) {
     const preferred = await ctx.db.get(business.defaultBankAccountId);
 
-    if (preferred?.status === "verified" && preferred.peyBankAccountId) {
+    if (isVerifiedReceivingAccount(preferred)) {
       return preferred;
     }
   }
@@ -69,9 +94,7 @@ async function getReceivingBankAccount(
 
   const usable = accounts.filter(
     (account) =>
-      account.status === "verified" &&
-      Boolean(account.peyBankAccountId) &&
-      (business ? true : account.businessId === undefined),
+      isVerifiedReceivingAccount(account) && (business ? true : account.businessId === undefined),
   );
 
   return usable.find((account) => account.isDefault) ?? usable[0] ?? null;
