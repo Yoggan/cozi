@@ -1,8 +1,8 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import { buttonVariants } from "@cozi/ui/components/button";
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation, useRouteContext } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
-import { WalletIcon, ChatCircleTextIcon, ReceiptIcon, StorefrontIcon } from "@phosphor-icons/react";
+import { ChatCircleTextIcon, ReceiptIcon, StorefrontIcon, WalletIcon } from "@phosphor-icons/react";
 
 import UserMenu from "@/components/user-menu";
 import { needsOnboarding } from "@/lib/profile";
@@ -20,14 +20,26 @@ const businessNav = [
 ] as const;
 
 export default function Header() {
+  const { token } = useRouteContext({ from: "__root__" });
+  const isLanding = useLocation({ select: (location) => location.pathname === "/" });
   const { isAuthenticated, isLoading } = useConvexAuth();
   const profile = useQuery(api.users.getMe, isAuthenticated ? {} : "skip");
   const ready = profile && !needsOnboarding(profile);
   const nav = profile?.accountType === "business" ? businessNav : personalNav;
+  const showSignIn = !isAuthenticated && (!isLoading || !token);
+  const borderlessLanding = isLanding && !isAuthenticated;
 
   return (
-    <header className="border-b bg-background">
-      <div className="mx-auto flex min-h-17 max-w-5xl items-center justify-between gap-2 px-4 sm:px-8">
+    <header
+      className={borderlessLanding ? "bg-background" : "border-b border-border bg-background"}
+    >
+      <div
+        className={
+          borderlessLanding
+            ? "mx-auto flex min-h-17 max-w-6xl items-center justify-between gap-2 px-4 sm:px-8"
+            : "mx-auto flex min-h-17 max-w-5xl items-center justify-between gap-2 px-4 sm:px-8"
+        }
+      >
         <Link
           to={isAuthenticated ? "/dashboard" : "/"}
           aria-label="Cozi, inicio"
@@ -70,8 +82,15 @@ export default function Header() {
           </nav>
         )}
         {ready && <UserMenu />}
-        {!isAuthenticated && !isLoading && (
-          <Link to="/dashboard" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+        {showSignIn && (
+          <Link
+            to="/dashboard"
+            className={buttonVariants({
+              variant: "secondary",
+              size: "sm",
+              className: "px-4",
+            })}
+          >
             Inicia sesión
           </Link>
         )}

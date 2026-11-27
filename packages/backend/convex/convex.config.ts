@@ -8,6 +8,8 @@ const app = defineApp({
     PASSWORD_RESET_EMAIL_ENABLED: v.optional(v.string()),
     RESEND_API_KEY: v.optional(v.string()),
     PASSWORD_RESET_EMAIL_FROM: v.optional(v.string()),
+    WAITLIST_EMAIL_FROM: v.optional(v.string()),
+    WAITLIST_SITE_URL: v.optional(v.string()),
   },
 });
 

@@ -5,7 +5,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { isBusinessEmail } from "./lib/email";
-import { claimHandle } from "./lib/handles";
+import { claimHandle, consumeReservation, setUserHandle, userReservation } from "./lib/handles";
 import { HANDLE_PATTERN, handleBase, normalizeHandle } from "./lib/identifiers";
 import { isStorageReferenced } from "./lib/storage";
 
@@ -85,30 +85,25 @@ export const ensureProfile = mutation({
       if (currentHandle) {
         return { userId: existing._id, handle: currentHandle, created: false };
       }
-
-      const handle = await claimHandle(ctx, handleBase(identity.name, identity.email));
-      await ctx.db.insert("handles", {
-        handle,
-        ownerType: "user",
-        userId: existing._id,
-        createdAt: Date.now(),
-      });
-
-      return { userId: existing._id, handle, created: false };
     }
 
     const now = Date.now();
-    const handle = await claimHandle(ctx, handleBase(identity.name, identity.email));
+    const reservation = await userReservation(ctx, identity, now);
 
-    const userId = await ctx.db.insert("users", {
-      authUserId: identity.subject,
-      displayName: identity.name?.trim() || identity.email?.split("@")[0] || handle,
-      phoneVerified: false,
-      businessPromptState: isBusinessEmail(identity.email) ? "pending" : undefined,
-      accountType: args.accountType ?? "personal",
-      createdAt: now,
-      updatedAt: now,
-    });
+    const handle =
+      reservation?.handle ?? (await claimHandle(ctx, handleBase(identity.name, identity.email)));
+
+    const userId =
+      existing?._id ??
+      (await ctx.db.insert("users", {
+        authUserId: identity.subject,
+        displayName: identity.name?.trim() || identity.email?.split("@")[0] || handle,
+        phoneVerified: false,
+        businessPromptState: isBusinessEmail(identity.email) ? "pending" : undefined,
+        accountType: args.accountType ?? "personal",
+        createdAt: now,
+        updatedAt: now,
+      }));
 
     await ctx.db.insert("handles", {
       handle,
@@ -117,7 +112,11 @@ export const ensureProfile = mutation({
       createdAt: now,
     });
 
-    return { userId, handle, created: true };
+    if (reservation) {
+      await consumeReservation(ctx, reservation);
+    }
+
+    return { userId, handle, created: !existing };
   },
 });
 
@@ -465,32 +464,7 @@ export const updateProfile = mutation({
         throw new ConvexError("El @handle debe tener 3-20 letras, números o guiones bajos");
       }
 
-      const current = await ctx.db
-        .query("handles")
-        .withIndex("by_user", (q) => q.eq("userId", user._id))
-        .first();
-
-      if (current?.handle !== next) {
-        const taken = await ctx.db
-          .query("handles")
-          .withIndex("by_handle", (q) => q.eq("handle", next))
-          .unique();
-
-        if (taken && taken.userId !== user._id) {
-          throw new ConvexError("Ese @handle ya está ocupado");
-        }
-
-        if (current) {
-          await ctx.db.patch(current._id, { handle: next });
-        } else {
-          await ctx.db.insert("handles", {
-            handle: next,
-            ownerType: "user",
-            userId: user._id,
-            createdAt: Date.now(),
-          });
-        }
-      }
+      await setUserHandle(ctx, user._id, identity, next, patch.updatedAt);
     }
 
     await ctx.db.patch(user._id, patch);
