@@ -73,6 +73,20 @@ Configured in Convex (`pnpm --filter @cozi/backend exec convex env set <KEY> <VA
 
 ---
 
+## Background Payment Reconciliation
+
+The Convex cron checks pending and processing payments at least five minutes old. Every five minutes it can claim up to 20 attempts, with five first checks and five due retries reserved for each status. It issues up to four lookups at once with a 10-second timeout per request. It uses the same provider lookup as manual refresh and applies the shared settlement rules, including the reported transaction amount and payment time when available. Payment links are checked using the link's own status. The cron is disabled when the Pey client is in mock mode.
+
+An attempt gets up to six lookups, with retry delays of 5 minutes, 15 minutes, 1 hour, 4 hours, and 12 hours. Five minutes after the last lookup, a still-open attempt becomes a support issue. The cron never creates a charge or expires a payment based on age alone.
+
+In the Convex dashboard, run the internal query `pey/queries:listReconciliationIssues` with `{"paginationOpts":{"cursor":null,"numItems":50}}`. Use the returned `continueCursor` to see more. The list includes payment and order IDs, method, local status, attempt count, and the reason for review.
+
+- `missing_reference` means there was no stored Pey reference usable by the status lookup.
+- `mock_reference` means the stored reference came from a development mock.
+- `retry_limit` means the payment remained open after the lookup budget was used, whether Pey returned a nonterminal status or a lookup failed.
+
+Use the payment and order IDs to investigate the existing attempt before taking action. A terminal provider update clears the issue, including when a signed webhook arrives late. Attaching provider references also clears the issue and makes the attempt eligible for reconciliation again.
+
 ## Changelog Highlights
 
 - **Bank Accounts API**: Added `POST /bank-account`, `GET /bank-account/:id`, the `bank.account.updated` webhook, and optional `bankAccountId` on `POST /codi/qr` and `POST /codi/pn`.
