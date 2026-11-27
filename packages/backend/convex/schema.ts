@@ -245,6 +245,23 @@ export default defineSchema({
     .index("by_business_sku", ["businessId", "sku"]),
 
   /**
+   * Subidas de fotos de producto en curso antes de adjuntarlas a un producto.
+   * Permite reutilizar una sola subida en reintentos y limpiar archivos
+   * abandonados de forma acotada y segura por dueño.
+   */
+  pendingProductPhotos: defineTable({
+    businessId: v.id("businesses"),
+    ownerId: v.id("users"),
+    storageId: v.id("_storage"),
+    expiresAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_storage", ["storageId"])
+    .index("by_business", ["businessId"])
+    .index("by_owner", ["ownerId"])
+    .index("by_expires_at", ["expiresAt"]),
+
+  /**
    * Una orden es el contrato con el comprador. `publicId` es el token
    * improbable que se usa en cozi.mx/pagar/:publicId; no se expone el _id.
    */

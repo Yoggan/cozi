@@ -1,11 +1,15 @@
 import { ConvexError, v } from "convex/values";
 
+import { getProductPhotoValidationError, validateProductPhoto } from "../image-upload";
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { isStorageReferenced } from "./lib/storage";
 
 const MIN_PRICE_CENTS = 100;
 const MAX_PRICE_CENTS = 10_000_000;
+const PENDING_PHOTO_TTL_MS = 30 * 60 * 1000;
 
 async function requireUser(ctx: QueryCtx | MutationCtx): Promise<Doc<"users">> {
   const identity = await ctx.auth.getUserIdentity();
@@ -94,6 +98,204 @@ function readStock(stock: number | null | undefined): number | undefined {
   return stock;
 }
 
+/**
+ * Contrato de reclamo de archivo: las URLs efímeras de Convex Storage no vinculan
+ * el `storageId` al usuario que inició el POST. Por eso aceptamos un `storageId`
+ * no referenciado tras validar existencia, tipo MIME y tamaño, y rechazamos
+ * cualquier archivo ya usado por un avatar, logo, producto o subida pendiente de
+ * otro dueño/negocio.
+ */
+async function claimNewPhoto(
+  ctx: MutationCtx,
+  storageId: Id<"_storage">,
+  ownerId: Id<"users">,
+  businessId: Id<"businesses">,
+): Promise<Id<"pendingProductPhotos"> | null> {
+  const file = await ctx.db.system.get("_storage", storageId);
+
+  if (!file) {
+    throw new ConvexError("No encontramos la foto");
+  }
+
+  const pending = await ctx.db
+    .query("pendingProductPhotos")
+    .withIndex("by_storage", (q) => q.eq("storageId", storageId))
+    .first();
+
+  if (pending && (pending.ownerId !== ownerId || pending.businessId !== businessId)) {
+    throw new ConvexError("No encontramos la foto");
+  }
+
+  if (await isStorageReferenced(ctx, storageId, pending?._id)) {
+    throw new ConvexError("No encontramos la foto");
+  }
+
+  validateProductPhoto(file.size, file.contentType);
+
+  return pending?._id ?? null;
+}
+
+/** URL efímera para que el dueño suba una foto directo a Convex Storage. */
+export const generatePhotoUploadUrl = mutation({
+  args: { businessId: v.id("businesses") },
+  handler: async (ctx, { businessId }) => {
+    const user = await requireUser(ctx);
+    await requireOwnedBusiness(ctx, businessId, user._id);
+
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Registra una foto recién subida como pendiente para reutilizarla en reintentos
+ * y programar su limpieza si el dueño abandona el formulario.
+ *
+ * Acepta un `storageId` no referenciado tras validar tipo y tamaño; no verifica
+ * quién ejecutó el POST a la URL efímera. Si el archivo es inválido y no está
+ * referenciado, lo elimina y devuelve `status: "rejected"` para que el borrado
+ * persista.
+ */
+export const stagePhotoUpload = mutation({
+  args: {
+    businessId: v.id("businesses"),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, { businessId, storageId }) => {
+    const user = await requireUser(ctx);
+    const business = await requireOwnedBusiness(ctx, businessId, user._id);
+
+    const existingPending = await ctx.db
+      .query("pendingProductPhotos")
+      .withIndex("by_storage", (q) => q.eq("storageId", storageId))
+      .first();
+
+    if (existingPending) {
+      if (existingPending.ownerId !== user._id || existingPending.businessId !== business._id) {
+        throw new ConvexError("No encontramos la foto");
+      }
+
+      const existingFile = await ctx.db.system.get("_storage", storageId);
+
+      if (!existingFile) {
+        await ctx.db.delete(existingPending._id);
+        throw new ConvexError("No encontramos la foto");
+      }
+
+      const validationError = getProductPhotoValidationError(
+        existingFile.size,
+        existingFile.contentType,
+      );
+
+      if (validationError) {
+        await ctx.db.delete(existingPending._id);
+
+        if (!(await isStorageReferenced(ctx, storageId))) {
+          await ctx.storage.delete(storageId);
+        }
+
+        return { status: "rejected" as const, message: validationError };
+      }
+
+      return { status: "staged" as const, storageId };
+    }
+
+    const file = await ctx.db.system.get("_storage", storageId);
+
+    if (!file) {
+      throw new ConvexError("No encontramos la foto");
+    }
+
+    if (await isStorageReferenced(ctx, storageId)) {
+      throw new ConvexError("No encontramos la foto");
+    }
+
+    const validationError = getProductPhotoValidationError(file.size, file.contentType);
+
+    if (validationError) {
+      await ctx.storage.delete(storageId);
+
+      return { status: "rejected" as const, message: validationError };
+    }
+
+    const now = Date.now();
+
+    const pendingId = await ctx.db.insert("pendingProductPhotos", {
+      businessId: business._id,
+      ownerId: user._id,
+      storageId,
+      createdAt: now,
+      expiresAt: now + PENDING_PHOTO_TTL_MS,
+    });
+
+    await ctx.scheduler.runAfter(
+      PENDING_PHOTO_TTL_MS,
+      internal.products.cleanupExpiredPendingPhoto,
+      { pendingId },
+    );
+
+    return { status: "staged" as const, storageId };
+  },
+});
+
+/**
+ * Descarta una subida pendiente del propio dueño antes de adjuntarla.
+ * Solo actúa sobre registros en `pendingProductPhotos` del dueño y negocio
+ * autenticados; nunca permite borrar un `storageId` arbitrario.
+ */
+export const discardPendingPhoto = mutation({
+  args: {
+    businessId: v.id("businesses"),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, { businessId, storageId }) => {
+    const user = await requireUser(ctx);
+    const business = await requireOwnedBusiness(ctx, businessId, user._id);
+
+    const pending = await ctx.db
+      .query("pendingProductPhotos")
+      .withIndex("by_storage", (q) => q.eq("storageId", storageId))
+      .first();
+
+    if (!pending || pending.ownerId !== user._id || pending.businessId !== business._id) {
+      return { deleted: false as const };
+    }
+
+    await ctx.db.delete(pending._id);
+
+    const file = await ctx.db.system.get("_storage", storageId);
+
+    if (file && !(await isStorageReferenced(ctx, storageId))) {
+      await ctx.storage.delete(storageId);
+    }
+
+    return { deleted: true as const };
+  },
+});
+
+/** Limpia una foto pendiente si expiró sin haberse adjuntado a un producto. */
+export const cleanupExpiredPendingPhoto = internalMutation({
+  args: { pendingId: v.id("pendingProductPhotos") },
+  handler: async (ctx, { pendingId }) => {
+    const pending = await ctx.db.get(pendingId);
+
+    if (!pending) {
+      return { deleted: false as const };
+    }
+
+    await ctx.db.delete(pending._id);
+
+    const file = await ctx.db.system.get("_storage", pending.storageId);
+
+    if (file && !(await isStorageReferenced(ctx, pending.storageId))) {
+      await ctx.storage.delete(pending.storageId);
+
+      return { deleted: true as const };
+    }
+
+    return { deleted: false as const };
+  },
+});
+
 /** Agrega un platillo o producto al catálogo del negocio. */
 export const create = mutation({
   args: {
@@ -103,6 +305,7 @@ export const create = mutation({
     priceCents: v.number(),
     sku: v.optional(v.string()),
     category: v.optional(v.string()),
+    imageStorageId: v.optional(v.id("_storage")),
     stock: v.optional(v.number()),
     active: v.optional(v.boolean()),
     source: v.optional(v.union(v.literal("manual"), v.literal("vision"))),
@@ -119,6 +322,10 @@ export const create = mutation({
     const stock = readStock(args.stock);
     const now = Date.now();
 
+    const pendingPhotoId = args.imageStorageId
+      ? await claimNewPhoto(ctx, args.imageStorageId, user._id, business._id)
+      : null;
+
     const productId = await ctx.db.insert("products", {
       businessId: business._id,
       name,
@@ -126,12 +333,17 @@ export const create = mutation({
       priceCents,
       sku,
       category,
+      imageStorageId: args.imageStorageId,
       stock,
       active: args.active ?? true,
       source: args.source ?? "manual",
       createdAt: now,
       updatedAt: now,
     });
+
+    if (pendingPhotoId) {
+      await ctx.db.delete(pendingPhotoId);
+    }
 
     return { productId };
   },
@@ -143,6 +355,7 @@ type ProductPatch = {
   priceCents?: number;
   sku?: string;
   category?: string;
+  imageStorageId?: Id<"_storage">;
   stock?: number;
   active?: boolean;
   updatedAt: number;
@@ -157,6 +370,7 @@ export const update = mutation({
     priceCents: v.optional(v.number()),
     sku: v.optional(v.string()),
     category: v.optional(v.string()),
+    imageStorageId: v.optional(v.union(v.id("_storage"), v.null())),
     stock: v.optional(v.union(v.number(), v.null())),
     expectedStock: v.optional(v.union(v.number(), v.null())),
     active: v.optional(v.boolean()),
@@ -205,7 +419,35 @@ export const update = mutation({
       patch.active = args.active;
     }
 
+    const previousPhoto = product.imageStorageId;
+
+    const photoChanged =
+      args.imageStorageId !== undefined && args.imageStorageId !== (previousPhoto ?? null);
+
+    let pendingPhotoId: Id<"pendingProductPhotos"> | null = null;
+
+    if (photoChanged) {
+      if (args.imageStorageId) {
+        pendingPhotoId = await claimNewPhoto(
+          ctx,
+          args.imageStorageId,
+          user._id,
+          product.businessId,
+        );
+      }
+
+      patch.imageStorageId = args.imageStorageId ?? undefined;
+    }
+
     await ctx.db.patch(product._id, patch);
+
+    if (pendingPhotoId) {
+      await ctx.db.delete(pendingPhotoId);
+    }
+
+    if (photoChanged && previousPhoto && !(await isStorageReferenced(ctx, previousPhoto))) {
+      await ctx.storage.delete(previousPhoto);
+    }
 
     return { ok: true as const };
   },
@@ -253,16 +495,19 @@ export const listByBusiness = query({
           )
           .take(limit);
 
-    return rows.map((product) => ({
-      _id: product._id,
-      businessId: product.businessId,
-      name: product.name,
-      description: product.description ?? null,
-      priceCents: product.priceCents,
-      sku: product.sku ?? null,
-      category: product.category ?? null,
-      stock: product.stock ?? null,
-      active: product.active,
-    }));
+    return await Promise.all(
+      rows.map(async (product) => ({
+        _id: product._id,
+        businessId: product.businessId,
+        name: product.name,
+        description: product.description ?? null,
+        priceCents: product.priceCents,
+        sku: product.sku ?? null,
+        category: product.category ?? null,
+        imageUrl: product.imageStorageId ? await ctx.storage.getUrl(product.imageStorageId) : null,
+        stock: product.stock ?? null,
+        active: product.active,
+      })),
+    );
   },
 });

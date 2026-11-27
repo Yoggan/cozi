@@ -1,6 +1,7 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import { Ionicons } from "@expo/vector-icons";
 import { useAction, useMutation, useQuery } from "convex/react";
+import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useToast, useThemeColor } from "heroui-native";
@@ -477,6 +478,12 @@ export default function BusinessProfileScreen() {
                         borderTopColor: theme.fieldBorder,
                       }}
                     >
+                      {product.imageUrl ? (
+                        <Image
+                          source={product.imageUrl}
+                          style={{ width: 56, height: 56, borderRadius: 8 }}
+                        />
+                      ) : null}
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: theme.text, fontSize: 14, fontWeight: "600" }}>
                           {product.name}
