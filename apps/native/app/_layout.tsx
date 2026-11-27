@@ -5,7 +5,7 @@ import { ConvexReactClient } from "convex/react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { HeroUINativeProvider, useThemeColor } from "heroui-native";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -65,10 +65,15 @@ function AccountOnboardingGate({ children }: { children: ReactNode }) {
 function RootNavigator() {
   const { isLoading, isAuthenticated } = useConvexAuth();
   const { signOut } = useMobileNotifications();
+  const signOutRef = useRef(signOut);
   const [hasCheckedEphemeralSession, setHasCheckedEphemeralSession] = useState(false);
   const background = useThemeColor("background");
   const foreground = useThemeColor("foreground");
   const { isImmersive, isLight, baseColor } = useAppTheme();
+
+  useEffect(() => {
+    signOutRef.current = signOut;
+  }, [signOut]);
 
   useEffect(() => {
     let active = true;
@@ -76,7 +81,7 @@ function RootNavigator() {
     void (async () => {
       try {
         if (await consumeEphemeralSessionFlag()) {
-          await signOut();
+          await signOutRef.current();
         }
       } catch {
         // Offline sign-out must not keep the app on the splash screen.
@@ -90,7 +95,7 @@ function RootNavigator() {
     return () => {
       active = false;
     };
-  }, [signOut]);
+  }, []);
 
   if (isLoading || !hasCheckedEphemeralSession) {
     return <Splash />;
