@@ -334,6 +334,15 @@ export default defineSchema({
     expiresAt: v.optional(v.number()),
     failureReason: v.optional(v.string()),
     paidAt: v.optional(v.number()),
+    reconciliationAttempts: v.optional(v.number()),
+    nextReconciliationAt: v.optional(v.number()),
+    reconciliationIssue: v.optional(
+      v.union(
+        v.literal("missing_reference"),
+        v.literal("mock_reference"),
+        v.literal("retry_limit"),
+      ),
+    ),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -345,6 +354,13 @@ export default defineSchema({
     .index("by_pey_codi_id", ["peyCodiId"])
     .index("by_pey_transaction_id", ["peyTransactionId"])
     .index("by_status", ["status"])
+    .index("by_status_reconciliationIssue_nextReconciliationAt_createdAt", [
+      "status",
+      "reconciliationIssue",
+      "nextReconciliationAt",
+      "createdAt",
+    ])
+    .index("by_reconciliationIssue", ["reconciliationIssue"])
     .index("by_business_created", ["businessId", "createdAt"]),
 
   /**

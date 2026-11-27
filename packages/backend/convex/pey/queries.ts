@@ -1,8 +1,32 @@
+import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalQuery } from "../_generated/server";
 import type { DatabaseReader, QueryCtx } from "../_generated/server";
+
+export const listReconciliationIssues = internalQuery({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { paginationOpts }) => {
+    const result = await ctx.db
+      .query("payments")
+      .withIndex("by_reconciliationIssue", (q) => q.gt("reconciliationIssue", undefined))
+      .paginate(paginationOpts);
+
+    return {
+      ...result,
+      page: result.page.map((payment) => ({
+        paymentId: payment._id,
+        orderId: payment.orderId,
+        method: payment.method,
+        status: payment.status,
+        issue: payment.reconciliationIssue,
+        attempts: payment.reconciliationAttempts ?? 0,
+        createdAt: payment.createdAt,
+      })),
+    };
+  },
+});
 
 async function getViewerByAuthId(ctx: QueryCtx, authUserId: string) {
   return await ctx.db

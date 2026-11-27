@@ -12,6 +12,12 @@ import {
 import type { PaymentStatus } from "../schema";
 import { findActivePayment } from "./queries";
 
+const clearReconciliation = {
+  reconciliationAttempts: undefined,
+  nextReconciliationAt: undefined,
+  reconciliationIssue: undefined,
+};
+
 /**
  * Efecto único de un pago conciliado. Es idempotente:
  * - un pago `succeeded` no se vuelve a descontar;
@@ -44,6 +50,7 @@ async function settlePayment(
   const order = await ctx.db.get(payment.orderId);
 
   await ctx.db.patch(payment._id, {
+    ...clearReconciliation,
     status,
     paidAt: status === "succeeded" ? (options.paidAt ?? now) : undefined,
     failureReason: status === "failed" ? options.failureReason : undefined,
@@ -248,6 +255,7 @@ export const attachProvider = internalMutation({
     }
 
     await ctx.db.patch(payment._id, {
+      ...clearReconciliation,
       status: "pending",
       peyReference: args.peyReference,
       peyPaymentId: args.peyPaymentId,
@@ -332,6 +340,7 @@ export const failPayment = internalMutation({
 
     const now = Date.now();
     await ctx.db.patch(payment._id, {
+      ...clearReconciliation,
       status: "failed",
       failureReason: args.reason,
       updatedAt: now,
@@ -354,7 +363,7 @@ export const failPayment = internalMutation({
   },
 });
 
-/** Reconciliación manual: aplica el estatus consultado a Pey. */
+/** Aplica el estatus consultado a Pey de forma manual o programada. */
 export const applyProviderStatus = internalMutation({
   args: {
     paymentId: v.id("payments"),
@@ -362,12 +371,20 @@ export const applyProviderStatus = internalMutation({
     amountCents: v.optional(v.number()),
     paidAt: v.optional(v.number()),
     failureReason: v.optional(v.string()),
+    reconciliationAttempt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const payment = await ctx.db.get(args.paymentId);
 
     if (!payment) {
       throw new ConvexError("Pago no encontrado");
+    }
+
+    if (
+      args.reconciliationAttempt !== undefined &&
+      (payment.reconciliationAttempts !== args.reconciliationAttempt || payment.reconciliationIssue)
+    ) {
+      return { paymentId: payment._id, status: payment.status };
     }
 
     if (args.amountCents !== undefined && args.amountCents !== payment.amountCents) {
