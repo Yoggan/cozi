@@ -5,7 +5,9 @@ import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { effectiveOrderStatus, orderDeadline } from "./lib/expiry";
 import { HANDLE_PATTERN, makePublicId, normalizeHandle } from "./lib/identifiers";
+import { availableStock } from "./lib/inventory";
 import { readOrderBusiness, resolveOrderCounterpart } from "./lib/order-parties";
+import { closeUnpublishedPayment } from "./pey/mutations";
 import { findActivePayment } from "./pey/queries";
 import { orderStatusValidator } from "./schema";
 
@@ -185,7 +187,9 @@ export const createBusinessOrder = mutation({
 
         const nextQty = (productQuantities.get(product._id) ?? 0) + rawItem.quantity;
 
-        if (product.stock !== undefined && nextQty > product.stock) {
+        const available = availableStock(product);
+
+        if (available !== null && nextQty > available) {
           throw new ConvexError(`No hay suficiente inventario para "${product.name}"`);
         }
 
@@ -511,6 +515,11 @@ export const cancel = mutation({
     }
 
     const now = Date.now();
+
+    if (order.businessId && order.paymentId) {
+      await closeUnpublishedPayment(ctx, order.paymentId);
+    }
+
     await ctx.db.patch(order._id, {
       status: "cancelled",
       cancelledAt: now,

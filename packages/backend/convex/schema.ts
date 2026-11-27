@@ -234,6 +234,7 @@ export default defineSchema({
     category: v.optional(v.string()),
     imageStorageId: v.optional(v.id("_storage")),
     stock: v.optional(v.number()), // undefined = sin control de inventario
+    reservedStock: v.optional(v.number()), // unidades incluidas en stock con un cobro abierto
     active: v.boolean(),
     source: v.union(v.literal("manual"), v.literal("vision")),
     createdAt: v.number(),
@@ -333,6 +334,15 @@ export default defineSchema({
     deepLink: v.optional(v.string()),
     expiresAt: v.optional(v.number()),
     failureReason: v.optional(v.string()),
+    // Ausente en intentos previos a las reservas. Vacío si no hay productos con stock.
+    reservedItems: v.optional(
+      v.array(
+        v.object({
+          productId: v.id("products"),
+          quantity: v.number(),
+        }),
+      ),
+    ),
     paidAt: v.optional(v.number()),
     reconciliationAttempts: v.optional(v.number()),
     nextReconciliationAt: v.optional(v.number()),

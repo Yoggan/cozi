@@ -143,6 +143,15 @@ function numericRef(reference: string): string {
   return digits.length > 0 ? digits : String(Date.now()).slice(-7);
 }
 
+export class PeyHttpError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 async function peyFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const baseUrl = getBaseUrl();
 
@@ -158,7 +167,10 @@ async function peyFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     // La respuesta puede contener datos del titular: no la persistimos.
     const detail = await response.text();
-    throw new Error(`Pey ${response.status} ${path}: ${detail.slice(0, 300)}`);
+    throw new PeyHttpError(
+      response.status,
+      `Pey ${response.status} ${path}: ${detail.slice(0, 300)}`,
+    );
   }
 
   // SAFETY: el cliente confía en el contrato de Pey; los campos se validan al mapear.
@@ -431,7 +443,7 @@ export const pey: PeyClient = {
         successUrl: orderUrl,
         backUrl: orderUrl,
         hasTip: false,
-        clientReferenceId: input.reference,
+        clientReferenceId: input.attemptId ?? input.reference,
         metadata: {
           orderId: input.reference,
           bankAccountId: input.bankAccountId,

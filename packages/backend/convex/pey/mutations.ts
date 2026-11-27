@@ -1,8 +1,11 @@
 import { ConvexError, v } from "convex/values";
 
+import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation } from "../_generated/server";
 import type { DatabaseReader, MutationCtx } from "../_generated/server";
+import { orderDeadline } from "../lib/expiry";
+import { closeInventoryReservation, holdsInventory, reserveInventory } from "../lib/inventory";
 import {
   bankAccountStatusValidator,
   bankAccountTypeValidator,
@@ -10,7 +13,7 @@ import {
   paymentStatusValidator,
 } from "../schema";
 import type { PaymentStatus } from "../schema";
-import { findActivePayment } from "./queries";
+import { findActivePayment, UNPUBLISHED_PAYMENT_MS } from "./queries";
 
 const clearReconciliation = {
   reconciliationAttempts: undefined,
@@ -30,7 +33,15 @@ async function settlePayment(
   status: PaymentStatus,
   options: { paidAt?: number; failureReason?: string } = {},
 ) {
-  if (status === "pending" || status === "processing") {
+  if (status === "pending") {
+    return;
+  }
+
+  if (status === "processing") {
+    if (payment.status === "pending") {
+      await ctx.db.patch("payments", payment._id, { status, updatedAt: Date.now() });
+    }
+
     return;
   }
 
@@ -48,6 +59,12 @@ async function settlePayment(
 
   const now = Date.now();
   const order = await ctx.db.get(payment.orderId);
+  const heldInventory = holdsInventory(payment);
+  const orderPaid = order?.status === "paid" || order?.status === "fulfilled";
+
+  if (heldInventory) {
+    await closeInventoryReservation(ctx, payment, status === "succeeded" && !orderPaid);
+  }
 
   await ctx.db.patch(payment._id, {
     ...clearReconciliation,
@@ -62,7 +79,15 @@ async function settlePayment(
   }
 
   if (status === "succeeded") {
-    if (order.status === "paid" || order.status === "fulfilled") {
+    if (payment.reservedItems?.length && !heldInventory) {
+      console.error("Pey confirmó un pago después de liberar su reserva", {
+        paymentId: payment._id,
+      });
+
+      return;
+    }
+
+    if (orderPaid) {
       return;
     }
 
@@ -71,7 +96,10 @@ async function settlePayment(
       paidAt: options.paidAt ?? now,
       updatedAt: now,
     });
-    await decrementInventory(ctx, order);
+
+    if (payment.reservedItems === undefined) {
+      await decrementLegacyInventory(ctx, order);
+    }
 
     if (order.billSplitId) {
       await reconcileBillSplit(ctx, order.billSplitId, options.paidAt ?? now);
@@ -80,7 +108,7 @@ async function settlePayment(
     return;
   }
 
-  if (status === "failed" || status === "expired") {
+  if (status === "failed" || status === "expired" || (status === "refunded" && heldInventory)) {
     if (
       order.paymentId === payment._id &&
       (order.status === "awaiting_payment" || order.status === "draft")
@@ -129,7 +157,7 @@ async function reconcileBillSplit(ctx: MutationCtx, billSplitId: Id<"billSplits"
   });
 }
 
-async function decrementInventory(ctx: MutationCtx, order: Doc<"orders">) {
+async function decrementLegacyInventory(ctx: MutationCtx, order: Doc<"orders">) {
   for (const item of order.items) {
     if (!item.productId) {
       continue;
@@ -145,11 +173,9 @@ async function decrementInventory(ctx: MutationCtx, order: Doc<"orders">) {
       continue;
     }
 
-    // Un pago ya cobrado nunca se rechaza por inventario; se acota a cero.
-    // shortcut: el stock se descuenta al pagar, no se reserva al crear la orden;
-    // si la sobreventa importa, migrar a reservas con expiración.
+    // Los cobros anteriores a las reservas solo pueden descontar existencias libres.
     await ctx.db.patch(product._id, {
-      stock: Math.max(0, product.stock - item.quantity),
+      stock: Math.max(product.reservedStock ?? 0, product.stock - item.quantity),
       updatedAt: Date.now(),
     });
   }
@@ -162,6 +188,8 @@ export const beginPayment = internalMutation({
     method: paymentMethodValidator,
     attemptId: v.string(),
     amountCents: v.number(),
+    requireOpenDeadline: v.optional(v.boolean()),
+    orderExpiresAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
@@ -182,6 +210,13 @@ export const beginPayment = internalMutation({
       throw new ConvexError("La orden no está abierta para cobro");
     }
 
+    const now = Date.now();
+    const deadline = orderDeadline(order);
+
+    if (args.requireOpenDeadline && deadline > 0 && deadline <= now) {
+      throw new ConvexError("Este cobro venció. Pide un enlace nuevo.");
+    }
+
     const byAttempt = await ctx.db
       .query("payments")
       .withIndex("by_attempt_id", (q) => q.eq("attemptId", args.attemptId))
@@ -191,13 +226,23 @@ export const beginPayment = internalMutation({
       return { existing: true, payment: byAttempt };
     }
 
-    const active = await findActivePayment(ctx.db, args.orderId);
+    const active = await findActivePayment(ctx.db, args.orderId, now);
 
     if (active) {
+      if (args.orderExpiresAt !== undefined) {
+        await writeOrderExpiry(ctx, args.orderId, args.orderExpiresAt);
+      }
+
       return { existing: true, payment: active };
     }
 
-    const now = Date.now();
+    const previous = order.paymentId ? await ctx.db.get(order.paymentId) : null;
+
+    if (previous && holdsInventory(previous)) {
+      throw new ConvexError("El cobro anterior aún se está verificando. Intenta de nuevo.");
+    }
+
+    const reservedItems = order.businessId ? await reserveInventory(ctx, order) : undefined;
 
     const paymentId = await ctx.db.insert("payments", {
       orderId: args.orderId,
@@ -207,6 +252,7 @@ export const beginPayment = internalMutation({
       status: "pending",
       amountCents: args.amountCents,
       currency: "MXN",
+      reservedItems,
       createdAt: now,
       updatedAt: now,
     });
@@ -216,6 +262,16 @@ export const beginPayment = internalMutation({
       status: "awaiting_payment",
       updatedAt: now,
     });
+
+    if (reservedItems?.length && args.method !== "codi_push") {
+      await ctx.scheduler.runAfter(
+        UNPUBLISHED_PAYMENT_MS,
+        internal.pey.mutations.expireUnpublished,
+        {
+          paymentId,
+        },
+      );
+    }
 
     const payment = await ctx.db.get(paymentId);
 
@@ -250,13 +306,18 @@ export const attachProvider = internalMutation({
       throw new ConvexError("Pago no encontrado");
     }
 
-    if (payment.status === "succeeded" || payment.status === "refunded") {
+    if (
+      payment.status === "failed" ||
+      payment.status === "expired" ||
+      payment.status === "refunded"
+    ) {
       return payment;
     }
 
     await ctx.db.patch(payment._id, {
       ...clearReconciliation,
-      status: "pending",
+      status:
+        payment.status === "pending" && args.status === "processing" ? args.status : payment.status,
       peyReference: args.peyReference,
       peyPaymentId: args.peyPaymentId,
       peyPaymentLinkId: args.peyPaymentLinkId,
@@ -310,15 +371,24 @@ async function writeOrderExpiry(ctx: MutationCtx, orderId: Id<"orders">, expires
   await ctx.db.patch(orderId, { expiresAt, updatedAt: Date.now() });
 }
 
-/** Fija la vigencia local de un cobro que reutiliza un intento de pago. */
-export const setOrderExpiry = internalMutation({
-  args: {
-    orderId: v.id("orders"),
-    expiresAt: v.number(),
-  },
-  handler: async (ctx, args) => {
-    await writeOrderExpiry(ctx, args.orderId, args.expiresAt);
-  },
+// Un QR o enlace sin publicar todavía no salió de Cozi. Un push se envía desde Pey.
+export async function closeUnpublishedPayment(ctx: MutationCtx, paymentId: Id<"payments">) {
+  const payment = await ctx.db.get(paymentId);
+
+  if (
+    payment &&
+    payment.status === "pending" &&
+    holdsInventory(payment) &&
+    !payment.peyReference &&
+    payment.method !== "codi_push"
+  ) {
+    await settlePayment(ctx, payment, "expired");
+  }
+}
+
+export const expireUnpublished = internalMutation({
+  args: { paymentId: v.id("payments") },
+  handler: async (ctx, { paymentId }) => await closeUnpublishedPayment(ctx, paymentId),
 });
 
 /** Si Pey falla antes de crear el cobro, la orden queda reutilizable. */
@@ -334,29 +404,8 @@ export const failPayment = internalMutation({
       throw new ConvexError("Pago no encontrado");
     }
 
-    if (payment.status === "succeeded" || payment.status === "refunded") {
-      return { paymentId: payment._id };
-    }
-
-    const now = Date.now();
-    await ctx.db.patch(payment._id, {
-      ...clearReconciliation,
-      status: "failed",
-      failureReason: args.reason,
-      updatedAt: now,
-    });
-
-    const order = await ctx.db.get(payment.orderId);
-
-    if (
-      order?.paymentId === payment._id &&
-      (order.status === "awaiting_payment" || order.status === "draft")
-    ) {
-      await ctx.db.patch(order._id, {
-        status: "draft",
-        paymentId: undefined,
-        updatedAt: now,
-      });
+    if (!payment.peyReference && payment.status === "pending") {
+      await settlePayment(ctx, payment, "failed", { failureReason: args.reason });
     }
 
     return { paymentId: payment._id };
@@ -579,8 +628,18 @@ async function findPaymentByReferences(db: DatabaseReader, references: Array<str
       return byTransactionId;
     }
 
-    // Pey puede ecoar nuestro `reference` (el publicId de la orden) en lugar
-    // de su propio id. Es un fallback, no la llave principal.
+    const byAttempt = await db
+      .query("payments")
+      .withIndex("by_attempt_id", (q) => q.eq("attemptId", reference))
+      .unique();
+
+    if (byAttempt) {
+      return byAttempt;
+    }
+  }
+
+  // Los links anteriores usaban publicId. Una orden puede tener varios intentos.
+  for (const reference of references) {
     const order = await db
       .query("orders")
       .withIndex("by_public_id", (q) => q.eq("publicId", reference))
@@ -590,9 +649,7 @@ async function findPaymentByReferences(db: DatabaseReader, references: Array<str
       if (order.paymentId) {
         const payment = await db.get(order.paymentId);
 
-        if (payment) {
-          return payment;
-        }
+        return payment?.reservedItems?.length ? null : payment;
       }
 
       const latest = await db
@@ -601,7 +658,7 @@ async function findPaymentByReferences(db: DatabaseReader, references: Array<str
         .order("desc")
         .first();
 
-      if (latest) {
+      if (latest && !latest.reservedItems?.length) {
         return latest;
       }
     }
@@ -720,7 +777,16 @@ export const ingestWebhookEvent = internalMutation({
       return { outcome: "mismatch" as const };
     }
 
-    await settlePayment(ctx, payment, args.status);
+    // El fallo de una transacción individual no cierra su link de pago.
+    const isLinkTransactionFailure =
+      holdsInventory(payment) &&
+      payment.method === "payment_link" &&
+      !args.type.startsWith("payment_link.") &&
+      (args.status === "failed" || args.status === "expired" || args.status === "refunded");
+
+    if (!isLinkTransactionFailure) {
+      await settlePayment(ctx, payment, args.status);
+    }
 
     await ctx.db.patch(eventDocumentId, {
       status: "processed",

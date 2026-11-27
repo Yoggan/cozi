@@ -6,6 +6,8 @@ import { internalQuery } from "../_generated/server";
 import type { DatabaseReader, QueryCtx } from "../_generated/server";
 import { isVerifiedReceivingAccount } from "../lib/bankAccounts";
 
+export const UNPUBLISHED_PAYMENT_MS = 2 * 60 * 1000;
+
 export const listReconciliationIssues = internalQuery({
   args: { paginationOpts: paginationOptsValidator },
   handler: async (ctx, { paginationOpts }) => {
@@ -64,7 +66,7 @@ export async function findActivePayment(
         return true;
       }
 
-      return payment.createdAt > now - 2 * 60 * 1000;
+      return payment.createdAt > now - UNPUBLISHED_PAYMENT_MS;
     }) ?? null
   );
 }
@@ -161,9 +163,7 @@ export const getOrderForCharge = internalQuery({
       );
     }
 
-    const activePayment = await findActivePayment(ctx.db, order._id);
-
-    return { viewer, order, business, bankAccount, activePayment, isSeller };
+    return { order, business, bankAccount };
   },
 });
 
