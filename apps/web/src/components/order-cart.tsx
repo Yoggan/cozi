@@ -16,6 +16,7 @@ export type CatalogProduct = {
   description: string | null;
   priceCents: number;
   category: string | null;
+  imageUrl?: string | null;
   stock: number | null;
 };
 
@@ -42,15 +43,25 @@ export function CatalogList({
             key={product._id}
             className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 py-4"
           >
-            <div className="min-w-0 space-y-1">
-              <p className="font-bold break-words">{product.name}</p>
-              {product.description && (
-                <p className="text-sm break-words text-muted-foreground">{product.description}</p>
+            <div className="flex min-w-0 gap-3">
+              {product.imageUrl && (
+                <img
+                  src={product.imageUrl}
+                  alt=""
+                  loading="lazy"
+                  className="size-16 shrink-0 rounded-lg object-cover"
+                />
               )}
-              {product.category && (
-                <p className="text-sm break-words text-muted-foreground">{product.category}</p>
-              )}
-              {product.stock === 0 && <p className="text-sm text-warning">Agotado</p>}
+              <div className="min-w-0 space-y-1">
+                <p className="font-bold break-words">{product.name}</p>
+                {product.description && (
+                  <p className="text-sm break-words text-muted-foreground">{product.description}</p>
+                )}
+                {product.category && (
+                  <p className="text-sm break-words text-muted-foreground">{product.category}</p>
+                )}
+                {product.stock === 0 && <p className="text-sm text-warning">Agotado</p>}
+              </div>
             </div>
             <div className="grid justify-items-end gap-2">
               <Amount cents={product.priceCents} />

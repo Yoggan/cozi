@@ -7,6 +7,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { isBusinessEmail } from "./lib/email";
 import { claimHandle } from "./lib/handles";
 import { HANDLE_PATTERN, handleBase, normalizeHandle } from "./lib/identifiers";
+import { isStorageReferenced } from "./lib/storage";
 
 // Cuentas anteriores al onboarding no lo ven; las nuevas sí.
 const ONBOARDING_LAUNCH_AT = Date.UTC(2026, 10, 22);
@@ -500,33 +501,6 @@ export const updateProfile = mutation({
 
 const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 
-/**
- * Un archivo puede pertenecer a una foto de perfil, al logo de un negocio o a
- * la imagen de un producto; ninguna de estas mutaciones debe tocarlo si ya es
- * de alguien.
- */
-async function isStorageReferenced(
-  ctx: QueryCtx | MutationCtx,
-  storageId: Id<"_storage">,
-): Promise<boolean> {
-  const [avatar, logo, productImage] = await Promise.all([
-    ctx.db
-      .query("users")
-      .withIndex("by_avatar_storage", (q) => q.eq("avatarStorageId", storageId))
-      .first(),
-    ctx.db
-      .query("businesses")
-      .withIndex("by_logo_storage", (q) => q.eq("logoStorageId", storageId))
-      .first(),
-    ctx.db
-      .query("products")
-      .withIndex("by_image_storage", (q) => q.eq("imageStorageId", storageId))
-      .first(),
-  ]);
-
-  return Boolean(avatar ?? logo ?? productImage);
-}
-
 /** URL efímera para subir la foto de perfil directo a Convex Storage. */
 export const generateAvatarUploadUrl = mutation({
   args: {},
@@ -585,14 +559,20 @@ export const setAvatar = mutation({
       return { status: "rejected" as const, message: "No encontramos la imagen" };
     }
 
-    if (user.avatarStorageId && user.avatarStorageId !== args.storageId) {
-      await ctx.storage.delete(user.avatarStorageId);
-    }
+    const previousAvatar = user.avatarStorageId;
 
     await ctx.db.patch(user._id, {
       avatarStorageId: args.storageId,
       updatedAt: Date.now(),
     });
+
+    if (
+      previousAvatar &&
+      previousAvatar !== args.storageId &&
+      !(await isStorageReferenced(ctx, previousAvatar))
+    ) {
+      await ctx.storage.delete(previousAvatar);
+    }
 
     return { status: "saved" as const, avatarUrl: await ctx.storage.getUrl(args.storageId) };
   },
@@ -608,7 +588,12 @@ export const removeAvatar = mutation({
       return;
     }
 
-    await ctx.storage.delete(user.avatarStorageId);
+    const previousAvatar = user.avatarStorageId;
+
     await ctx.db.patch(user._id, { avatarStorageId: undefined, updatedAt: Date.now() });
+
+    if (!(await isStorageReferenced(ctx, previousAvatar))) {
+      await ctx.storage.delete(previousAvatar);
+    }
   },
 });

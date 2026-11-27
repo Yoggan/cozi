@@ -109,7 +109,7 @@ const config: ExpoConfig = {
     [
       "expo-image-picker",
       {
-        photosPermission: "Cozi usa tus fotos para que elijas tu foto de perfil.",
+        photosPermission: "Cozi usa tus fotos para que elijas imágenes para tu perfil y catálogo.",
       },
     ],
     [
