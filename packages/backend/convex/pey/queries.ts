@@ -4,7 +4,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalQuery } from "../_generated/server";
 import type { DatabaseReader, QueryCtx } from "../_generated/server";
-import { isVerifiedReceivingAccount } from "../lib/bank-accounts";
+import { isVerifiedReceivingAccount } from "../lib/bankAccounts";
 
 export const listReconciliationIssues = internalQuery({
   args: { paginationOpts: paginationOptsValidator },

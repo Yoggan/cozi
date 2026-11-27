@@ -4,7 +4,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { businessStatusValidator } from "./schema";
-import { isVerifiedReceivingAccount } from "./lib/bank-accounts";
+import { isVerifiedReceivingAccount } from "./lib/bankAccounts";
 import { claimHandle } from "./lib/handles";
 import { HANDLE_PATTERN, handleBase, normalizeHandle } from "./lib/identifiers";
 
