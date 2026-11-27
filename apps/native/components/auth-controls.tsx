@@ -1,4 +1,5 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
+import type { IconName } from "@/components/icon";
 import { ImpactFeedbackStyle, impactAsync } from "expo-haptics";
 import { useState } from "react";
 import type { Ref } from "react";
@@ -15,7 +16,7 @@ import Animated, {
 const PRESS_TIMING = { duration: 100, easing: Easing.out(Easing.quad) };
 
 type AuthFieldProps = {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IconName;
   label: string;
   inputRef?: Ref<TextInput>;
   secure?: boolean;
@@ -51,7 +52,7 @@ export function AuthField({
     <View style={styles.group}>
       <Text style={styles.label}>{label}</Text>
       <View style={[styles.field, focused && styles.fieldFocused]}>
-        <Ionicons name={icon} size={18} color={focused ? "#FFFFFF" : "rgba(255,255,255,0.55)"} />
+        <Icon name={icon} size={18} color={focused ? "#FFFFFF" : "rgba(255,255,255,0.55)"} />
         <TextInput
           ref={inputRef}
           {...props}
@@ -74,7 +75,7 @@ export function AuthField({
             hitSlop={10}
             onPress={() => setRevealed((current) => !current)}
           >
-            <Ionicons
+            <Icon
               color="rgba(255,255,255,0.60)"
               name={revealed ? "eye-off-outline" : "eye-outline"}
               size={19}
@@ -93,7 +94,7 @@ export function AuthErrorBanner({ message }: { message: string | null }) {
 
   return (
     <Animated.View entering={FadeInDown.duration(200)} style={styles.error}>
-      <Ionicons color="#FCA5A5" name="alert-circle-outline" size={17} />
+      <Icon color="#FCA5A5" name="alert-circle-outline" size={17} />
       <Text style={styles.errorText}>{message}</Text>
     </Animated.View>
   );

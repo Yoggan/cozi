@@ -1,5 +1,6 @@
 import { api } from "@cozi/backend/convex/_generated/api";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
+import type { IconName } from "@/components/icon";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -31,7 +32,7 @@ type RecipientLookup = {
 
 type RecipientStatus = {
   tone: "success" | "warning" | "danger";
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IconName;
   label: string;
 };
 
@@ -94,7 +95,7 @@ function RecipientBadge({ status }: { status: RecipientStatus }) {
         borderColor: palette.border,
       }}
     >
-      <Ionicons name={status.icon} size={13} color={palette.text} />
+      <Icon name={status.icon} size={13} color={palette.text} />
       <Text style={{ color: palette.text, fontSize: 12, fontWeight: "600", letterSpacing: 0.1 }}>
         {status.label}
       </Text>
@@ -278,7 +279,7 @@ export default function SendScreen() {
                         backgroundColor: theme.successFill,
                       }}
                     >
-                      <Ionicons name="bookmark" size={13} color={theme.successText} />
+                      <Icon name="bookmark" size={13} color={theme.successText} />
                       <Text style={{ color: theme.successText, fontSize: 12, fontWeight: "600" }}>
                         Guardado
                       </Text>
@@ -302,7 +303,7 @@ export default function SendScreen() {
                         opacity: pressed || isSavingContact ? 0.6 : 1,
                       })}
                     >
-                      <Ionicons name="bookmark-outline" size={13} color={theme.textMuted} />
+                      <Icon name="bookmark-outline" size={13} color={theme.textMuted} />
                       <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: "600" }}>
                         {isSavingContact ? "Guardando..." : "Guardar"}
                       </Text>

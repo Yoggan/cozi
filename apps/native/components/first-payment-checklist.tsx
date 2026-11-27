@@ -1,5 +1,5 @@
 import { api } from "@cozi/backend/convex/_generated/api";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useQuery } from "convex/react";
 import { Link } from "expo-router";
 import type { Href } from "expo-router";
@@ -114,7 +114,7 @@ export function FirstPaymentChecklist({
   return (
     <View className={cn("gap-3 rounded-3xl p-5", !isImmersive && "bg-surface")} style={glass}>
       <View className="flex-row items-center gap-2">
-        {ready ? <Ionicons name="checkmark-circle" size={20} color={success} /> : null}
+        {ready ? <Icon name="checkmark-circle" size={20} color={success} /> : null}
         <Text
           accessibilityRole="header"
           className="text-base font-semibold text-foreground"
@@ -127,7 +127,7 @@ export function FirstPaymentChecklist({
         ? null
         : steps.map((step) => (
             <View key={step.title} className="flex-row items-start gap-3">
-              <Ionicons name={icons[step.status]} size={19} color={colors[step.status]} />
+              <Icon name={icons[step.status]} size={19} color={colors[step.status]} />
               <View className="flex-1">
                 <Text className="text-sm font-semibold text-foreground" style={textPrimary}>
                   {step.title}

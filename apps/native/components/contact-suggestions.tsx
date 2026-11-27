@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { Pressable, Text, View } from "react-native";
 
 import { usePaymentTheme } from "@/components/payment-controls";
@@ -102,7 +102,7 @@ export function ContactSuggestions({
               Reciente
             </Text>
           ) : null}
-          <Ionicons name="arrow-forward" size={15} color={theme.icon} />
+          <Icon name="arrow-forward" size={15} color={theme.icon} />
         </Pressable>
       ))}
     </View>

@@ -1,5 +1,6 @@
 import { api } from "@cozi/backend/convex/_generated/api";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
+import type { IconName } from "@/components/icon";
 import { useMutation } from "convex/react";
 import { selectionAsync } from "expo-haptics";
 import { useToast } from "heroui-native";
@@ -13,7 +14,7 @@ import { ThemeBackdrop } from "@/components/theme-backdrop";
 import { useAppTheme } from "@/contexts/app-theme-context";
 
 const STEPS: Array<{
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IconName;
   title: string;
   body: string;
 }> = [
@@ -124,14 +125,14 @@ export function AccountOnboarding() {
                 { backgroundColor: accent.softHex, borderColor: iconBorder },
               ]}
             >
-              <Ionicons name={current.icon} size={38} color={accent.hex} />
+              <Icon name={current.icon} size={38} color={accent.hex} />
             </View>
 
             <Text style={[styles.title, { color: titleColor }]}>{current.title}</Text>
             <Text style={[styles.body, { color: bodyColor }]}>{current.body}</Text>
 
             <View style={[styles.tip, { backgroundColor: cardColor, borderColor: cardBorder }]}>
-              <Ionicons name="shield-checkmark-outline" size={18} color={accent.hex} />
+              <Icon name="shield-checkmark-outline" size={18} color={accent.hex} />
               <Text style={[styles.tipText, { color: bodyColor }]}>
                 Tu CLABE solo se comparte con Pey. En Cozi compartes tu @handle.
               </Text>

@@ -1,5 +1,6 @@
 import { api } from "@cozi/backend/convex/_generated/api";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
+import type { IconName } from "@/components/icon";
 import type { BottomSheetBackgroundProps } from "@gorhom/bottom-sheet";
 import { useQuery } from "convex/react";
 import { createURL } from "expo-linking";
@@ -90,7 +91,7 @@ function HandleActionRow({
   hint,
   onPress,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IconName;
   label: string;
   hint: string;
   onPress: () => void;
@@ -123,7 +124,7 @@ function HandleActionRow({
           justifyContent: "center",
         }}
       >
-        <Ionicons name={icon} size={18} color={accent.hex} />
+        <Icon name={icon} size={18} color={accent.hex} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{ color: "#FFFFFF" }} className="text-sm font-semibold">
@@ -133,7 +134,7 @@ function HandleActionRow({
           {hint}
         </Text>
       </View>
-      <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.35)" />
+      <Icon name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.35)" />
     </Pressable>
   );
 }
@@ -144,7 +145,7 @@ function GlassAction({
   onPress,
   testID,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IconName;
   label: string;
   onPress: () => void;
   testID?: string;
@@ -175,7 +176,7 @@ function GlassAction({
           press.style,
         ]}
       >
-        <Ionicons name={icon} size={22} color="#FFFFFF" />
+        <Icon name={icon} size={22} color="#FFFFFF" />
       </Animated.View>
       <Text style={{ color: "#FFFFFF" }} className="text-center text-xs font-medium">
         {label}
@@ -309,11 +310,7 @@ function PersonalHome() {
                 </Text>
               </Pressable>
               <View className="mt-2 flex-row items-center gap-1.5">
-                <Ionicons
-                  name="shield-checkmark-outline"
-                  size={14}
-                  color="rgba(255,255,255,0.75)"
-                />
+                <Icon name="shield-checkmark-outline" size={14} color="rgba(255,255,255,0.75)" />
                 <Text style={{ color: "rgba(255,255,255,0.78)" }} className="text-xs font-medium">
                   CoDi · Sin compartir tu CLABE
                 </Text>
@@ -391,7 +388,7 @@ function PersonalHome() {
                       justifyContent: "center",
                     }}
                   >
-                    <Ionicons
+                    <Icon
                       name={profile.hasPendingBankAccount ? "time-outline" : "warning-outline"}
                       size={20}
                       color="#FFFFFF"
@@ -474,7 +471,7 @@ function PersonalHome() {
                       justifyContent: "center",
                     }}
                   >
-                    <Ionicons name="swap-horizontal" size={20} color="#FFFFFF" />
+                    <Icon name="swap-horizontal" size={20} color="#FFFFFF" />
                   </View>
                   <Text style={{ color: "#FFFFFF" }} className="mt-3 text-sm font-medium">
                     Aún no hay movimientos
@@ -582,7 +579,7 @@ function PersonalHome() {
             Tu @handle
           </Text>
           <Pressable onPress={shareHandle} hitSlop={10}>
-            <Ionicons name="share-outline" size={18} color={successForeground} />
+            <Icon name="share-outline" size={18} color={successForeground} />
           </Pressable>
         </View>
         <Pressable accessibilityLabel="Copiar handle" onPress={copyHandle}>
@@ -621,7 +618,7 @@ function PersonalHome() {
           }
           className="mt-4 flex-row items-center gap-3 rounded-2xl bg-surface-secondary p-4"
         >
-          <Ionicons
+          <Icon
             name={profile.hasPendingBankAccount ? "time-outline" : "alert-circle"}
             size={22}
             color={success}
@@ -636,7 +633,7 @@ function PersonalHome() {
                 : "Para recibir pagos y cobrar con Cozi."}
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={foreground} />
+          <Icon name="chevron-forward" size={18} color={foreground} />
         </Pressable>
       ) : null}
 
@@ -655,7 +652,7 @@ function PersonalHome() {
         ) : activity.length === 0 ? (
           <View className="items-center py-10">
             <View className="h-12 w-12 items-center justify-center rounded-full bg-surface-secondary">
-              <Ionicons name="swap-horizontal" size={22} color={foreground} />
+              <Icon name="swap-horizontal" size={22} color={foreground} />
             </View>
             <Text className="mt-3 text-sm font-medium text-foreground">Aún no hay movimientos</Text>
             <Text className="mt-1 text-center text-xs text-muted">

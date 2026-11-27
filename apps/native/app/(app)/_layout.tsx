@@ -1,5 +1,5 @@
 import { api } from "@cozi/backend/convex/_generated/api";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useQuery } from "convex/react";
 import { Tabs } from "expo-router/js-tabs";
 import { Text, useThemeColor } from "heroui-native";
@@ -24,7 +24,7 @@ function MessagesTabIcon({
 
   return (
     <View>
-      <Ionicons name={focused ? "chatbubbles" : "chatbubbles-outline"} size={size} color={color} />
+      <Icon name={focused ? "chatbubbles" : "chatbubbles-outline"} size={size} color={color} />
       {unreadCount > 0 ? (
         <View
           style={{
@@ -69,13 +69,13 @@ function AppTabs() {
             title: isBusiness ? "Negocio" : "Inicio",
             tabBarIcon: ({ color, size, focused }) =>
               isBusiness ? (
-                <Ionicons
+                <Icon
                   name={focused ? "storefront" : "storefront-outline"}
                   size={size}
                   color={color}
                 />
               ) : (
-                <Ionicons name={focused ? "wallet" : "wallet-outline"} size={size} color={color} />
+                <Icon name={focused ? "wallet" : "wallet-outline"} size={size} color={color} />
               ),
           }}
         />
@@ -85,7 +85,7 @@ function AppTabs() {
             href: isBusiness ? undefined : null,
             title: "Pedidos",
             tabBarIcon: ({ color, size, focused }) => (
-              <Ionicons name={focused ? "receipt" : "receipt-outline"} size={size} color={color} />
+              <Icon name={focused ? "receipt" : "receipt-outline"} size={size} color={color} />
             ),
           }}
         />
@@ -95,11 +95,7 @@ function AppTabs() {
             href: isBusiness ? undefined : null,
             title: "Catálogo",
             tabBarIcon: ({ color, size, focused }) => (
-              <Ionicons
-                name={focused ? "pricetags" : "pricetags-outline"}
-                size={size}
-                color={color}
-              />
+              <Icon name={focused ? "pricetags" : "pricetags-outline"} size={size} color={color} />
             ),
           }}
         />
@@ -109,7 +105,7 @@ function AppTabs() {
             href: isBusiness ? null : undefined,
             title: "Actividad",
             tabBarIcon: ({ color, size, focused }) => (
-              <Ionicons name={focused ? "receipt" : "receipt-outline"} size={size} color={color} />
+              <Icon name={focused ? "receipt" : "receipt-outline"} size={size} color={color} />
             ),
           }}
         />

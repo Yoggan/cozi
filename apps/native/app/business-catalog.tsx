@@ -1,7 +1,7 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import type { Id } from "@cozi/backend/convex/_generated/dataModel";
 import { uploadImage, validateProductPhoto } from "@cozi/backend/image-upload";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { ConvexError } from "convex/values";
@@ -462,7 +462,7 @@ export default function BusinessCatalogScreen() {
           </View>
         ) : products.length === 0 ? (
           <View className="items-center py-8">
-            <Ionicons name="pricetags-outline" size={24} color={iconMuted} />
+            <Icon name="pricetags-outline" size={24} color={iconMuted} />
             <Text className="mt-2 text-sm font-medium text-foreground" style={textPrimary}>
               Sin productos todavía
             </Text>
@@ -509,7 +509,7 @@ export default function BusinessCatalogScreen() {
                 onSelectedChange={() => handleToggle(product)}
               />
               <Pressable disabled={formBusy} onPress={() => openEdit(product)} hitSlop={8}>
-                <Ionicons name="create-outline" size={18} color={iconMuted} />
+                <Icon name="create-outline" size={18} color={iconMuted} />
               </Pressable>
             </View>
           ))
@@ -523,7 +523,7 @@ export default function BusinessCatalogScreen() {
         )}
         style={glass}
       >
-        <Ionicons name="information-circle-outline" size={16} color={muted} />
+        <Icon name="information-circle-outline" size={16} color={muted} />
         <Text className="flex-1 text-xs leading-5 text-muted" style={textSecondary}>
           Los productos inactivos no aparecen en tu perfil público. El inventario se descuenta al
           pagar; si lo dejas vacío, no se controla.

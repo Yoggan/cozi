@@ -1,4 +1,5 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
+import type { IconName } from "@/components/icon";
 import { ImpactFeedbackStyle, impactAsync, selectionAsync } from "expo-haptics";
 import { useThemeColor } from "heroui-native";
 import { useState } from "react";
@@ -79,7 +80,7 @@ export function PaymentHeader({ title, onBack }: { title: string; onBack: () => 
           },
         ]}
       >
-        <Ionicons name="arrow-back" size={20} color={theme.text} />
+        <Icon name="arrow-back" size={20} color={theme.text} />
       </Pressable>
       <Text
         numberOfLines={1}
@@ -94,7 +95,7 @@ export function PaymentHeader({ title, onBack }: { title: string; onBack: () => 
 }
 
 type GlassFieldProps = {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IconName;
   label: string;
   hint?: string;
   multiline?: boolean;
@@ -139,7 +140,7 @@ export function GlassField({
           },
         ]}
       >
-        <Ionicons
+        <Icon
           name={icon}
           size={17}
           color={focused ? theme.text : theme.icon}

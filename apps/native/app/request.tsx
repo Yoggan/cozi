@@ -1,5 +1,5 @@
 import { api } from "@cozi/backend/convex/_generated/api";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { selectionAsync } from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -167,7 +167,7 @@ export default function RequestScreen() {
                   opacity: pressed ? 0.82 : 1,
                 })}
               >
-                <Ionicons name="alert-circle" size={20} color={theme.warningText} />
+                <Icon name="alert-circle" size={20} color={theme.warningText} />
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: theme.text, fontSize: 14, fontWeight: "600" }}>
                     Primero vincula tu cuenta
@@ -183,7 +183,7 @@ export default function RequestScreen() {
                     Necesitas una CLABE verificada para recibir pagos.
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color={theme.icon} />
+                <Icon name="chevron-forward" size={16} color={theme.icon} />
               </Pressable>
             ) : null}
 

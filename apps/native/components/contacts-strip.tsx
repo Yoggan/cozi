@@ -1,5 +1,5 @@
 import { api } from "@cozi/backend/convex/_generated/api";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useQuery } from "convex/react";
 import { useThemeColor } from "heroui-native";
 import { useRouter } from "expo-router";
@@ -110,7 +110,7 @@ export function ContactsStrip() {
               borderColor: theme.pillBorder,
             }}
           >
-            <Ionicons name="person-add-outline" size={18} color={theme.text} />
+            <Icon name="person-add-outline" size={18} color={theme.text} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ color: titleColor, fontSize: 14, fontWeight: "600" }}>
@@ -120,7 +120,7 @@ export function ContactsStrip() {
               Envía o cobra en un toque.
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={16} color={theme.icon} />
+          <Icon name="chevron-forward" size={16} color={theme.icon} />
         </Pressable>
       ) : (
         <ScrollView
@@ -195,7 +195,7 @@ export function ContactsStrip() {
                 borderColor: isImmersive ? "rgba(255,255,255,0.35)" : theme.fieldBorder,
               }}
             >
-              <Ionicons name="add" size={22} color={theme.text} />
+              <Icon name="add" size={22} color={theme.text} />
             </View>
             <Text
               style={{

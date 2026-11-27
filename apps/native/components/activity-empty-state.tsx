@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useAssets } from "expo-asset";
 import { useFonts } from "expo-font";
 import { Button } from "heroui-native";
@@ -43,7 +43,7 @@ export function ActivityEmptyState({ onSend }: { onSend: () => void }) {
     <View style={styles.content}>
       <View accessible={false} style={[styles.icon, palette.glassStyle]}>
         {refreshIcon === undefined ? (
-          <Ionicons name="sync" size={30} color={palette.selectedText} />
+          <Icon name="sync" size={30} color={palette.selectedText} />
         ) : (
           <SvgUri uri={assets?.[ICONS.indexOf(refreshIcon)]?.localUri ?? null} />
         )}

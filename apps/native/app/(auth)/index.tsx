@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { selectionAsync } from "expo-haptics";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -116,7 +116,7 @@ export default function AuthScreen() {
       >
         <View style={styles.column}>
           <Animated.View entering={ENTER} style={styles.badge}>
-            <Ionicons color="rgba(255,255,255,0.92)" name="shield-checkmark" size={13} />
+            <Icon color="rgba(255,255,255,0.92)" name="shield-checkmark" size={13} />
             <Text style={styles.badgeText}>CoDi® · Sin comisiones · MXN</Text>
           </Animated.View>
 

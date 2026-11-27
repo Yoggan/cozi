@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { Text, useThemeColor } from "heroui-native";
 import { Pressable, View } from "react-native";
 
@@ -101,7 +101,7 @@ export function ActivityRow({
         }`}
         style={iconPalette ? { backgroundColor: iconPalette.backgroundColor } : undefined}
       >
-        <Ionicons
+        <Icon
           name={incoming ? "arrow-down" : "arrow-up"}
           size={18}
           color={iconPalette?.color ?? (incoming ? success : muted)}

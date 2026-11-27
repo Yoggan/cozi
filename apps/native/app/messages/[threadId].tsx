@@ -1,6 +1,6 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import type { OrderStatus } from "@cozi/backend/convex/schema";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -148,7 +148,7 @@ export default function ConversationScreen() {
         className="flex-1 items-center justify-center gap-3 bg-background px-8"
         style={isImmersive ? { backgroundColor: baseColor } : undefined}
       >
-        <Ionicons name="chatbubbles-outline" size={32} color={muted} />
+        <Icon name="chatbubbles-outline" size={32} color={muted} />
         <Text className="text-center text-lg font-semibold text-foreground">
           Conversación no disponible
         </Text>
@@ -244,12 +244,12 @@ export default function ConversationScreen() {
                 : undefined
             }
           >
-            <Ionicons name="receipt-outline" size={15} color={muted} />
+            <Icon name="receipt-outline" size={15} color={muted} />
             <Text className="flex-1 text-xs text-muted" numberOfLines={1}>
               {current.order.concept} · {formatMxn(current.order.amountCents)} ·{" "}
               {ORDER_STATUS_LABELS[current.order.status] ?? current.order.status}
             </Text>
-            <Ionicons name="chevron-forward" size={14} color={muted} />
+            <Icon name="chevron-forward" size={14} color={muted} />
           </Pressable>
         ) : current.business ? (
           <Text className="mt-1 text-xs text-muted">{current.business.name}</Text>
@@ -362,7 +362,7 @@ export default function ConversationScreen() {
             {isSending ? (
               <Spinner size="sm" color="default" />
             ) : (
-              <Ionicons name="send" size={18} color={canSend ? successForeground : muted} />
+              <Icon name="send" size={18} color={canSend ? successForeground : muted} />
             )}
           </Pressable>
         </View>

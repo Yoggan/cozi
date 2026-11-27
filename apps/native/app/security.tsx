@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import {
   ImpactFeedbackStyle,
   NotificationFeedbackType,
@@ -264,7 +264,7 @@ export default function SecurityScreen() {
               }}
               style={[styles.backButton, { backgroundColor: cardColor, borderColor: cardBorder }]}
             >
-              <Ionicons color={foreground} name="arrow-back" size={20} />
+              <Icon color={foreground} name="arrow-back" size={20} />
             </Pressable>
             <Text style={[styles.title, { color: foreground }]}>Seguridad</Text>
           </Animated.View>
@@ -289,7 +289,7 @@ export default function SecurityScreen() {
                 { backgroundColor: isEnabled ? accent.softHex : "rgba(128,128,128,0.16)" },
               ]}
             >
-              <Ionicons
+              <Icon
                 color={isEnabled ? accent.hex : muted}
                 name={isEnabled ? "shield-checkmark" : "shield-outline"}
                 size={22}
@@ -324,7 +324,7 @@ export default function SecurityScreen() {
                 ]}
               >
                 <View style={[styles.iconBadge, { backgroundColor: accent.softHex }]}>
-                  <Ionicons color={accent.hex} name="keypad-outline" size={20} />
+                  <Icon color={accent.hex} name="keypad-outline" size={20} />
                 </View>
                 <View style={styles.flex}>
                   <Text style={[styles.rowTitle, { color: foreground }]}>
@@ -334,7 +334,7 @@ export default function SecurityScreen() {
                     {isEnabled ? "Elige un PIN nuevo." : "Se pedirá cada vez que abras cozi."}
                   </Text>
                 </View>
-                <Ionicons color={muted} name="chevron-forward" size={18} />
+                <Icon color={muted} name="chevron-forward" size={18} />
               </Pressable>
             ) : (
               <Animated.View
@@ -396,7 +396,7 @@ export default function SecurityScreen() {
             ]}
           >
             <View style={[styles.iconBadge, { backgroundColor: accent.softHex }]}>
-              <Ionicons
+              <Icon
                 color={accent.hex}
                 name={biometricLabel === "Face ID" ? "scan-outline" : "finger-print-outline"}
                 size={20}
@@ -432,7 +432,7 @@ export default function SecurityScreen() {
                   { backgroundColor: cardColor, borderColor: cardBorder },
                 ]}
               >
-                <Ionicons color={foreground} name="lock-closed-outline" size={18} />
+                <Icon color={foreground} name="lock-closed-outline" size={18} />
                 <Text style={[styles.actionLabel, { color: foreground }]}>
                   Probar bloqueo ahora
                 </Text>
@@ -443,7 +443,7 @@ export default function SecurityScreen() {
                 onPress={handleDisable}
                 style={styles.disableButton}
               >
-                <Ionicons color="#F87171" name="trash-outline" size={17} />
+                <Icon color="#F87171" name="trash-outline" size={17} />
                 <Text style={styles.disableLabel}>Desactivar PIN</Text>
               </Pressable>
             </Animated.View>

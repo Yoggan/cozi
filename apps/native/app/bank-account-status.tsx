@@ -1,6 +1,6 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import type { BankAccountStatus } from "@cozi/backend/convex/schema";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 import { useAction, useQuery } from "convex/react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -91,18 +91,18 @@ function TimelineStep({
       <View className="items-center">
         {state === "done" ? (
           <View className="h-6 w-6 items-center justify-center rounded-full bg-success">
-            <Ionicons name="checkmark" size={14} color={successForeground} />
+            <Icon name="checkmark" size={14} color={successForeground} />
           </View>
         ) : state === "active" ? (
           <Animated.View
             style={pulseStyle}
             className="h-6 w-6 items-center justify-center rounded-full bg-warning"
           >
-            <Ionicons name="time" size={14} color={warningForeground} />
+            <Icon name="time" size={14} color={warningForeground} />
           </Animated.View>
         ) : state === "failed" ? (
           <View className="h-6 w-6 items-center justify-center rounded-full bg-danger">
-            <Ionicons name="close" size={14} color={dangerForeground} />
+            <Icon name="close" size={14} color={dangerForeground} />
           </View>
         ) : (
           <View className="h-6 w-6 items-center justify-center rounded-full border border-border bg-surface-secondary">
@@ -121,7 +121,7 @@ function TimelineStep({
         <Text className="mt-0.5 text-xs text-muted">{description}</Text>
         {state === "active" ? (
           <View className="mt-1 flex-row items-center gap-1">
-            <Ionicons name="hourglass-outline" size={12} color={warning} />
+            <Icon name="hourglass-outline" size={12} color={warning} />
             <Text className="text-xs font-medium text-warning-soft-foreground">
               Tiempo estimado: 1 a 5 días hábiles
             </Text>
@@ -189,7 +189,7 @@ export default function BankAccountStatusScreen() {
         className="flex-1 items-center justify-center gap-3 bg-background px-8"
         style={isImmersive ? { backgroundColor: baseColor } : undefined}
       >
-        <Ionicons name="business-outline" size={32} color={muted} />
+        <Icon name="business-outline" size={32} color={muted} />
         <Text className="text-center text-lg font-semibold text-foreground">
           Sin cuentas todavía
         </Text>
@@ -271,7 +271,7 @@ export default function BankAccountStatusScreen() {
         style={immersiveCard}
       >
         <View className="h-12 w-12 items-center justify-center rounded-full bg-surface-secondary">
-          <Ionicons name="card-outline" size={22} color={muted} />
+          <Icon name="card-outline" size={22} color={muted} />
         </View>
         <View className="flex-1">
           <Text className="text-base font-semibold text-foreground">
@@ -290,7 +290,7 @@ export default function BankAccountStatusScreen() {
         className={`mt-4 rounded-3xl p-5 ${bannerClassName}`}
       >
         <View className="flex-row items-center gap-2">
-          <Ionicons
+          <Icon
             name={isVerified ? "checkmark-circle" : isRejected ? "alert-circle" : "time-outline"}
             size={22}
             color={isVerified ? success : isRejected ? danger : warning}
@@ -367,7 +367,7 @@ export default function BankAccountStatusScreen() {
           className="mt-4 gap-3 rounded-2xl bg-surface-secondary p-4"
         >
           <View className="flex-row items-center gap-2">
-            <Ionicons name="information-circle-outline" size={18} color={muted} />
+            <Icon name="information-circle-outline" size={18} color={muted} />
             <Text className="text-sm font-semibold text-foreground">
               ¿Qué puedo hacer mientras tanto?
             </Text>
