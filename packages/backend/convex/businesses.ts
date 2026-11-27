@@ -5,7 +5,7 @@ import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { businessStatusValidator, businessTimeZoneValidator } from "./schema";
 import { isVerifiedReceivingAccount } from "./lib/bankAccounts";
-import { claimHandle } from "./lib/handles";
+import { activeHandleReservation, claimHandle } from "./lib/handles";
 import { HANDLE_PATTERN, handleBase, normalizeHandle } from "./lib/identifiers";
 import { availableStock } from "./lib/inventory";
 
@@ -97,7 +97,7 @@ export const create = mutation({
         .withIndex("by_handle", (q) => q.eq("handle", requested))
         .unique();
 
-      if (taken) {
+      if (taken || (await activeHandleReservation(ctx, requested, Date.now()))) {
         throw new ConvexError("Ese @handle ya está ocupado");
       }
 

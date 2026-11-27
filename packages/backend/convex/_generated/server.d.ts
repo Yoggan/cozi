@@ -33,6 +33,8 @@ type Env = {
   readonly PASSWORD_RESET_EMAIL_ENABLED: string | undefined;
   readonly PASSWORD_RESET_EMAIL_FROM: string | undefined;
   readonly RESEND_API_KEY: string | undefined;
+  readonly WAITLIST_EMAIL_FROM: string | undefined;
+  readonly WAITLIST_SITE_URL: string | undefined;
 };
 
 /**

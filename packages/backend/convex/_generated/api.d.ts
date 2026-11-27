@@ -46,6 +46,7 @@ import type * as privateData from "../privateData.js";
 import type * as products from "../products.js";
 import type * as splits from "../splits.js";
 import type * as users from "../users.js";
+import type * as waitlist from "../waitlist.js";
 
 import type {
   ApiFromModules,
@@ -92,6 +93,7 @@ declare const fullApi: ApiFromModules<{
   products: typeof products;
   splits: typeof splits;
   users: typeof users;
+  waitlist: typeof waitlist;
 }>;
 
 /**

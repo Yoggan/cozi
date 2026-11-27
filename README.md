@@ -42,6 +42,11 @@ as `SITE_URL`. Outbound email delivery is opt-in and disabled by default: set
 sender domain is provisioned. The backend password recovery tests mock delivery
 and run without provider credentials.
 
+Waitlist confirmation uses the same `RESEND_API_KEY`. Set `WAITLIST_EMAIL_FROM`
+to a verified Resend sender. Confirmation links use `SITE_URL` by default. If a
+development preview runs on a different origin, set `WAITLIST_SITE_URL` to that
+origin on the development deployment.
+
 Then, run the development server:
 
 ```bash

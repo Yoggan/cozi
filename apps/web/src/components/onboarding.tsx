@@ -2,7 +2,7 @@ import { api } from "@cozi/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 
-import { Field, Form, Page, field } from "@/components/cozi";
+import { Field, Form, Loading, Page, field } from "@/components/cozi";
 import SignOutForm from "@/components/sign-out-form";
 import type { Profile } from "@/lib/profile";
 
@@ -40,6 +40,14 @@ export function businessFields(data: FormData) {
 
 export default function Onboarding({ profile }: { profile: Profile | null }) {
   const authUser = useQuery(api.auth.getCurrentUser);
+  const [openedAt] = useState(Date.now);
+
+  const reservedHandle = useQuery(
+    api.waitlist.getReservedHandle,
+    profile?.handle ? "skip" : { now: openedAt },
+  );
+
+  const loadingHandle = !profile?.handle && reservedHandle === undefined;
   const finishOnboarding = useMutation(api.users.finishOnboarding);
   const [accountType, setAccountType] = useState(profile?.accountType ?? "personal");
   const business = (profile?.accountType ?? accountType) === "business";
@@ -51,6 +59,7 @@ export default function Onboarding({ profile }: { profile: Profile | null }) {
     >
       <Form
         submit="Continuar"
+        submitDisabled={loadingHandle}
         onSubmit={(data) =>
           finishOnboarding({
             accountType: profile?.accountType ?? accountType,
@@ -84,18 +93,22 @@ export default function Onboarding({ profile }: { profile: Profile | null }) {
           minLength={2}
           maxLength={50}
         />
-        <Field
-          name="handle"
-          label="Tu @handle"
-          defaultValue={profile?.handle ?? ""}
-          required
-          minLength={3}
-          maxLength={21}
-          autoCapitalize="none"
-          autoCorrect="off"
-          pattern="@?[a-zA-Z0-9_]{3,20}"
-          hint="Usa de 3 a 20 letras, números o guiones bajos."
-        />
+        {loadingHandle ? (
+          <Loading />
+        ) : (
+          <Field
+            name="handle"
+            label="Tu @handle"
+            defaultValue={profile?.handle ?? reservedHandle ?? ""}
+            required
+            minLength={3}
+            maxLength={21}
+            autoCapitalize="none"
+            autoCorrect="off"
+            pattern="@?[a-zA-Z0-9_]{3,20}"
+            hint="Usa de 3 a 20 letras, números o guiones bajos."
+          />
+        )}
         {business && !profile?.business && <BusinessFields />}
       </Form>
       <SignOutForm />

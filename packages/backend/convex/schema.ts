@@ -157,6 +157,19 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_business", ["businessId"]),
 
+  waitlist: defineTable({
+    email: v.string(),
+    handle: v.string(),
+    tokenHash: v.string(),
+    confirmationExpiresAt: v.number(),
+    confirmedAt: v.optional(v.number()),
+    reservationExpiresAt: v.optional(v.number()),
+  })
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_handle_and_reservationExpiresAt", ["handle", "reservationExpiresAt"])
+    .index("by_email_and_reservationExpiresAt", ["email", "reservationExpiresAt"])
+    .index("by_confirmedAt_and_confirmationExpiresAt", ["confirmedAt", "confirmationExpiresAt"]),
+
   /**
    * Agenda personal de @handles. `nickname` es solo para el dueño; el perfil
    * real sigue viviendo en `users` y puede cambiar sin romper el contacto.

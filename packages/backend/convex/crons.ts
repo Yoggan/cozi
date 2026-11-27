@@ -4,6 +4,8 @@ import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
+crons.interval("prune expired waitlist requests", { hours: 6 }, internal.waitlist.pruneExpired);
+
 crons.interval(
   "prune expired mobile notifications",
   { hours: 6 },
