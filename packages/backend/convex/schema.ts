@@ -417,7 +417,31 @@ export default defineSchema({
     senderId: v.id("users"),
     text: v.string(),
     createdAt: v.number(),
-  }).index("by_thread_created", ["threadId", "createdAt"]),
+  })
+    .index("by_thread_created", ["threadId", "createdAt"])
+    .index("by_threadId_and_senderId", ["threadId", "senderId"]),
+
+  messageBlocks: defineTable({
+    blockerId: v.id("users"),
+    blockedId: v.id("users"),
+  }).index("by_blockerId_and_blockedId", ["blockerId", "blockedId"]),
+
+  messageReports: defineTable({
+    threadId: v.id("messageThreads"),
+    reporterId: v.id("users"),
+    reportedId: v.id("users"),
+    sourceMessageId: v.optional(v.id("messages")),
+    evidenceIds: v.array(v.id("messages")),
+    status: v.union(v.literal("pending"), v.literal("reviewed")),
+    reviewedBy: v.optional(v.string()),
+    reviewedAt: v.optional(v.number()),
+  })
+    .index("by_threadId_and_reporterId", ["threadId", "reporterId"])
+    .index("by_status", ["status"]),
+
+  messageSupportReviewers: defineTable({
+    tokenIdentifier: v.string(),
+  }).index("by_tokenIdentifier", ["tokenIdentifier"]),
 
   /**
    * Bitácora e idempotencia de webhooks de Pey. Evita doble descuento de
