@@ -1,7 +1,12 @@
 import { describe, expect, test } from "vitest";
 
-import { createTestBackend, createUser, setupMealBusiness } from "../test-utils/harness";
-import { api } from "./_generated/api";
+import {
+  createTestBackend,
+  createUser,
+  linkReceivingClabe,
+  setupMealBusiness,
+} from "../test-utils/harness";
+import { api, internal } from "./_generated/api";
 
 describe("E2E: Business receiving accounts and catalog", () => {
   test("owner lists business accounts with masked fields, gets selling switches, and strangers are rejected", async () => {
@@ -52,6 +57,10 @@ describe("E2E: Business receiving accounts and catalog", () => {
         businessId: cafe.businessId,
       }),
     ).rejects.toThrow("Negocio no encontrado");
+
+    await expect(
+      stranger.client.query(api.businesses.firstPaymentReadiness, { businessId: cafe.businessId }),
+    ).rejects.toThrow("Negocio no encontrado");
   });
 
   test("owner can clear product stock through products.update", async () => {
@@ -81,5 +90,77 @@ describe("E2E: Business receiving accounts and catalog", () => {
     });
 
     expect(menu[0]?.stock).toBeNull();
+  });
+
+  test("first-payment checklist follows publication, verification, and order readiness", async () => {
+    const t = createTestBackend();
+
+    const { client, userId } = await createUser(t, {
+      subject: "auth_first_payment",
+      name: "Lucía Prado",
+      email: "lucia@tallermx.com",
+      handle: "lucia_taller",
+    });
+
+    const { businessId } = await client.mutation(api.businesses.create, {
+      name: "Taller de Café",
+      handle: "taller_cafe",
+    });
+
+    const { productId } = await client.mutation(api.products.create, {
+      businessId,
+      name: "Café de olla",
+      priceCents: 4500,
+      active: false,
+    });
+
+    await linkReceivingClabe(client, { clabe: "012180015826225713", holderName: "Lucía Prado" });
+
+    function readReadiness() {
+      return client.query(api.businesses.firstPaymentReadiness, { businessId });
+    }
+
+    expect(await readReadiness()).toEqual({
+      hasPublishedProduct: false,
+      receivingAccount: { status: "missing" },
+      ordersEnabled: false,
+    });
+
+    const { bankAccountId } = await t.mutation(internal.pey.mutations.saveBankAccount, {
+      businessId,
+      userId,
+      peyBankAccountId: "mock_ba_pending",
+      accountType: "clabe",
+      accountNumberMasked: "•••• 1234",
+      holderName: "Taller de Café",
+      status: "pending",
+    });
+
+    expect((await readReadiness()).receivingAccount).toEqual({
+      status: "pending",
+      accountId: bankAccountId,
+    });
+
+    await t.mutation(internal.pey.mutations.updateBankAccountStatus, {
+      bankAccountId,
+      status: "rejected",
+    });
+    expect((await readReadiness()).receivingAccount).toEqual({ status: "rejected" });
+
+    await linkReceivingClabe(client, {
+      businessId,
+      clabe: "012180015826225713",
+      holderName: "Taller de Café",
+    });
+    await client.mutation(api.products.update, { productId, active: true });
+    await client.mutation(api.businesses.update, { businessId, acceptingOrders: true });
+    expect(await readReadiness()).toEqual({
+      hasPublishedProduct: true,
+      receivingAccount: { status: "verified" },
+      ordersEnabled: true,
+    });
+
+    await client.mutation(api.businesses.update, { businessId, status: "paused" });
+    expect((await readReadiness()).ordersEnabled).toBe(false);
   });
 });
