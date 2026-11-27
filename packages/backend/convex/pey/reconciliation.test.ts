@@ -102,7 +102,7 @@ test("settles a missed webhook and applies order effects once across repeat runs
       });
     }
 
-    return Response.json(transactions);
+    return Response.json({ items: transactions, nextToken: null });
   });
 
   await t.action(internal.pey.actions.reconcilePayments, {});
@@ -256,13 +256,14 @@ test("uses the canonical link status when an individual transaction has failed",
     amountCents: 2400,
   });
 
-  await t.mutation(internal.pey.mutations.attachProvider, {
-    paymentId: payment._id,
-    status: "pending",
-    peyReference: "canonical_link",
-    peyPaymentLinkId: "canonical_link",
-    peyTransactionId: "tx_failed",
-  });
+  // Legacy link payment: Cozi no longer creates links, but existing ones still reconcile.
+  await t.run((ctx) =>
+    ctx.db.patch(payment._id, {
+      peyReference: "canonical_link",
+      peyPaymentLinkId: "canonical_link",
+      peyTransactionId: "tx_failed",
+    }),
+  );
 
   const providerPaidAt = Math.floor(payment.createdAt / 1000) * 1000;
   const failed = { id: "tx_failed", status: "failed", amount: 24 };

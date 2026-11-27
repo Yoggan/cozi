@@ -1,6 +1,7 @@
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@cozi/backend/convex/_generated/api";
 import { normalizeHandle } from "@cozi/backend/convex/lib/identifiers";
+import { isTakingOrders } from "@cozi/backend/convex/lib/stateMachines";
 import { Button, buttonVariants } from "@cozi/ui/components/button";
 import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -73,8 +74,7 @@ function BusinessProfile({
   const ready = profile && !needsOnboarding(profile);
   const owner = business._id === profile?.business?._id;
 
-  const open =
-    business.status === "active" && business.acceptingOrders && business.hasReceivingAccount;
+  const open = isTakingOrders(business) && business.hasReceivingAccount;
 
   return (
     <main id="contenido" className="page-narrow">

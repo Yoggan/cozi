@@ -165,7 +165,7 @@ function RootNavigator() {
           name="split"
           options={{ headerShown: false, presentation: "fullScreenModal" }}
         />
-        <Stack.Screen name="order/[publicId]" options={{ headerShown: true, title: "Pago" }} />
+        <Stack.Screen name="order/[publicId]" options={{ headerShown: false }} />
         <Stack.Screen
           name="messages/[threadId]"
           options={{ headerShown: true, title: "Conversación" }}

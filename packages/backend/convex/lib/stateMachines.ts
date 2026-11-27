@@ -1,10 +1,12 @@
 import type { Doc } from "../_generated/dataModel";
-import type { BillSplitStatus, OrderStatus, PaymentStatus } from "../schema";
+import type { BankAccountStatus, BillSplitStatus, OrderStatus, PaymentStatus } from "../schema";
 
 /** Every status a stored row may move to next. A status missing from its own list can't be rewritten. */
 type Transitions<S extends string> = { readonly [From in S]: ReadonlyArray<S> };
 
 type WebhookEventStatus = Doc<"peyWebhookEvents">["status"];
+
+type BusinessPromptState = NonNullable<Doc<"users">["businessPromptState"]>;
 
 /**
  * Stored order statuses. `expired` is derived at read time (`effectiveOrderStatus`) and current
@@ -50,6 +52,30 @@ export const WEBHOOK_EVENT_TRANSITIONS = {
   ignored: [],
 } as const satisfies Transitions<WebhookEventStatus>;
 
+/**
+ * Receiving-account status as Pey reports it. `pending` is only the starting point: a late or
+ * unrecognized Pey status (both map to `pending`) never undoes a verification decision.
+ */
+export const BANK_ACCOUNT_TRANSITIONS = {
+  pending: ["pending", "verified", "rejected", "disabled"],
+  verified: ["verified", "rejected", "disabled"],
+  rejected: ["rejected", "verified", "disabled"],
+  disabled: ["disabled", "verified", "rejected"],
+} as const satisfies Transitions<BankAccountStatus>;
+
+/** The business-account prompt is shown once: answered either way, it stays answered. */
+export const BUSINESS_PROMPT_TRANSITIONS = {
+  pending: ["dismissed", "completed"],
+  dismissed: [],
+  completed: [],
+} as const satisfies Transitions<BusinessPromptState>;
+
+/** A report is reviewed once. Reporting again inserts a new report. */
+export const MESSAGE_REPORT_TRANSITIONS = {
+  pending: ["reviewed"],
+  reviewed: [],
+} as const satisfies Transitions<Doc<"messageReports">["status"]>;
+
 export function canTransition<S extends string>(machine: Transitions<S>, from: S, to: S): boolean {
   return machine[from].includes(to);
 }
@@ -61,6 +87,14 @@ export function isTerminal<S extends string>(machine: Transitions<S>, status: S)
 /** Money arrived: the order counts as paid whether or not it was handed over yet. */
 export function isOrderPaid(status: OrderStatus): boolean {
   return status === "paid" || status === "fulfilled";
+}
+
+/** A business takes new orders only while active with orders switched on. */
+export function isTakingOrders(business: {
+  status: Doc<"businesses">["status"];
+  acceptingOrders: boolean;
+}): boolean {
+  return business.status === "active" && business.acceptingOrders;
 }
 
 /** Still collectable: can take a new payment, be cancelled, or expire by deadline. */

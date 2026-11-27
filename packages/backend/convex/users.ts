@@ -7,6 +7,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { isBusinessEmail } from "./lib/email";
 import { claimHandle } from "./lib/handles";
 import { HANDLE_PATTERN, handleBase, normalizeHandle } from "./lib/identifiers";
+import { BUSINESS_PROMPT_TRANSITIONS, canTransition } from "./lib/stateMachines";
 import { isStorageReferenced } from "./lib/storage";
 
 // Cuentas anteriores al onboarding no lo ven; las nuevas sí.
@@ -232,7 +233,10 @@ export const dismissBusinessPrompt = mutation({
   handler: async (ctx) => {
     const user = await findUserByAuthId(ctx, await requireAuthUserId(ctx));
 
-    if (user?.businessPromptState === "pending") {
+    if (
+      user?.businessPromptState &&
+      canTransition(BUSINESS_PROMPT_TRANSITIONS, user.businessPromptState, "dismissed")
+    ) {
       await ctx.db.patch(user._id, {
         businessPromptState: "dismissed",
         updatedAt: Date.now(),

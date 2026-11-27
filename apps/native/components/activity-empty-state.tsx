@@ -1,9 +1,8 @@
 import { Icon } from "@/components/icon";
-import { useAssets } from "expo-asset";
 import { useFonts } from "expo-font";
 import { Button } from "heroui-native";
 import { StyleSheet, Text, View } from "react-native";
-import { SvgUri } from "react-native-svg";
+import { LocalSvg } from "react-native-svg/css";
 
 import arrowsClockwiseIcon from "@/assets/activity/arrows-clockwise.svg";
 import amberArrowsIcon from "@/assets/activity/arrows-clockwise-amber.svg";
@@ -24,8 +23,6 @@ const REFRESH_ICON_ASSETS = new Map([
   ["amber", amberArrowsIcon],
 ]);
 
-const ICONS = [...REFRESH_ICON_ASSETS.values(), plusIcon, plusLightIcon];
-
 const FONTS = {
   PlusJakartaSansRegular: plusJakartaSansRegular,
   PlusJakartaSansSemiBold: plusJakartaSansSemiBold,
@@ -33,7 +30,6 @@ const FONTS = {
 
 export function ActivityEmptyState({ onSend }: { onSend: () => void }) {
   const palette = useCoziGlassPalette();
-  const [assets] = useAssets(ICONS);
   const [fontsLoaded] = useFonts(FONTS);
   const semibold = fontsLoaded ? styles.semibold : styles.fallbackSemibold;
   const refreshIcon = REFRESH_ICON_ASSETS.get(palette.accent.id);
@@ -45,7 +41,7 @@ export function ActivityEmptyState({ onSend }: { onSend: () => void }) {
         {refreshIcon === undefined ? (
           <Icon name="sync" size={30} color={palette.selectedText} />
         ) : (
-          <SvgUri uri={assets?.[ICONS.indexOf(refreshIcon)]?.localUri ?? null} />
+          <LocalSvg asset={refreshIcon} />
         )}
       </View>
       <Text accessibilityRole="header" style={[styles.title, semibold, { color: palette.text }]}>
@@ -66,7 +62,7 @@ export function ActivityEmptyState({ onSend }: { onSend: () => void }) {
         ]}
       >
         <View accessible={false} style={styles.buttonIcon}>
-          <SvgUri uri={assets?.[ICONS.indexOf(plus)]?.localUri ?? null} />
+          <LocalSvg asset={plus} />
         </View>
         <Text style={[styles.buttonLabel, semibold, { color: palette.primaryActionText }]}>
           Enviar mi primer pago

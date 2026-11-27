@@ -3,8 +3,7 @@ import { ConvexError } from "convex/values";
 import type { OrderStatus } from "../schema";
 import { isOrderOpen } from "./stateMachines";
 
-// shortcut: Pey payment links no aceptan expiry ni close; la vigencia es local
-// y un pago tardío todavía se concilia. Migrar a CoDi QR o a soporte de Pey.
+// La vigencia del cobro es local: Pey solo vence cada QR o push, no la orden.
 export const DEFAULT_EXPIRY_MINUTES = 24 * 60;
 export const MAX_EXPIRY_MINUTES = 7 * 24 * 60;
 

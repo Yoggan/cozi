@@ -300,7 +300,7 @@ export default function BankAccountStatusScreen() {
 
         {isVerified ? (
           <Text className={`mt-3 text-sm ${bannerTextClassName}`}>
-            Ya puedes recibir pagos por CoDi y links de pago directo en tu cuenta.
+            Ya puedes recibir pagos por CoDi directo en tu cuenta.
           </Text>
         ) : isRejected ? (
           <Text className={`mt-3 text-sm ${bannerTextClassName}`}>

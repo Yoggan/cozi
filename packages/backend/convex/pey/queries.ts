@@ -5,7 +5,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalQuery } from "../_generated/server";
 import type { DatabaseReader, QueryCtx } from "../_generated/server";
 import { isVerifiedReceivingAccount } from "../lib/bankAccounts";
-import { isOrderPaid } from "../lib/stateMachines";
+import { isOrderPaid, isTakingOrders } from "../lib/stateMachines";
 
 export const UNPUBLISHED_PAYMENT_MS = 2 * 60 * 1000;
 export const UNPUBLISHED_PUSH_PAYMENT_MS = 15 * 60 * 1000;
@@ -155,7 +155,7 @@ export const getOrderForCharge = internalQuery({
       throw new ConvexError("Negocio no encontrado");
     }
 
-    if (business && (business.status !== "active" || !business.acceptingOrders)) {
+    if (business && !isTakingOrders(business)) {
       throw new ConvexError("El negocio no está aceptando pedidos");
     }
 

@@ -44,7 +44,7 @@ async function setup(stock?: number) {
   const checkout = (
     client: typeof seller.client,
     orderId: Awaited<ReturnType<typeof createOrder>>["orderId"],
-  ) => client.action(api.pey.actions.createPaymentLink, { orderId, expiresInMinutes: 5 });
+  ) => client.action(api.pey.actions.createCodiCharge, { orderId, method: "qr" });
 
   const inventory = () => t.run((ctx) => ctx.db.get("products", productId));
 
@@ -97,16 +97,10 @@ test("concurrent POS and buyer checkouts compete for the last unit and settle on
 
   const payment = await t.run((ctx) => ctx.db.get("payments", winner.value.paymentId));
 
-  const payload =
-    winner.value.method === "payment_link"
-      ? {
-          type: "payment_link.status_updated",
-          data: { paymentLinkId: payment?.peyReference, status: "paid" },
-        }
-      : {
-          type: "codi.qr.payment_received",
-          data: { codiQrId: payment?.peyReference, amount: 10 },
-        };
+  const payload = {
+    type: "codi.qr.payment_received",
+    data: { codiQrId: payment?.peyReference, amount: 10 },
+  };
 
   const webhook = await sendSignedPeyWebhook(t, payload);
   expect(webhook.body).toEqual({ ok: true, outcome: "processed" });
@@ -136,7 +130,7 @@ test("cancellation releases an unpublished reservation and prevents late attachm
 
   const { payment } = await t.mutation(internal.pey.mutations.beginPayment, {
     orderId: order.orderId,
-    method: "payment_link",
+    method: "codi_qr",
     attemptId: "unpublished",
     amountCents: order.totalCents,
   });
@@ -150,12 +144,12 @@ test("cancellation releases an unpublished reservation and prevents late attachm
   const stale = await t.mutation(internal.pey.mutations.attachProvider, {
     paymentId: payment._id,
     status: "pending",
-    peyReference: "unpublished_link",
-    checkoutUrl: "https://example.com/checkout",
+    peyReference: "unpublished_qr",
+    qrImageUrl: "data:image/png;base64,AA==",
   });
 
   expect(stale.status).toBe("expired");
-  expect(stale.checkoutUrl).toBeUndefined();
+  expect(stale.qrImageUrl).toBeUndefined();
 
   await checkout(buyer.client, next.orderId);
   expect(await availability()).toBe(0);
@@ -171,7 +165,7 @@ test("a cancelled published QR releases on canonical reconciliation and flags la
   vi.stubEnv("PEY_API_KEY", "test_key");
 
   const fetchPey = vi.fn(async (_url: string, options?: RequestInit) =>
-    options?.method === "POST" ? Response.json({ id: "live_qr" }) : Response.json([]),
+    options?.method === "POST" ? Response.json({ id: "live_qr" }) : Response.json({ items: [] }),
   );
 
   vi.stubGlobal("fetch", fetchPey);
@@ -264,7 +258,9 @@ test("late success after release on an open order blocks new charges and cancell
   vi.stubGlobal(
     "fetch",
     vi.fn(async (_url: string, options?: RequestInit) =>
-      options?.method === "POST" ? Response.json({ id: "open_late_qr" }) : Response.json([]),
+      options?.method === "POST"
+        ? Response.json({ id: "open_late_qr" })
+        : Response.json({ items: [] }),
     ),
   );
 
@@ -345,7 +341,7 @@ test("enabling stock tracking mid-checkout still deducts sold units on settlemen
   const order = await createOrder(buyer.client, [2]);
   const link = await checkout(seller.client, order.orderId);
 
-  // Merchant enables stock tracking while the payment link is open.
+  // Merchant enables stock tracking while the QR is open.
   await seller.client.mutation(api.products.update, { productId, stock: 5 });
 
   await expect(
@@ -410,49 +406,6 @@ test("legacy attempt settling while a replacement holds stock consumes the same-
   expect((await t.run((ctx) => ctx.db.get("payments", replacement.paymentId)))?.status).toBe(
     "expired",
   );
-});
-
-test("a live payment link can settle after Cozi expiry and cancellation", async () => {
-  vi.useFakeTimers();
-  const { t, seller, buyer, createOrder, checkout, inventory } = await setup(1);
-  const first = await createOrder(seller.client);
-  const next = await createOrder(buyer.client);
-  vi.stubEnv("PEY_MODE", "live");
-  vi.stubEnv("PEY_API_KEY", "test_key");
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async () =>
-      Response.json({
-        id: "live_link",
-        url: "https://example.com/pay",
-        status: "pending",
-      }),
-    ),
-  );
-
-  const link = await checkout(seller.client, first.orderId);
-  const payment = await t.run((ctx) => ctx.db.get("payments", link.paymentId));
-  expect(link.expiresAt).toBeUndefined();
-  await vi.advanceTimersByTimeAsync(6 * 60_000);
-  expect(
-    (await seller.client.query(api.orders.getByPublicId, { publicId: first.publicId }))?.status,
-  ).toBe("expired");
-  await seller.client.mutation(api.orders.cancel, { orderId: first.orderId });
-  await expect(checkout(buyer.client, next.orderId)).rejects.toThrow(
-    "No hay suficiente inventario",
-  );
-
-  await t.mutation(internal.pey.mutations.ingestWebhookEvent, {
-    eventId: "paid_live_link",
-    type: "payment_link.status_updated",
-    payloadHash: "test",
-    references: [payment?.attemptId ?? ""],
-    status: "succeeded",
-  });
-  expect(await inventory()).toMatchObject({ stock: 0 });
-  expect(
-    (await seller.client.query(api.orders.getByPublicId, { publicId: first.publicId }))?.status,
-  ).toBe("paid");
 });
 
 test("untracked products allow both checkouts and remain untracked after payment", async () => {

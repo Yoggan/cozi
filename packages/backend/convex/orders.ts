@@ -6,7 +6,13 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { effectiveOrderStatus, orderDeadline } from "./lib/expiry";
-import { canTransition, isOrderOpen, isOrderPaid, ORDER_TRANSITIONS } from "./lib/stateMachines";
+import {
+  canTransition,
+  isOrderOpen,
+  isOrderPaid,
+  isTakingOrders,
+  ORDER_TRANSITIONS,
+} from "./lib/stateMachines";
 import { normalizeHistoryPaginationOpts } from "./lib/historyPagination";
 import { HANDLE_PATTERN, makePublicId, normalizeHandle } from "./lib/identifiers";
 import { availableStock } from "./lib/inventory";
@@ -123,7 +129,7 @@ export const createBusinessOrder = mutation({
       throw new ConvexError("Negocio no encontrado");
     }
 
-    if (business.status !== "active" || !business.acceptingOrders) {
+    if (!isTakingOrders(business)) {
       throw new ConvexError("El negocio no está aceptando pedidos");
     }
 
@@ -410,7 +416,6 @@ export const getByPublicId = query({
             method: payment.method,
             status: payment.status,
             peyReference: payment.peyReference ?? null,
-            checkoutUrl: payment.checkoutUrl ?? null,
             qrImageUrl: payment.qrImageUrl ?? null,
             deepLink: payment.deepLink ?? null,
             expiresAt: payment.expiresAt ?? null,

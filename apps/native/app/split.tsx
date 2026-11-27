@@ -1,13 +1,12 @@
 import { api } from "@cozi/backend/convex/_generated/api";
-import type { Id } from "@cozi/backend/convex/_generated/dataModel";
 import type { BillSplitStatus } from "@cozi/backend/convex/schema";
 import { Icon } from "@/components/icon";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useThemeColor, useToast } from "heroui-native";
 import { useState } from "react";
-import { Alert, Pressable, Share, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, Text, TextInput, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -60,7 +59,6 @@ export default function SplitScreen() {
 
   const createSplit = useMutation(api.splits.createForOrder);
   const cancelSplit = useMutation(api.splits.cancel);
-  const createPaymentLink = useAction(api.pey.actions.createPaymentLink);
 
   const [mode, setMode] = useState<"equal" | "custom">("equal");
   const [includeCreator, setIncludeCreator] = useState(true);
@@ -69,7 +67,6 @@ export default function SplitScreen() {
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
-  const [sharingOrderId, setSharingOrderId] = useState<Id<"orders"> | null>(null);
 
   const cardStyle = {
     backgroundColor: theme.isImmersive ? theme.fieldFill : surface,
@@ -197,35 +194,6 @@ export default function SplitScreen() {
         },
       ],
     );
-  }
-
-  async function handleShare(orderId: Id<"orders">, amountCents: number, sharePublicId: string) {
-    if (!split) {
-      return;
-    }
-
-    setSharingOrderId(orderId);
-
-    try {
-      const payment = await createPaymentLink({ orderId, expiresInMinutes: 1440 });
-
-      if (!payment.checkoutUrl) {
-        router.push({ pathname: "/order/[publicId]", params: { publicId: sharePublicId } });
-
-        return;
-      }
-
-      await Share.share({
-        message: `Te toca ${formatMxn(amountCents)} de "${split.note ?? "la cuenta"}". Paga en Cozi: ${payment.checkoutUrl}`,
-      });
-    } catch (error) {
-      toast.show({
-        variant: "danger",
-        label: getErrorMessage(error, "No pudimos generar el link"),
-      });
-    } finally {
-      setSharingOrderId(null);
-    }
   }
 
   if (order === undefined) {
@@ -405,7 +373,6 @@ export default function SplitScreen() {
                 <View style={[cardStyle, { overflow: "hidden" }]}>
                   {split.shares.map((share, index) => {
                     const isPaidShare = share.status === "paid" || share.status === "fulfilled";
-                    const isSharing = sharingOrderId === share.orderId;
 
                     return (
                       <View
@@ -439,11 +406,13 @@ export default function SplitScreen() {
                           </Text>
                         ) : (
                           <Pressable
-                            accessibilityLabel={`Compartir cobro de ${formatMxn(share.amountCents)}`}
+                            accessibilityLabel={`Cobrar ${formatMxn(share.amountCents)} por CoDi`}
                             accessibilityRole="button"
-                            disabled={isSharing}
                             onPress={() =>
-                              void handleShare(share.orderId, share.amountCents, share.publicId)
+                              router.push({
+                                pathname: "/order/[publicId]",
+                                params: { publicId: share.publicId },
+                              })
                             }
                             style={({ pressed }) => ({
                               flexDirection: "row",
@@ -455,12 +424,12 @@ export default function SplitScreen() {
                               backgroundColor: theme.pillFill,
                               borderWidth: 1,
                               borderColor: theme.pillBorder,
-                              opacity: pressed || isSharing ? 0.6 : 1,
+                              opacity: pressed ? 0.6 : 1,
                             })}
                           >
-                            <Icon name="share-outline" size={14} color={theme.text} />
+                            <Icon name="qr-code-outline" size={14} color={theme.text} />
                             <Text style={{ color: theme.text, fontSize: 12, fontWeight: "600" }}>
-                              {isSharing ? "..." : "Cobrar"}
+                              Cobrar
                             </Text>
                           </Pressable>
                         )}

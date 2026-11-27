@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { canTransition, MESSAGE_REPORT_TRANSITIONS } from "./lib/stateMachines";
 
 const REVIEW_QUEUE_LIMIT = 10;
 
@@ -72,7 +73,7 @@ export const markReportReviewed = mutation({
       throw new ConvexError("Reporte no encontrado");
     }
 
-    if (report.status === "reviewed") {
+    if (!canTransition(MESSAGE_REPORT_TRANSITIONS, report.status, "reviewed")) {
       return;
     }
 

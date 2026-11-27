@@ -1,6 +1,7 @@
 import { api } from "@cozi/backend/convex/_generated/api";
+import { isTakingOrders } from "@cozi/backend/convex/lib/stateMachines";
 import { Icon } from "@/components/icon";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useToast, useThemeColor } from "heroui-native";
@@ -71,7 +72,6 @@ export default function BusinessOrderScreen() {
   const business = profile.business;
   const { toast } = useToast();
   const createBusinessOrder = useMutation(api.orders.createBusinessOrder);
-  const createPaymentLink = useAction(api.pey.actions.createPaymentLink);
 
   const products = useQuery(
     api.products.listByBusiness,
@@ -100,10 +100,7 @@ export default function BusinessOrderScreen() {
   const totalCents = subtotalCents + (tipCents ?? 0);
 
   const orderBlocked =
-    businessProfile !== undefined &&
-    (businessProfile === null ||
-      businessProfile.status !== "active" ||
-      !businessProfile.acceptingOrders);
+    businessProfile !== undefined && (businessProfile === null || !isTakingOrders(businessProfile));
 
   const canSubmit =
     selected.length > 0 &&
@@ -149,18 +146,6 @@ export default function BusinessOrderScreen() {
         tipCents: tipCents !== null && tipCents > 0 ? tipCents : undefined,
         note: note.trim() || undefined,
       });
-
-      try {
-        await createPaymentLink({ orderId: order.orderId, expiresInMinutes: 1440 });
-      } catch (error) {
-        const detail = getErrorMessage(error, "");
-        toast.show({
-          variant: "danger",
-          label: detail
-            ? `Pedido creado, pero no pudimos generar el link: ${detail}`
-            : "Pedido creado, pero no pudimos generar el link",
-        });
-      }
 
       router.replace({
         pathname: "/order/[publicId]",
@@ -426,7 +411,7 @@ export default function BusinessOrderScreen() {
                     lineHeight: 18,
                   }}
                 >
-                  Generaremos un link de pago de CoDi para compartir con el cliente.
+                  Después cobras con un QR de CoDi o enviando el cobro al celular del cliente.
                 </Text>
               </View>
             </View>

@@ -1,7 +1,7 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import { Icon } from "@/components/icon";
 import type { IconName } from "@/components/icon";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useToast } from "heroui-native";
@@ -111,7 +111,6 @@ export default function SendScreen() {
   const insets = useSafeAreaInsets();
   const theme = usePaymentTheme();
   const createTransfer = useMutation(api.p2p.createTransfer);
-  const createPaymentLink = useAction(api.pey.actions.createPaymentLink);
   const saveContact = useMutation(api.contacts.save);
   const contactData = useQuery(api.contacts.suggestions);
   const contacts = contactData ? [...contactData.saved, ...contactData.recent] : [];
@@ -186,15 +185,6 @@ export default function SendScreen() {
         amountCents,
         note: note.trim() || undefined,
       });
-
-      try {
-        await createPaymentLink({ orderId: order.orderId, expiresInMinutes: 30 });
-      } catch (error) {
-        toast.show({
-          variant: "danger",
-          label: getErrorMessage(error, "No pudimos generar el link de pago"),
-        });
-      }
 
       router.replace({
         pathname: "/order/[publicId]",
@@ -346,7 +336,7 @@ export default function SendScreen() {
             >
               {recipientLookup && !recipientLookup.isSelf
                 ? recipientLookup.canReceive
-                  ? `Link de pago CoDi a nombre de @${cleanRecipient}. El dinero llega directo a su cuenta, sin comisiones.`
+                  ? `Pago CoDi a nombre de @${cleanRecipient}. El dinero llega directo a su cuenta, sin comisiones.`
                   : "Cuando active su cuenta receptora podrás enviarle dinero por CoDi, sin comisiones."
                 : "Pagos directos por CoDi, sin comisiones."}
             </Text>

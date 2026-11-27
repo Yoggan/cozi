@@ -1,6 +1,6 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import { Icon } from "@/components/icon";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -154,7 +154,6 @@ export default function BusinessProfileScreen() {
   const surface = useThemeColor("surface");
   const { toast } = useToast();
   const createBusinessOrder = useMutation(api.orders.createBusinessOrder);
-  const createPaymentLink = useAction(api.pey.actions.createPaymentLink);
   const openBusinessThread = useMutation(api.messages.getOrCreateBusinessThread);
 
   const handle = (firstParam(params.handle) ?? "").replace(/^@/, "").trim();
@@ -261,15 +260,6 @@ export default function BusinessProfileScreen() {
         })),
         tipCents: tipCents > 0 ? tipCents : undefined,
       });
-
-      try {
-        await createPaymentLink({ orderId: order.orderId, expiresInMinutes: 1440 });
-      } catch (error) {
-        toast.show({
-          variant: "danger",
-          label: error instanceof Error ? error.message : "No pudimos generar el link de pago",
-        });
-      }
 
       router.replace({
         pathname: "/order/[publicId]",

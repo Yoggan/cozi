@@ -1,4 +1,5 @@
 import { api } from "@cozi/backend/convex/_generated/api";
+import { isTakingOrders } from "@cozi/backend/convex/lib/stateMachines";
 import { buttonVariants } from "@cozi/ui/components/button";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
@@ -23,7 +24,7 @@ function NewOrder() {
         <Empty>Crea tu negocio para generar pedidos.</Empty>
       ) : !products ? (
         <Loading />
-      ) : !business.acceptingOrders || business.status !== "active" ? (
+      ) : !isTakingOrders(business) ? (
         <>
           <Empty>Activa tu negocio y permite los pedidos para continuar.</Empty>
           <Link to="/business" className={buttonVariants()}>

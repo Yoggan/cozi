@@ -113,16 +113,6 @@ export interface CreateCodiChargeInput {
   payerPhone?: string;
 }
 
-export interface CreatePaymentLinkInput {
-  amountCents: number;
-  currency: "MXN";
-  description: string;
-  reference: string;
-  attemptId?: string;
-  bankAccountId: string;
-  expiresInMinutes?: number;
-}
-
 /* -------------------------------------------------------------------------- */
 /* Salidas normalizadas                                                       */
 /* -------------------------------------------------------------------------- */
@@ -177,7 +167,6 @@ export interface PeyClient {
   createBankAccount(input: RegisterBankAccountInput): Promise<PeyBankAccountResult>;
   getBankAccount(id: string): Promise<PeyBankAccountResult>;
   createCodiCharge(input: CreateCodiChargeInput): Promise<PeyCodiChargeResult>;
-  createPaymentLink(input: CreatePaymentLinkInput): Promise<PeyPaymentLinkResult>;
   getCodiCharge(id: string, options?: PaymentLookupOptions): Promise<PeyCodiChargeResult>;
   getPaymentLink(id: string, options?: PaymentLookupOptions): Promise<PeyPaymentLinkResult>;
   getTransaction(id: string, signal?: AbortSignal): Promise<PeyTransactionResult>;
@@ -197,7 +186,6 @@ export interface PaymentHandle {
   amountCents: number;
   qrImageUrl?: string;
   deepLink?: string;
-  checkoutUrl?: string;
   expiresAt?: number;
   reused: boolean;
 }
