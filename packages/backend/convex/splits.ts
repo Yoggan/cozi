@@ -4,6 +4,12 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { HANDLE_PATTERN, makePublicId, normalizeHandle } from "./lib/identifiers";
+import {
+  BILL_SPLIT_TRANSITIONS,
+  canTransition,
+  isOrderPaid,
+  ORDER_TRANSITIONS,
+} from "./lib/stateMachines";
 import { billSplitModeValidator } from "./schema";
 
 const MIN_SHARE_CENTS = 1000;
@@ -179,7 +185,7 @@ export const createForOrder = mutation({
       throw new ConvexError("Solo quien pagó la orden puede dividir la cuenta");
     }
 
-    if (sourceOrder.status !== "paid" && sourceOrder.status !== "fulfilled") {
+    if (!isOrderPaid(sourceOrder.status)) {
       throw new ConvexError("La orden debe estar pagada antes de dividir la cuenta");
     }
 
@@ -479,7 +485,7 @@ export const cancel = mutation({
       return { ok: true as const, status: "cancelled" as const };
     }
 
-    if (split.status !== "open") {
+    if (!canTransition(BILL_SPLIT_TRANSITIONS, split.status, "cancelled")) {
       throw new ConvexError("No puedes cancelar una división que ya tiene pagos");
     }
 
@@ -488,14 +494,14 @@ export const cancel = mutation({
       .withIndex("by_bill_split", (q) => q.eq("billSplitId", split._id))
       .take(MAX_PARTICIPANTS + 1);
 
-    if (shareOrders.some((order) => order.status === "paid" || order.status === "fulfilled")) {
+    if (shareOrders.some((order) => isOrderPaid(order.status))) {
       throw new ConvexError("No puedes cancelar una división que ya tiene pagos");
     }
 
     const now = Date.now();
 
     for (const order of shareOrders) {
-      if (order.status === "draft" || order.status === "awaiting_payment") {
+      if (canTransition(ORDER_TRANSITIONS, order.status, "cancelled")) {
         await ctx.db.patch(order._id, {
           status: "cancelled",
           cancelledAt: now,

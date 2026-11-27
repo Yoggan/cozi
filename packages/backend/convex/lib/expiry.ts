@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 
 import type { OrderStatus } from "../schema";
+import { isOrderOpen } from "./stateMachines";
 
 // shortcut: Pey payment links no aceptan expiry ni close; la vigencia es local
 // y un pago tardío todavía se concilia. Migrar a CoDi QR o a soporte de Pey.
@@ -53,11 +54,7 @@ export function effectiveOrderStatus(
   deadline: number,
   now: number,
 ): OrderStatus {
-  if (
-    (status === "draft" || status === "awaiting_payment") &&
-    deadline !== NEVER_EXPIRES &&
-    deadline <= now
-  ) {
+  if (isOrderOpen(status) && deadline !== NEVER_EXPIRES && deadline <= now) {
     return "expired";
   }
 

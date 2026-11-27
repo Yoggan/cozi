@@ -5,6 +5,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalQuery } from "../_generated/server";
 import type { DatabaseReader, QueryCtx } from "../_generated/server";
 import { isVerifiedReceivingAccount } from "../lib/bankAccounts";
+import { isOrderPaid } from "../lib/stateMachines";
 
 export const UNPUBLISHED_PAYMENT_MS = 2 * 60 * 1000;
 export const UNPUBLISHED_PUSH_PAYMENT_MS = 15 * 60 * 1000;
@@ -134,7 +135,7 @@ export const getOrderForCharge = internalQuery({
       throw new ConvexError("No tienes acceso a esta orden");
     }
 
-    if (order.status === "paid" || order.status === "fulfilled") {
+    if (isOrderPaid(order.status)) {
       throw new ConvexError("La orden ya está pagada");
     }
 

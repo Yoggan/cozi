@@ -8,6 +8,16 @@ import { enqueueMobileNotification } from "../mobileNotifications";
 import { orderDeadline } from "../lib/expiry";
 import { closeInventoryReservation, holdsInventory, reserveInventory } from "../lib/inventory";
 import {
+  BILL_SPLIT_TRANSITIONS,
+  canTransition,
+  isOrderOpen,
+  isOrderPaid,
+  isTerminal,
+  ORDER_TRANSITIONS,
+  PAYMENT_TRANSITIONS,
+  WEBHOOK_EVENT_TRANSITIONS,
+} from "../lib/stateMachines";
+import {
   bankAccountStatusValidator,
   bankAccountTypeValidator,
   paymentMethodValidator,
@@ -41,29 +51,23 @@ async function settlePayment(
   }
 
   if (status === "processing") {
-    if (payment.status === "pending") {
+    if (canTransition(PAYMENT_TRANSITIONS, payment.status, status)) {
       await ctx.db.patch("payments", payment._id, { status, updatedAt: Date.now() });
     }
 
     return {};
   }
 
-  if (payment.status === status) {
-    return payment.settlementException ? { settlementException: payment.settlementException } : {};
-  }
-
-  if (payment.status === "refunded") {
-    return {};
-  }
-
-  if (payment.status === "succeeded" && status !== "refunded") {
+  // Repeats, stale reports and anything after a refund change nothing. Never throw here:
+  // a rollback would make Pey retry the webhook forever.
+  if (!canTransition(PAYMENT_TRANSITIONS, payment.status, status)) {
     return payment.settlementException ? { settlementException: payment.settlementException } : {};
   }
 
   const now = Date.now();
   const order = await ctx.db.get(payment.orderId);
   const heldInventory = holdsInventory(payment);
-  const orderPaid = order?.status === "paid" || order?.status === "fulfilled";
+  const orderPaid = order ? isOrderPaid(order.status) : false;
 
   const isLateSuccessAfterRelease =
     status === "succeeded" &&
@@ -153,10 +157,7 @@ async function settlePayment(
   }
 
   if (status === "failed" || status === "expired" || (status === "refunded" && heldInventory)) {
-    if (
-      order.paymentId === payment._id &&
-      (order.status === "awaiting_payment" || order.status === "draft")
-    ) {
+    if (order.paymentId === payment._id && isOrderOpen(order.status)) {
       await ctx.db.patch(order._id, {
         status: "draft",
         paymentId: undefined,
@@ -171,7 +172,7 @@ async function settlePayment(
 async function reconcileBillSplit(ctx: MutationCtx, billSplitId: Id<"billSplits">, now: number) {
   const split = await ctx.db.get(billSplitId);
 
-  if (!split || split.status === "cancelled") {
+  if (!split || isTerminal(BILL_SPLIT_TRANSITIONS, split.status)) {
     return;
   }
 
@@ -180,19 +181,30 @@ async function reconcileBillSplit(ctx: MutationCtx, billSplitId: Id<"billSplits"
     .withIndex("by_bill_split", (q) => q.eq("billSplitId", billSplitId))
     .collect();
 
-  const paidOrders = shareOrders.filter(
-    (item) => item.status === "paid" || item.status === "fulfilled",
-  );
+  const paidOrders = shareOrders.filter((item) => isOrderPaid(item.status));
 
   const paidParticipantCount = paidOrders.length;
   const collectedCents = paidOrders.reduce((sum, item) => sum + item.totalCents, 0);
 
-  const nextStatus =
+  const computedStatus =
     paidParticipantCount >= split.participantCount
       ? ("settled" as const)
       : paidParticipantCount > 0
         ? ("partially_paid" as const)
         : ("open" as const);
+
+  // Logged, not thrown: this runs while recording a confirmed payment.
+  const allowed = canTransition(BILL_SPLIT_TRANSITIONS, split.status, computedStatus);
+
+  if (!allowed) {
+    console.error("La división de cuenta retrocedería de estado", {
+      billSplitId,
+      from: split.status,
+      to: computedStatus,
+    });
+  }
+
+  const nextStatus = allowed ? computedStatus : split.status;
 
   await ctx.db.patch(split._id, {
     collectedCents,
@@ -291,7 +303,7 @@ export const beginPayment = internalMutation({
       throw new ConvexError("Monto inválido");
     }
 
-    if (order.status !== "draft" && order.status !== "awaiting_payment") {
+    if (!canTransition(ORDER_TRANSITIONS, order.status, "awaiting_payment")) {
       throw new ConvexError("La orden no está abierta para cobro");
     }
 
@@ -453,12 +465,7 @@ export const attachProvider = internalMutation({
 async function writeOrderExpiry(ctx: MutationCtx, orderId: Id<"orders">, expiresAt: number) {
   const order = await ctx.db.get(orderId);
 
-  if (
-    !order ||
-    order.status === "paid" ||
-    order.status === "fulfilled" ||
-    order.status === "cancelled"
-  ) {
+  if (!order || isOrderPaid(order.status) || order.status === "cancelled") {
     return;
   }
 
@@ -802,7 +809,7 @@ export const ingestWebhookEvent = internalMutation({
       .withIndex("by_event_id", (q) => q.eq("eventId", args.eventId))
       .unique();
 
-    if (existing && (existing.status === "processed" || existing.status === "ignored")) {
+    if (existing && isTerminal(WEBHOOK_EVENT_TRANSITIONS, existing.status)) {
       return { outcome: "duplicate" as const };
     }
 

@@ -6,6 +6,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { effectiveOrderStatus, expiryFromMinutes, orderDeadline } from "./lib/expiry";
+import { isOrderOpen, isOrderPaid } from "./lib/stateMachines";
 import {
   normalizeHistoryPaginationOpts,
   normalizeHistorySearch,
@@ -452,10 +453,9 @@ export const getOrder = query({
       .first();
 
     // Un intento fallido no debe reaparecer como link pagable.
-    const payment =
-      order.status === "paid" || order.status === "fulfilled"
-        ? latestPayment
-        : await findActivePayment(ctx.db, order._id);
+    const payment = isOrderPaid(order.status)
+      ? latestPayment
+      : await findActivePayment(ctx.db, order._id);
 
     const counterpart = await resolveOrderCounterpart(ctx, order, viewer.user._id);
     const deadline = orderDeadline(order);
@@ -464,7 +464,7 @@ export const getOrder = query({
       orderId: order._id,
       publicId: order.publicId,
       status: effectiveOrderStatus(order.status, deadline, Date.now()),
-      canRenew: order.status === "draft" || order.status === "awaiting_payment",
+      canRenew: isOrderOpen(order.status),
       expiresAt: deadline,
       amountCents: order.totalCents,
       note: order.note ?? order.items[0]?.name ?? "Pago Cozi",
