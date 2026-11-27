@@ -84,6 +84,7 @@ export function Form<Result>({
   children,
   id,
   submit,
+  submitDisabled = false,
   onSubmit,
   className = "stack panel",
   fallback = "No pudimos guardar los cambios. Intenta de nuevo.",
@@ -92,6 +93,7 @@ export function Form<Result>({
   children?: ReactNode;
   id?: string;
   submit: string;
+  submitDisabled?: boolean;
   onSubmit: (data: FormData) => Promise<Result>;
   className?: string;
   fallback?: string;
@@ -104,7 +106,7 @@ export function Form<Result>({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (submitting.current) {
+    if (submitting.current || submitDisabled) {
       return;
     }
 
@@ -132,7 +134,7 @@ export function Form<Result>({
             {error}
           </p>
         )}
-        <Button type="submit" variant={variant}>
+        <Button type="submit" disabled={submitDisabled} variant={variant}>
           {busy ? "Espera un momento…" : submit}
         </Button>
       </fieldset>

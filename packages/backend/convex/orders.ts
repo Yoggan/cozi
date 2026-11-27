@@ -29,6 +29,7 @@ const orderItemInputValidator = v.object({
   productId: v.optional(v.id("products")),
   name: v.optional(v.string()),
   unitPriceCents: v.optional(v.number()),
+  expectedUnitPriceCents: v.optional(v.number()),
   quantity: v.number(),
   note: v.optional(v.string()),
 });
@@ -186,6 +187,13 @@ export const createBusinessOrder = mutation({
 
         if (!product.active) {
           throw new ConvexError(`El producto "${product.name}" no está disponible`);
+        }
+
+        if (
+          rawItem.expectedUnitPriceCents !== undefined &&
+          rawItem.expectedUnitPriceCents !== product.priceCents
+        ) {
+          throw new ConvexError(`Cambió el precio de "${product.name}". Revisa el carrito.`);
         }
 
         const nextQty = (productQuantities.get(product._id) ?? 0) + rawItem.quantity;
