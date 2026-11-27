@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { availableStock } from "./lib/inventory";
 
 const MIN_PRICE_CENTS = 100;
 const MAX_PRICE_CENTS = 10_000_000;
@@ -199,6 +200,11 @@ export const update = mutation({
       }
 
       patch.stock = readStock(args.stock);
+      const reserved = product.reservedStock ?? 0;
+
+      if (reserved > 0 && (patch.stock === undefined || patch.stock < reserved)) {
+        throw new ConvexError("El inventario debe cubrir las unidades reservadas");
+      }
     }
 
     if (args.active !== undefined) {
@@ -261,7 +267,7 @@ export const listByBusiness = query({
       priceCents: product.priceCents,
       sku: product.sku ?? null,
       category: product.category ?? null,
-      stock: product.stock ?? null,
+      stock: showInactive ? (product.stock ?? null) : availableStock(product),
       active: product.active,
     }));
   },

@@ -196,14 +196,19 @@ export default function OrderScreen() {
     const businessFulfilled = businessOrder.status === "fulfilled";
     const businessCancelled = businessOrder.status === "cancelled";
     const businessExpired = businessOrder.status === "expired";
+    const hasSettlementException = Boolean(businessOrder.settlementException);
     const isBusinessSeller = businessOrder.direction === "in";
     const canFulfill = isBusinessSeller && businessOrder.status === "paid";
 
     const canCancel =
       isBusinessSeller &&
+      !hasSettlementException &&
       (businessOrder.status === "draft" || businessOrder.status === "awaiting_payment");
 
-    const canPay = businessOrder.status === "draft" || businessOrder.status === "awaiting_payment";
+    const canPay =
+      !hasSettlementException &&
+      (businessOrder.status === "draft" || businessOrder.status === "awaiting_payment");
+
     const businessCheckoutUrl = businessOrder.payment?.checkoutUrl ?? null;
 
     const customer =
@@ -367,7 +372,20 @@ export default function OrderScreen() {
           </View>
         ) : null}
 
-        {businessExpired ? (
+        {hasSettlementException ? (
+          <View className="mt-6 gap-2 rounded-2xl bg-surface p-4" style={immersiveCard}>
+            <Chip size="sm" variant="soft" color="warning" className="self-start">
+              <Chip.Label>Requiere revisión</Chip.Label>
+            </Chip>
+            <Text className="text-sm font-semibold text-foreground">
+              Pago confirmado después de liberar inventario
+            </Text>
+            <Text className="text-xs leading-5 text-muted">
+              Pey confirmó este pago tras vencer o liberar la reserva. Revisa el inventario antes de
+              entregar o reembolsar y no generes otro cobro.
+            </Text>
+          </View>
+        ) : businessExpired ? (
           <View className="mt-6 gap-3">
             <View className="rounded-2xl bg-surface p-4" style={immersiveCard}>
               <Text className="text-center text-sm text-muted">
