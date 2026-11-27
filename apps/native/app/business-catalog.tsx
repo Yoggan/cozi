@@ -1,7 +1,13 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import type { Id } from "@cozi/backend/convex/_generated/dataModel";
+import { uploadImage, validateProductPhoto } from "@cozi/backend/image-upload";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
+import { ConvexError } from "convex/values";
+import { Image } from "expo-image";
+import { launchImageLibraryAsync } from "expo-image-picker";
+import type { ImagePickerAsset } from "expo-image-picker";
 import {
   Button,
   Chip,
@@ -15,7 +21,7 @@ import {
   useThemeColor,
   useToast,
 } from "heroui-native";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
@@ -24,15 +30,9 @@ import { useAppTheme } from "@/contexts/app-theme-context";
 import { useProfile } from "@/contexts/profile-context";
 import { formatMxn, parseAmountToCents } from "@/lib/money";
 
-type CatalogProduct = {
-  _id: Id<"products">;
-  name: string;
-  description: string | null;
-  priceCents: number;
-  category: string | null;
-  stock: number | null;
-  active: boolean;
-};
+type CatalogProduct = FunctionReturnType<typeof api.products.listByBusiness>[number];
+
+const PENDING_UPLOAD_SAFETY_MS = 60 * 1000;
 
 export default function BusinessCatalogScreen() {
   const profile = useProfile();
@@ -45,6 +45,9 @@ export default function BusinessCatalogScreen() {
 
   const createProduct = useMutation(api.products.create);
   const updateProduct = useMutation(api.products.update);
+  const generatePhotoUploadUrl = useMutation(api.products.generatePhotoUploadUrl);
+  const stagePhotoUpload = useMutation(api.products.stagePhotoUpload);
+  const discardPendingPhoto = useMutation(api.products.discardPendingPhoto);
   const { toast } = useToast();
   const { isImmersive, cardColor, cardBorder } = useAppTheme();
   const muted = useThemeColor("muted");
@@ -57,7 +60,42 @@ export default function BusinessCatalogScreen() {
   const [description, setDescription] = useState("");
   const [stock, setStock] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isPickingPhoto, setIsPickingPhoto] = useState(false);
+  const [photoDraft, setPhotoDraft] = useState<ImagePickerAsset | null>();
+
+  const pendingUploadRef = useRef<{
+    uri: string;
+    storageId: Id<"_storage">;
+    expiresAt: number;
+  } | null>(null);
+
   const [togglingId, setTogglingId] = useState<Id<"products"> | null>(null);
+
+  const formBusy = isSaving || isPickingPhoto;
+  const currentPhotoUrl = products?.find((product) => product._id === editingId)?.imageUrl;
+  const photoUri = photoDraft === undefined ? currentPhotoUrl : photoDraft?.uri;
+  const businessId = business?._id;
+
+  function discardPendingUpload() {
+    const pending = pendingUploadRef.current;
+    pendingUploadRef.current = null;
+
+    if (pending && businessId) {
+      void discardPendingPhoto({ businessId, storageId: pending.storageId }).catch(() => {});
+    }
+  }
+
+  useEffect(
+    () => () => {
+      const pending = pendingUploadRef.current;
+      pendingUploadRef.current = null;
+
+      if (pending && businessId) {
+        void discardPendingPhoto({ businessId, storageId: pending.storageId }).catch(() => {});
+      }
+    },
+    [businessId, discardPendingPhoto],
+  );
 
   const glass = isImmersive
     ? { backgroundColor: cardColor, borderColor: cardBorder, borderWidth: 1 }
@@ -68,32 +106,72 @@ export default function BusinessCatalogScreen() {
   const iconMuted = isImmersive ? "rgba(255,255,255,0.70)" : muted;
 
   function openCreate() {
+    discardPendingUpload();
     setEditingId(null);
     setName("");
     setPrice("");
     setCategory("");
     setDescription("");
     setStock("");
+    setPhotoDraft(undefined);
     setShowForm(true);
   }
 
   function openEdit(product: CatalogProduct) {
+    discardPendingUpload();
     setEditingId(product._id);
     setName(product.name);
     setPrice((product.priceCents / 100).toFixed(2));
     setCategory(product.category ?? "");
     setDescription(product.description ?? "");
     setStock(product.stock === null ? "" : String(product.stock));
+    setPhotoDraft(undefined);
     setShowForm(true);
   }
 
-  function closeForm() {
+  function closeForm(keepUploaded = false) {
+    if (!keepUploaded) {
+      discardPendingUpload();
+    }
+
     setShowForm(false);
     setEditingId(null);
+    setPhotoDraft(undefined);
+  }
+
+  async function handlePickPhoto() {
+    if (formBusy) {
+      return;
+    }
+
+    setIsPickingPhoto(true);
+
+    try {
+      const result = await launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (!result.canceled) {
+        const asset = result.assets[0];
+
+        if (pendingUploadRef.current && pendingUploadRef.current.uri !== asset?.uri) {
+          discardPendingUpload();
+        }
+
+        setPhotoDraft(asset);
+      }
+    } catch {
+      toast.show({ variant: "danger", label: "No pudimos abrir tus fotos" });
+    } finally {
+      setIsPickingPhoto(false);
+    }
   }
 
   async function handleSave() {
-    if (!business) {
+    if (!business || formBusy) {
       return;
     }
 
@@ -131,6 +209,47 @@ export default function BusinessCatalogScreen() {
     setIsSaving(true);
 
     try {
+      let imageStorageId: Id<"_storage"> | null | undefined =
+        photoDraft === null ? null : undefined;
+
+      if (photoDraft) {
+        const reusablePending =
+          pendingUploadRef.current?.uri === photoDraft.uri &&
+          pendingUploadRef.current.expiresAt - PENDING_UPLOAD_SAFETY_MS > Date.now()
+            ? pendingUploadRef.current
+            : null;
+
+        if (reusablePending) {
+          imageStorageId = reusablePending.storageId;
+        } else {
+          discardPendingUpload();
+          const local = await fetch(photoDraft.uri);
+          const blob = await local.blob();
+          const contentType = photoDraft.mimeType || blob.type;
+          validateProductPhoto(blob.size, contentType);
+
+          const uploadedId = await uploadImage(blob, contentType, () =>
+            generatePhotoUploadUrl({ businessId: business._id }),
+          );
+
+          const staged = await stagePhotoUpload({
+            businessId: business._id,
+            storageId: uploadedId,
+          });
+
+          if (staged.status === "rejected") {
+            throw new ConvexError(staged.message);
+          }
+
+          pendingUploadRef.current = {
+            uri: photoDraft.uri,
+            storageId: staged.storageId,
+            expiresAt: staged.expiresAt,
+          };
+          imageStorageId = staged.storageId;
+        }
+      }
+
       if (editingId) {
         await updateProduct({
           productId: editingId,
@@ -138,6 +257,7 @@ export default function BusinessCatalogScreen() {
           description: description.trim(),
           priceCents,
           category: category.trim(),
+          imageStorageId,
           stock: stockValue,
         });
         toast.show({ variant: "success", label: "Producto actualizado" });
@@ -148,16 +268,25 @@ export default function BusinessCatalogScreen() {
           description: description.trim(),
           priceCents,
           category: category.trim(),
+          imageStorageId: imageStorageId ?? undefined,
           stock: stockValue ?? undefined,
         });
         toast.show({ variant: "success", label: "Producto agregado" });
       }
 
-      closeForm();
+      pendingUploadRef.current = null;
+      closeForm(true);
     } catch (error) {
+      if (error instanceof ConvexError && error.data === "No encontramos la foto") {
+        pendingUploadRef.current = null;
+      }
+
       toast.show({
         variant: "danger",
-        label: error instanceof Error ? error.message : "No pudimos guardar el producto",
+        label:
+          error instanceof ConvexError && typeof error.data === "string"
+            ? error.data
+            : "No pudimos guardar el producto",
       });
     } finally {
       setIsSaving(false);
@@ -204,7 +333,12 @@ export default function BusinessCatalogScreen() {
             Lo que tus clientes pueden pedir.
           </Text>
         </View>
-        <Button size="sm" variant="secondary" onPress={showForm ? closeForm : openCreate}>
+        <Button
+          size="sm"
+          variant="secondary"
+          isDisabled={formBusy}
+          onPress={showForm ? () => closeForm() : openCreate}
+        >
           <Button.Label>{showForm ? "Cerrar" : "Agregar"}</Button.Label>
         </Button>
       </Animated.View>
@@ -260,7 +394,52 @@ export default function BusinessCatalogScreen() {
             />
           </TextField>
 
-          <Button isDisabled={isSaving} onPress={handleSave}>
+          <View className="gap-2">
+            <Text className="text-sm font-medium" style={textPrimary}>
+              Foto (opcional)
+            </Text>
+            {photoUri ? (
+              <Image source={photoUri} style={{ width: 80, height: 80, borderRadius: 8 }} />
+            ) : null}
+            <Text className="text-xs text-muted" style={textSecondary}>
+              {photoDraft === null
+                ? "La foto se quitará al guardar."
+                : "JPG, PNG o WebP de hasta 5 MB."}
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              <Button size="sm" variant="secondary" isDisabled={formBusy} onPress={handlePickPhoto}>
+                <Button.Label>{photoUri ? "Reemplazar foto" : "Elegir foto"}</Button.Label>
+              </Button>
+              {currentPhotoUrl && photoDraft !== null ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  isDisabled={formBusy}
+                  onPress={() => {
+                    discardPendingUpload();
+                    setPhotoDraft(null);
+                  }}
+                >
+                  <Button.Label>Quitar foto</Button.Label>
+                </Button>
+              ) : null}
+              {photoDraft !== undefined ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  isDisabled={formBusy}
+                  onPress={() => {
+                    discardPendingUpload();
+                    setPhotoDraft(undefined);
+                  }}
+                >
+                  <Button.Label>Deshacer cambio de foto</Button.Label>
+                </Button>
+              ) : null}
+            </View>
+          </View>
+
+          <Button isDisabled={formBusy} onPress={handleSave}>
             {isSaving ? (
               <Spinner size="sm" color="default" />
             ) : (
@@ -300,7 +479,7 @@ export default function BusinessCatalogScreen() {
                 index > 0 && "border-t border-border",
               )}
             >
-              <Pressable onPress={() => openEdit(product)} className="flex-1">
+              <Pressable disabled={formBusy} onPress={() => openEdit(product)} className="flex-1">
                 <View className="flex-row items-center gap-2">
                   <Text
                     className="flex-shrink text-sm font-medium text-foreground"
@@ -329,7 +508,7 @@ export default function BusinessCatalogScreen() {
                 isDisabled={togglingId === product._id}
                 onSelectedChange={() => handleToggle(product)}
               />
-              <Pressable onPress={() => openEdit(product)} hitSlop={8}>
+              <Pressable disabled={formBusy} onPress={() => openEdit(product)} hitSlop={8}>
                 <Ionicons name="create-outline" size={18} color={iconMuted} />
               </Pressable>
             </View>

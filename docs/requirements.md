@@ -45,7 +45,8 @@ App screen: `apps/native/app/business.tsx`.
 
 `products.ts` supports create, update, active/inactive, price, category, SKU, and stock. The
 catalog manager lists products including inactive ones, creates and edits, toggles availability,
-and shows stock. Images and `source: "vision"` remain later work. App screen:
+and shows stock. Merchants can add one optional photo per product on mobile and web, and buyers
+can see it in the catalog. App screen:
 `apps/native/app/business-catalog.tsx`.
 
 ### POS and business orders
@@ -126,4 +127,4 @@ are reviewed. Remove the row to revoke access.
 - WhatsApp and Instagram inboxes on the same thread model, using `businesses.channels`.
 - Attachments and shared receipts.
 - Push notifications for new messages.
-- Product images and `source: "vision"` catalog import.
+- `source: "vision"` catalog import.
