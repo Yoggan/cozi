@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import { createTestBackend, createUser, setupMealBusiness } from "../test-utils/harness";
 import { api } from "./_generated/api";
@@ -227,5 +227,302 @@ describe("E2E: in-app messaging attached to orders and businesses", () => {
     const customerInbox = await customer.client.query(api.messages.listThreads, {});
     expect(customerInbox[0].unreadCount).toBe(1);
     expect(customerInbox[0].lastMessage?.text).toBe("Sí, a las 2 pm.");
+  });
+});
+
+async function setupGuardrailThreads() {
+  const t = createTestBackend();
+
+  const customer = await createUser(t, {
+    subject: "auth_guardrails_customer",
+    name: "Ana",
+    email: "ana@example.com",
+    handle: "ana_guardrails",
+  });
+
+  const owner = await createUser(t, {
+    subject: "auth_guardrails_owner",
+    name: "María",
+    email: "maria@example.com",
+    handle: "maria_guardrails",
+  });
+
+  const business = await owner.client.mutation(api.businesses.create, { name: "Fonda María" });
+
+  const reverseBusiness = await customer.client.mutation(api.businesses.create, {
+    name: "Fonda Ana",
+  });
+
+  const createOrder = async () =>
+    await customer.client.mutation(api.p2p.createTransfer, {
+      recipientHandle: owner.handle,
+      amountCents: 25_000,
+    });
+
+  const order = await createOrder();
+
+  const { threadId: orderThread } = await customer.client.mutation(
+    api.messages.getOrCreateOrderThread,
+    { orderPublicId: order.publicId },
+  );
+
+  const { threadId: businessThread } = await customer.client.mutation(
+    api.messages.getOrCreateBusinessThread,
+    { businessId: business.businessId },
+  );
+
+  return {
+    t,
+    customer,
+    owner,
+    business,
+    reverseBusiness,
+    order,
+    createOrder,
+    orderThread,
+    businessThread,
+  };
+}
+
+describe("Messaging guardrails", () => {
+  test("shares the sender limit across order and business threads and refills it", async () => {
+    const { customer, owner, orderThread, businessThread } = await setupGuardrailThreads();
+    vi.useFakeTimers({ toFake: ["Date"] });
+
+    try {
+      const attempts = await Promise.allSettled(
+        Array.from({ length: 12 }, (_, index) =>
+          customer.client.mutation(api.messages.sendMessage, {
+            threadId: index % 2 === 0 ? orderThread : businessThread,
+            text: `Mensaje ${index}`,
+          }),
+        ),
+      );
+
+      expect(attempts.filter((attempt) => attempt.status === "fulfilled")).toHaveLength(10);
+      const failures = attempts.filter((attempt) => attempt.status === "rejected");
+      expect(failures).toHaveLength(2);
+
+      for (const failure of failures) {
+        expect(failure.reason).toHaveProperty(
+          "message",
+          expect.stringContaining("demasiados mensajes"),
+        );
+      }
+
+      const order = await owner.client.query(api.messages.getThread, { threadId: orderThread });
+
+      const business = await owner.client.query(api.messages.getThread, {
+        threadId: businessThread,
+      });
+
+      expect((order?.messages.length ?? 0) + (business?.messages.length ?? 0)).toBe(10);
+
+      await owner.client.mutation(api.messages.sendMessage, {
+        threadId: businessThread,
+        text: "Respuesta",
+      });
+      vi.setSystemTime(Date.now() + 3000);
+      await customer.client.mutation(api.messages.sendMessage, {
+        threadId: orderThread,
+        text: "Otro mensaje",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("blocks both directions across thread entry points while preserving existing history", async () => {
+    const {
+      t,
+      customer,
+      owner,
+      order,
+      createOrder,
+      business,
+      reverseBusiness,
+      orderThread,
+      businessThread,
+    } = await setupGuardrailThreads();
+
+    const blockedError = "No se pueden enviar mensajes";
+    await customer.client.mutation(api.messages.sendMessage, {
+      threadId: orderThread,
+      text: "Historial de orden",
+    });
+    await owner.client.mutation(api.messages.sendMessage, {
+      threadId: businessThread,
+      text: "Historial de negocio",
+    });
+    await owner.client.mutation(api.messages.setCounterpartBlocked, {
+      threadId: businessThread,
+      blocked: true,
+    });
+    await owner.client.mutation(api.messages.setCounterpartBlocked, {
+      threadId: orderThread,
+      blocked: true,
+    });
+    expect(await t.run((ctx) => ctx.db.query("messageBlocks").take(2))).toHaveLength(1);
+
+    for (const threadId of [orderThread, businessThread]) {
+      for (const { client } of [customer, owner]) {
+        await expect(
+          client.mutation(api.messages.sendMessage, { threadId, text: "Bloqueado" }),
+        ).rejects.toThrow(blockedError);
+        const thread = await client.query(api.messages.getThread, { threadId });
+        expect(thread?.canSend).toBe(false);
+        expect(thread?.messages).toHaveLength(1);
+        await client.mutation(api.messages.markRead, { threadId });
+      }
+    }
+
+    await expect(customer.client.query(api.messages.listThreads, {})).resolves.toHaveLength(2);
+    await expect(
+      customer.client.query(api.messages.getOrderThreadState, { orderPublicId: order.publicId }),
+    ).resolves.toEqual({ canMessage: true, threadId: orderThread });
+    await expect(
+      owner.client.mutation(api.messages.getOrCreateOrderThread, { orderPublicId: order.publicId }),
+    ).resolves.toEqual({ threadId: orderThread });
+    await expect(
+      customer.client.mutation(api.messages.getOrCreateBusinessThread, {
+        businessId: business.businessId,
+      }),
+    ).resolves.toEqual({ threadId: businessThread });
+
+    const anotherOrder = await createOrder();
+    await expect(
+      customer.client.query(api.messages.getOrderThreadState, {
+        orderPublicId: anotherOrder.publicId,
+      }),
+    ).resolves.toEqual({ canMessage: false, threadId: null });
+    await expect(
+      customer.client.mutation(api.messages.getOrCreateOrderThread, {
+        orderPublicId: anotherOrder.publicId,
+      }),
+    ).rejects.toThrow(blockedError);
+    await expect(
+      owner.client.mutation(api.messages.getOrCreateBusinessThread, {
+        businessId: reverseBusiness.businessId,
+      }),
+    ).rejects.toThrow(blockedError);
+
+    await customer.client.mutation(api.messages.setCounterpartBlocked, {
+      threadId: orderThread,
+      blocked: false,
+    });
+    await expect(
+      customer.client.mutation(api.messages.sendMessage, {
+        threadId: orderThread,
+        text: "Bloqueado",
+      }),
+    ).rejects.toThrow(blockedError);
+    await owner.client.mutation(api.messages.setCounterpartBlocked, {
+      threadId: orderThread,
+      blocked: false,
+    });
+    await customer.client.mutation(api.messages.sendMessage, {
+      threadId: businessThread,
+      text: "Disponible",
+    });
+    await owner.client.mutation(api.messages.sendMessage, {
+      threadId: orderThread,
+      text: "Disponible",
+    });
+  });
+
+  test("deduplicates reports and confines support review to captured evidence", async () => {
+    const { t, customer, owner, orderThread } = await setupGuardrailThreads();
+
+    const outsider = await createUser(t, {
+      subject: "auth_guardrails_outsider",
+      name: "Diego",
+      email: "diego@example.com",
+      handle: "diego_guardrails",
+    });
+
+    const supportSubject = "auth_guardrails_support";
+    await createUser(t, {
+      subject: supportSubject,
+      name: "Soporte",
+      email: "soporte@example.com",
+      handle: "soporte_guardrails",
+    });
+    const tokenIdentifier = `https://auth.example.com|${supportSubject}`;
+    const support = t.withIdentity({ subject: supportSubject, tokenIdentifier });
+
+    const reviewerId = await t.run((ctx) =>
+      ctx.db.insert("messageSupportReviewers", { tokenIdentifier }),
+    );
+
+    await expect(
+      outsider.client.mutation(api.messages.setCounterpartBlocked, {
+        threadId: orderThread,
+        blocked: true,
+      }),
+    ).rejects.toThrow("Conversación no encontrada");
+    await expect(
+      outsider.client.mutation(api.messages.reportThread, { threadId: orderThread }),
+    ).rejects.toThrow("Conversación no encontrada");
+    await owner.client.mutation(api.messages.sendMessage, {
+      threadId: orderThread,
+      text: "Mensaje reportado",
+    });
+
+    const reportArgs = { threadId: orderThread };
+    await Promise.all([
+      customer.client.mutation(api.messages.reportThread, reportArgs),
+      customer.client.mutation(api.messages.reportThread, reportArgs),
+    ]);
+    await owner.client.mutation(api.messages.sendMessage, {
+      threadId: orderThread,
+      text: "Mensaje posterior",
+    });
+
+    const reports = await support.query(api.messageSupport.listPendingReports, {});
+    expect(reports).toHaveLength(1);
+    const report = reports?.[0];
+
+    if (!report) {
+      throw new Error("Expected a pending report");
+    }
+
+    expect(report.reporterId).toBe(customer.userId);
+    expect(report.reportedId).toBe(owner.userId);
+    expect(report.evidence.map(({ text }) => text)).toEqual(["Mensaje reportado"]);
+    await expect(support.query(api.messages.getThread, reportArgs)).resolves.toBeNull();
+    await expect(support.query(api.messages.listThreads, {})).resolves.toEqual([]);
+    await expect(customer.client.query(api.messages.getThread, reportArgs)).resolves.toMatchObject({
+      reportedByViewer: true,
+    });
+    await expect(owner.client.query(api.messages.getThread, reportArgs)).resolves.toMatchObject({
+      reportedByViewer: false,
+    });
+
+    const reviewArgs = { reportId: report.reportId };
+
+    for (const client of [t, customer.client, outsider.client]) {
+      await expect(client.query(api.messageSupport.listPendingReports, {})).resolves.toBeNull();
+      await expect(
+        client.mutation(api.messageSupport.markReportReviewed, reviewArgs),
+      ).rejects.toThrow("No tienes acceso a los reportes");
+    }
+
+    await support.mutation(api.messageSupport.markReportReviewed, reviewArgs);
+    const reviewed = await t.run((ctx) => ctx.db.get(report.reportId));
+    expect(reviewed).toMatchObject({
+      status: "reviewed",
+      reviewedBy: tokenIdentifier,
+      reviewedAt: expect.any(Number),
+    });
+    await support.mutation(api.messageSupport.markReportReviewed, reviewArgs);
+    await customer.client.mutation(api.messages.reportThread, reportArgs);
+    await expect(t.run((ctx) => ctx.db.get(report.reportId))).resolves.toEqual(reviewed);
+    await expect(support.query(api.messageSupport.listPendingReports, {})).resolves.toEqual([]);
+
+    await t.run((ctx) => ctx.db.delete(reviewerId));
+    await expect(support.query(api.messageSupport.listPendingReports, {})).resolves.toBeNull();
+    await expect(
+      support.mutation(api.messageSupport.markReportReviewed, reviewArgs),
+    ).rejects.toThrow("No tienes acceso a los reportes");
   });
 });

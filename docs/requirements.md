@@ -97,14 +97,27 @@ unread count per participant. Threads are participant-only: no handle search, no
 and no listing other users' threads. App screens: `apps/native/app/(app)/messages.tsx` and
 `apps/native/app/messages/[threadId].tsx`. Backend: `packages/backend/convex/messages.ts`.
 
-## Remaining work
-
 ### Messaging guardrails
 
-**Status:** Missing.
+**Status:** Implemented. Support reviewer access is provisioned per deployment.
 
-Rate limiting and a block/report path are required before public launch. `messages.ts` has no
-rate limiting or block/report handling today.
+The server allows each account to send a burst of 10 messages and replenishes the allowance at
+20 messages per minute. Order and business conversations share the same allowance.
+
+Participants can block, unblock, or report from the conversation in the app or on web. A block
+disables sending in both directions across the two accounts and prevents new threads between
+them. Existing threads stay in both inboxes, and participants can still read and mark them as read.
+
+Each participant can submit one report per conversation. Support can see up to 20 messages
+from the time of the report and can mark it reviewed. Cozi records who reviewed it and when.
+
+To grant access, a deployment operator adds a row to `messageSupportReviewers` in the Convex
+dashboard. Set `tokenIdentifier` to `<CONVEX_SITE_URL>|<users.authUserId>` using the deployment's
+site URL and the reviewer's Cozi user record. The reviewer signs in to Cozi and opens
+`/support/message-reports`. The queue shows the 10 oldest pending reports and advances as they
+are reviewed. Remove the row to revoke access.
+
+## Remaining work
 
 ### Later
 

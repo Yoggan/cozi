@@ -1,5 +1,7 @@
+import { MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
 import { ConvexError, v } from "convex/values";
 
+import { components } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
@@ -9,6 +11,12 @@ const MAX_THREAD_LIMIT = 50;
 const MAX_MESSAGES = 200;
 const MAX_MESSAGE_LENGTH = 1000;
 const UNREAD_SCAN_LIMIT = 100;
+const REPORT_EVIDENCE_LIMIT = 20;
+const MESSAGING_UNAVAILABLE = "No se pueden enviar mensajes en esta conversación";
+
+const rateLimiter = new RateLimiter(components.rateLimiter, {
+  sendMessage: { kind: "token bucket", rate: 20, period: MINUTE, capacity: 10 },
+});
 
 async function getViewer(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
@@ -39,6 +47,66 @@ function getViewerRole(thread: Doc<"messageThreads">, viewerId: Id<"users">) {
   }
 
   return null;
+}
+
+function getCounterpartId(thread: Doc<"messageThreads">, viewerId: Id<"users">) {
+  return thread.ownerId === viewerId ? thread.customerId : thread.ownerId;
+}
+
+async function requireParticipant(ctx: MutationCtx, threadId: Id<"messageThreads">) {
+  const viewer = await getViewer(ctx);
+  const thread = await ctx.db.get(threadId);
+
+  if (!thread || getViewerRole(thread, viewer._id) === null) {
+    throw new ConvexError("Conversación no encontrada");
+  }
+
+  return { thread, viewerId: viewer._id, counterpartId: getCounterpartId(thread, viewer._id) };
+}
+
+function findBlock(ctx: QueryCtx | MutationCtx, blockerId: Id<"users">, blockedId: Id<"users">) {
+  return ctx.db
+    .query("messageBlocks")
+    .withIndex("by_blockerId_and_blockedId", (q) =>
+      q.eq("blockerId", blockerId).eq("blockedId", blockedId),
+    )
+    .unique();
+}
+
+async function readBlockState(
+  ctx: QueryCtx | MutationCtx,
+  viewerId: Id<"users">,
+  counterpartId: Id<"users">,
+) {
+  const [outgoing, incoming] = await Promise.all([
+    findBlock(ctx, viewerId, counterpartId),
+    findBlock(ctx, counterpartId, viewerId),
+  ]);
+
+  return { blockedByViewer: outgoing !== null, canSend: outgoing === null && incoming === null };
+}
+
+async function requireMessagingAvailable(
+  ctx: MutationCtx,
+  viewerId: Id<"users">,
+  counterpartId: Id<"users">,
+) {
+  if (!(await readBlockState(ctx, viewerId, counterpartId)).canSend) {
+    throw new ConvexError(MESSAGING_UNAVAILABLE);
+  }
+}
+
+function findReport(
+  ctx: QueryCtx | MutationCtx,
+  threadId: Id<"messageThreads">,
+  reporterId: Id<"users">,
+) {
+  return ctx.db
+    .query("messageReports")
+    .withIndex("by_threadId_and_reporterId", (q) =>
+      q.eq("threadId", threadId).eq("reporterId", reporterId),
+    )
+    .unique();
 }
 
 async function readUserSummary(
@@ -223,6 +291,8 @@ export const getOrCreateOrderThread = mutation({
       return { threadId: existing._id };
     }
 
+    await requireMessagingAvailable(ctx, order.buyerId, order.sellerId);
+
     const now = Date.now();
 
     const threadId = await ctx.db.insert("messageThreads", {
@@ -264,6 +334,8 @@ export const getOrCreateBusinessThread = mutation({
     if (existing) {
       return { threadId: existing._id };
     }
+
+    await requireMessagingAvailable(ctx, viewer._id, business.ownerId);
 
     const now = Date.now();
 
@@ -331,17 +403,24 @@ export const getThread = query({
       return null;
     }
 
-    const [summary, rows] = await Promise.all([
+    const counterpartId = getCounterpartId(thread, viewer._id);
+
+    const [summary, rows, blockState, report] = await Promise.all([
       buildThreadSummary(ctx, thread, viewer._id),
       ctx.db
         .query("messages")
         .withIndex("by_thread_created", (q) => q.eq("threadId", thread._id))
         .order("desc")
         .take(MAX_MESSAGES),
+      readBlockState(ctx, viewer._id, counterpartId),
+      findReport(ctx, thread._id, viewer._id),
     ]);
 
     return {
       ...summary,
+      ...blockState,
+      canBlockOrReport: counterpartId !== viewer._id,
+      reportedByViewer: report !== null,
       messages: rows.reverse().map((message) => toMessageView(message, viewer._id)),
     };
   },
@@ -351,12 +430,7 @@ export const getThread = query({
 export const sendMessage = mutation({
   args: { threadId: v.id("messageThreads"), text: v.string() },
   handler: async (ctx, args) => {
-    const viewer = await getViewer(ctx);
-    const thread = await ctx.db.get(args.threadId);
-
-    if (!thread || getViewerRole(thread, viewer._id) === null) {
-      throw new ConvexError("Conversación no encontrada");
-    }
+    const { thread, viewerId, counterpartId } = await requireParticipant(ctx, args.threadId);
 
     const text = args.text.trim();
 
@@ -368,17 +442,24 @@ export const sendMessage = mutation({
       throw new ConvexError("El mensaje no puede pasar de 1000 caracteres");
     }
 
+    await requireMessagingAvailable(ctx, viewerId, counterpartId);
+    const { ok } = await rateLimiter.limit(ctx, "sendMessage", { key: viewerId });
+
+    if (!ok) {
+      throw new ConvexError("Enviaste demasiados mensajes. Espera un momento y vuelve a intentar.");
+    }
+
     const now = Date.now();
 
     const messageId = await ctx.db.insert("messages", {
       threadId: thread._id,
-      senderId: viewer._id,
+      senderId: viewerId,
       text,
       createdAt: now,
     });
 
     await ctx.db.patch(thread._id, {
-      ...(thread.ownerId === viewer._id ? { ownerLastReadAt: now } : { customerLastReadAt: now }),
+      ...(thread.ownerId === viewerId ? { ownerLastReadAt: now } : { customerLastReadAt: now }),
       lastMessageAt: now,
       updatedAt: now,
     });
@@ -387,21 +468,64 @@ export const sendMessage = mutation({
   },
 });
 
+export const setCounterpartBlocked = mutation({
+  args: { threadId: v.id("messageThreads"), blocked: v.boolean() },
+  handler: async (ctx, args) => {
+    const { viewerId, counterpartId } = await requireParticipant(ctx, args.threadId);
+
+    if (counterpartId === viewerId) {
+      throw new ConvexError("No puedes bloquear tu propia cuenta");
+    }
+
+    const existing = await findBlock(ctx, viewerId, counterpartId);
+
+    if (args.blocked && !existing) {
+      await ctx.db.insert("messageBlocks", { blockerId: viewerId, blockedId: counterpartId });
+    } else if (!args.blocked && existing) {
+      await ctx.db.delete(existing._id);
+    }
+  },
+});
+
+export const reportThread = mutation({
+  args: { threadId: v.id("messageThreads") },
+  handler: async (ctx, args) => {
+    const { thread, viewerId, counterpartId } = await requireParticipant(ctx, args.threadId);
+
+    if (counterpartId === viewerId) {
+      throw new ConvexError("No puedes reportar tu propia cuenta");
+    }
+
+    if (await findReport(ctx, thread._id, viewerId)) {
+      return;
+    }
+
+    const evidence = await ctx.db
+      .query("messages")
+      .withIndex("by_thread_created", (q) => q.eq("threadId", thread._id))
+      .order("desc")
+      .take(REPORT_EVIDENCE_LIMIT);
+
+    await ctx.db.insert("messageReports", {
+      threadId: thread._id,
+      reporterId: viewerId,
+      reportedId: counterpartId,
+      evidenceIds: evidence.reverse().map((message) => message._id),
+      status: "pending",
+    });
+  },
+});
+
 /** Marca como leído todo lo que el usuario tenga pendiente en el hilo. */
 export const markRead = mutation({
   args: { threadId: v.id("messageThreads") },
   handler: async (ctx, args) => {
-    const viewer = await getViewer(ctx);
-    const thread = await ctx.db.get(args.threadId);
-
-    if (!thread || getViewerRole(thread, viewer._id) === null) {
-      throw new ConvexError("Conversación no encontrada");
-    }
+    const { thread, viewerId } = await requireParticipant(ctx, args.threadId);
 
     const now = Date.now();
     await ctx.db.patch(
       thread._id,
-      thread.ownerId === viewer._id ? { ownerLastReadAt: now } : { customerLastReadAt: now },
+      thread.ownerId === viewerId ? { ownerLastReadAt: now } : { customerLastReadAt: now },
     );
 
     return { ok: true as const };
@@ -429,7 +553,10 @@ export const getOrderThreadState = query({
       .unique();
 
     return {
-      canMessage: order.buyerId !== undefined,
+      canMessage:
+        thread !== null ||
+        (order.buyerId !== undefined &&
+          (await readBlockState(ctx, order.buyerId, order.sellerId)).canSend),
       threadId: thread?._id ?? null,
     };
   },
