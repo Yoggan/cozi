@@ -9,7 +9,8 @@ import type { FunctionReturnType } from "convex/server";
 import { Share2, Store } from "lucide-react";
 
 import { Empty, Form, Loading, Page, shareText } from "@/components/cozi";
-import OrderCart, { CatalogList } from "@/components/order-cart";
+import { CatalogList } from "@/components/order-cart";
+import StorefrontCart from "@/components/storefront-cart";
 import { needsOnboarding } from "@/lib/profile";
 
 export const Route = createFileRoute("/b/$handle")({
@@ -71,7 +72,9 @@ function BusinessProfile({
   const startThread = useMutation(api.messages.getOrCreateBusinessThread);
   const ready = profile && !needsOnboarding(profile);
   const owner = business._id === profile?.business?._id;
-  const open = business.acceptingOrders && business.hasReceivingAccount;
+
+  const open =
+    business.status === "active" && business.acceptingOrders && business.hasReceivingAccount;
 
   return (
     <main id="contenido" className="page-narrow">
@@ -115,11 +118,21 @@ function BusinessProfile({
           }}
         />
       )}
-      {open && ready && !owner && business.products.length > 0 ? (
-        <OrderCart
+      {open && !owner ? (
+        <StorefrontCart
           businessId={business._id}
           products={business.products}
           tipsEnabled={business.tipsEnabled}
+          handle={business.handle}
+          checkout={
+            isLoading || (isAuthenticated && profile === undefined)
+              ? "loading"
+              : ready
+                ? "ready"
+                : isAuthenticated
+                  ? "profile"
+                  : "sign-in"
+          }
         />
       ) : (
         <section className="panel stack">
@@ -130,15 +143,6 @@ function BusinessProfile({
             </p>
           )}
           <CatalogList products={business.products} />
-          {open && !isLoading && !ready && business.products.length > 0 && (
-            <Link
-              to="/dashboard"
-              search={{ negocio: business.handle }}
-              className={buttonVariants()}
-            >
-              {isAuthenticated ? "Completa tu perfil para pedir" : "Inicia sesión para pedir"}
-            </Link>
-          )}
           {owner && (
             <Link to="/business" className={buttonVariants({ variant: "secondary" })}>
               Gestionar negocio

@@ -1,30 +1,86 @@
 import { api } from "@cozi/backend/convex/_generated/api";
 import type { Id } from "@cozi/backend/convex/_generated/dataModel";
+import { Button } from "@cozi/ui/components/button";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
+import { usePaginatedQuery } from "convex-helpers/react";
 
 import { Amount, Empty, Loading } from "@/components/cozi";
 import { dateTime, orderLabels, paid } from "@/lib/cozi";
 
 type Status = keyof typeof orderLabels;
 
-export function BusinessOrderList({
+const PAGE_SIZE = 20;
+
+export function RecentBusinessOrders({
   businessId,
-  status,
-  limit = 50,
+  limit,
 }: {
   businessId: Id<"businesses">;
-  status?: Status;
-  limit?: number;
+  limit: number;
 }) {
-  const orders = useQuery(api.orders.listBusinessOrders, { businessId, status, limit });
+  const orders = useQuery(api.orders.listBusinessOrders, { businessId, limit });
 
-  if (!orders) {
+  return orders ? <BusinessOrderRows orders={orders} /> : <Loading />;
+}
+
+export function BusinessOrderList({
+  businessId,
+  orderStatus,
+  asOf,
+}: {
+  businessId: Id<"businesses">;
+  orderStatus?: Status;
+  asOf: number;
+}) {
+  const { results, status, loadMore } = usePaginatedQuery(
+    api.orders.listBusinessOrdersPage,
+    { businessId, status: orderStatus, asOf },
+    { initialNumItems: PAGE_SIZE },
+  );
+
+  if (status === "LoadingFirstPage") {
     return <Loading />;
   }
 
+  return (
+    <>
+      {results.length > 0 || status === "Exhausted" ? (
+        <BusinessOrderRows
+          orders={results}
+          emptyMessage={
+            orderStatus ? "No hay pedidos con este estado." : "No hay pedidos para mostrar."
+          }
+        />
+      ) : (
+        <Empty>
+          No encontramos coincidencias en los pedidos revisados. Carga más para seguir buscando.
+        </Empty>
+      )}
+      {status === "CanLoadMore" || status === "LoadingMore" ? (
+        <Button
+          className="self-start"
+          variant="secondary"
+          disabled={status === "LoadingMore"}
+          onClick={() => loadMore(PAGE_SIZE)}
+        >
+          {status === "LoadingMore" ? "Cargando…" : "Cargar más pedidos"}
+        </Button>
+      ) : null}
+    </>
+  );
+}
+
+function BusinessOrderRows({
+  orders,
+  emptyMessage = "No hay pedidos para mostrar.",
+}: {
+  orders: FunctionReturnType<typeof api.orders.listBusinessOrders>;
+  emptyMessage?: string;
+}) {
   if (!orders.length) {
-    return <Empty>No hay pedidos para mostrar.</Empty>;
+    return <Empty>{emptyMessage}</Empty>;
   }
 
   return (

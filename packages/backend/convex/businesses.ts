@@ -243,14 +243,19 @@ export const getByHandle = query({
       acceptingOrders: business.acceptingOrders,
       tipsEnabled: business.tipsEnabled,
       hasReceivingAccount,
-      products: products.map((product) => ({
-        _id: product._id,
-        name: product.name,
-        description: product.description ?? null,
-        priceCents: product.priceCents,
-        category: product.category ?? null,
-        stock: availableStock(product),
-      })),
+      products: await Promise.all(
+        products.map(async (product) => ({
+          _id: product._id,
+          name: product.name,
+          description: product.description ?? null,
+          priceCents: product.priceCents,
+          category: product.category ?? null,
+          imageUrl: product.imageStorageId
+            ? await ctx.storage.getUrl(product.imageStorageId)
+            : null,
+          stock: availableStock(product),
+        })),
+      ),
     };
   },
 });

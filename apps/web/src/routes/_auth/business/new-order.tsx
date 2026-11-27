@@ -42,7 +42,6 @@ function NewOrder() {
           businessId={business._id}
           products={products}
           tipsEnabled={business.tipsEnabled}
-          owner
         />
       )}
     </Page>
