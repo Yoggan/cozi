@@ -4,9 +4,9 @@ import { Link, Navigate, createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { ArrowDownLeft, ArrowUpRight, Building2, Copy, Share2, Store } from "lucide-react";
 
-import ActivityList from "@/components/activity-list";
+import { RecentActivity } from "@/components/activity-list";
 import { Avatar, Empty, Loading, Page, copyText, shareText } from "@/components/cozi";
-import { BusinessOrderList } from "@/components/business-order-list";
+import { RecentBusinessOrders } from "@/components/business-order-list";
 import { useProfile } from "@/lib/profile";
 
 type DashboardSearch = { negocio?: string };
@@ -52,7 +52,7 @@ function Dashboard() {
               Ver pedidos
             </Link>
           </div>
-          <BusinessOrderList businessId={business._id} limit={5} />
+          <RecentBusinessOrders businessId={business._id} limit={5} />
         </section>
       </Page>
     );
@@ -116,7 +116,7 @@ function Dashboard() {
             Ver actividad
           </Link>
         </div>
-        <ActivityList limit={5} />
+        <RecentActivity limit={5} />
       </section>
     </Page>
   );

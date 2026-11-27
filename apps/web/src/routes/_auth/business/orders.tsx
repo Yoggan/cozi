@@ -11,7 +11,11 @@ export const Route = createFileRoute("/_auth/business/orders")({ component: Orde
 
 function Orders() {
   const { business } = useProfile();
-  const [status, setStatus] = useState<keyof typeof orderLabels>();
+
+  const [{ status, asOf }, setFilter] = useState<{
+    status?: keyof typeof orderLabels;
+    asOf: number;
+  }>(() => ({ asOf: Date.now() }));
 
   return (
     <Page title="Pedidos" wide>
@@ -25,7 +29,7 @@ function Orders() {
                 value={status ?? ""}
                 onChange={(event) => {
                   const value = event.target.value;
-                  setStatus(isOrderStatus(value) ? value : undefined);
+                  setFilter({ status: isOrderStatus(value) ? value : undefined, asOf: Date.now() });
                 }}
               >
                 <option value="">Todos</option>
@@ -40,7 +44,7 @@ function Orders() {
               Nuevo pedido
             </Link>
           </div>
-          <BusinessOrderList businessId={business._id} status={status} />
+          <BusinessOrderList businessId={business._id} orderStatus={status} asOf={asOf} />
         </>
       ) : (
         <Empty>Crea tu negocio para gestionar pedidos.</Empty>

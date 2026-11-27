@@ -1,4 +1,6 @@
+import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
+import { mergedStream, stream } from "convex-helpers/server/stream";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
@@ -7,6 +9,7 @@ import { effectiveOrderStatus, expiryFromMinutes, orderDeadline } from "./lib/ex
 import { HANDLE_PATTERN, makePublicId, normalizeHandle } from "./lib/identifiers";
 import { resolveOrderCounterpart } from "./lib/order-parties";
 import { findActivePayment } from "./pey/queries";
+import schema, { orderStatusValidator } from "./schema";
 
 const MIN_AMOUNT_CENTS = 1000;
 const MAX_AMOUNT_CENTS = 2_000_000;
@@ -264,30 +267,90 @@ export const listActivity = query({
     }
 
     const orders = [...unique.values()].sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
-    const now = Date.now();
 
-    // shortcut: una lectura de contraparte por fila; denormalizar si crece.
-    return await Promise.all(
-      orders.map(async (order) => {
-        const counterpart = await resolveOrderCounterpart(ctx, order, viewer.user._id);
-        const deadline = orderDeadline(order);
-
-        return {
-          publicId: order.publicId,
-          amountCents: order.totalCents,
-          note: order.note ?? order.items[0]?.name ?? "Pago Cozi",
-          status: effectiveOrderStatus(order.status, deadline, now),
-          kind: order.p2pKind ?? "send",
-          direction: order.sellerId === viewer.user._id ? ("in" as const) : ("out" as const),
-          counterpartName: counterpart.name,
-          counterpartHandle: counterpart.handle,
-          createdAt: order.createdAt,
-          expiresAt: deadline,
-        };
-      }),
-    );
+    return await activityItems(ctx, orders, viewer.user._id);
   },
 });
+
+const activityDirection = v.union(v.literal("in"), v.literal("out"));
+const activityKind = v.union(v.literal("send"), v.literal("request"));
+
+export const listActivityPage = query({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    direction: v.optional(activityDirection),
+    kind: v.optional(activityKind),
+  },
+  returns: paginationResultValidator(
+    v.object({
+      publicId: v.string(),
+      amountCents: v.number(),
+      note: v.string(),
+      status: orderStatusValidator,
+      kind: activityKind,
+      direction: activityDirection,
+      counterpartName: v.string(),
+      counterpartHandle: v.union(v.string(), v.null()),
+      createdAt: v.number(),
+      expiresAt: v.number(),
+    }),
+  ),
+  handler: async (ctx, { direction, kind, paginationOpts }) => {
+    const { user } = await getViewer(ctx);
+    const orders = stream(ctx.db, schema).query("orders");
+
+    const incoming = orders
+      .withIndex("by_seller_created", (q) => q.eq("sellerId", user._id))
+      .order("desc");
+
+    const outgoing = orders
+      .withIndex("by_buyer_created", (q) => q.eq("buyerId", user._id))
+      .order("desc")
+      // A movement that lists the viewer on both sides is incoming, as in the preview.
+      .filterWith(async (order) => order.sellerId !== user._id);
+
+    const activity = mergedStream(
+      direction === "in" ? [incoming] : direction === "out" ? [outgoing] : [incoming, outgoing],
+      ["createdAt"],
+    );
+
+    const matches = kind
+      ? activity.filterWith(async (order) => (order.p2pKind ?? "send") === kind)
+      : activity;
+
+    const result = await matches.paginate({
+      ...paginationOpts,
+      numItems: Math.min(paginationOpts.numItems, 50),
+      maximumRowsRead: Math.min(paginationOpts.maximumRowsRead ?? 1000, 1000),
+    });
+
+    return { ...result, page: await activityItems(ctx, result.page, user._id) };
+  },
+});
+
+async function activityItems(ctx: QueryCtx, orders: Array<Doc<"orders">>, userId: Id<"users">) {
+  const now = Date.now();
+
+  return await Promise.all(
+    orders.map(async (order) => {
+      const counterpart = await resolveOrderCounterpart(ctx, order, userId);
+      const deadline = orderDeadline(order);
+
+      return {
+        publicId: order.publicId,
+        amountCents: order.totalCents,
+        note: order.note ?? order.items[0]?.name ?? "Pago Cozi",
+        status: effectiveOrderStatus(order.status, deadline, now),
+        kind: order.p2pKind ?? "send",
+        direction: order.sellerId === userId ? ("in" as const) : ("out" as const),
+        counterpartName: counterpart.name,
+        counterpartHandle: counterpart.handle,
+        createdAt: order.createdAt,
+        expiresAt: deadline,
+      };
+    }),
+  );
+}
 
 /** Detalle de un pago; solo el receptor o el pagador pueden verlo. */
 export const getOrder = query({
