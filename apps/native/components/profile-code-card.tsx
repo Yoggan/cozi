@@ -88,7 +88,7 @@ export function ProfileCodeCard({ handle, canReceive }: { handle: string; canRec
     color: palette.text,
     fontFamily: fontsLoaded ? "PlusJakartaSansSemiBold" : undefined,
     fontSize: 15,
-    lineHeight: 18,
+    lineHeight: 20,
   };
 
   async function shareLink() {

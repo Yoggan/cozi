@@ -3,10 +3,10 @@ import type { ImageSourcePropType } from "react-native";
 export const COZI_DARK_COLORS = {
   glass: "rgba(10, 42, 32, 0.62)",
   subtleBorder: "rgba(245, 239, 227, 0.10)",
-  primaryText: "#F5EFE3",
+  primaryText: "#FFFFFF",
   secondaryText: "#BCC6C0",
-  primaryAction: "#F5EFE3",
-  primaryActionText: "#0B0F0D",
+  primaryAction: "#FFFFFF",
+  primaryActionText: "#09090B",
 };
 
 export const COZI_LIGHT_COLORS = {
@@ -15,8 +15,8 @@ export const COZI_LIGHT_COLORS = {
   subtleBorder: "rgba(11, 15, 13, 0.08)",
   primaryText: "#0B0F0D",
   secondaryText: "#26302B",
-  primaryAction: "#0F3D2E",
-  primaryActionText: "#F5EFE3",
+  primaryAction: "#09090B",
+  primaryActionText: "#FFFFFF",
   secondaryAction: "#E8DFCF",
 };
 

@@ -25,29 +25,34 @@ Personality: tranquilos (no aburridos) · premium (no fríos) · cercanos (no in
 
 ## Color tokens
 
-Always use semantic tokens, never raw hex in components. **Dark is the default mode.**
+Always use semantic tokens, never raw hex in components. **Dark is the default mode**, and **Negro** (flat black, no photo) is the default theme. Dark surface and border values below are the Negro theme.
 
-| Token                       | Dark (default)                | Light                             |
-| --------------------------- | ----------------------------- | --------------------------------- |
-| `color/bg/canvas`           | `#000000`                     | `#FBF8F2`                         |
-| `color/bg/surface`          | `#0A2A20`                     | `#FFFFFF`                         |
-| `color/bg/surface-raised`   | `#0F3D2E`                     | `#F5EFE3`                         |
-| `color/bg/glass`            | `#0A2A20` @ 62% (`#0A2A209E`) | `#FFFFFF` @ 72% (`#FFFFFFB8`)     |
-| `color/bg/brand`            | `#0F3D2E`                     | `#0F3D2E`                         |
-| `color/text/primary`        | `#F5EFE3`                     | `#0B0F0D`                         |
-| `color/text/secondary`      | `#BCC6C0`                     | `#26302B`                         |
-| `color/text/tertiary`       | `#9BA89F`                     | `#5E6B64`                         |
-| `color/icon/secondary`      | `#9BA89F`                     | `#5E6B64`                         |
-| `color/action/primary-bg`   | `#F5EFE3` (cream, ink text)   | `#0F3D2E` (evergreen, cream text) |
-| `color/action/secondary-bg` | `#0A2A209E`                   | `#E8DFCF`                         |
-| `color/status/success`      | `#22C55E`                     | `#15803D`                         |
-| `color/status/error`        | `#F87171`                     | `#DC2626`                         |
-| `color/status/warning`      | `#FBBF24`                     | `#B45309`                         |
-| `color/money/received`      | `#22C55E`                     | `#15803D`                         |
-| `color/money/sent`          | `#F5EFE3`                     | `#0B0F0D`                         |
-| `color/border/subtle`       | `#F5EFE3` @ 10%               | `#0B0F0D` @ 8%                    |
-| `color/border/strong`       | `#1D6B53`                     | `#D6CAB4`                         |
-| `color/focus/ring`          | `#22C55E`                     | `#16A34A`                         |
+| Token                       | Dark (default)             | Light                         |
+| --------------------------- | -------------------------- | ----------------------------- |
+| `color/bg/canvas`           | `#000000`                  | `#FBF8F2`                     |
+| `color/bg/surface`          | `#111111`                  | `#FFFFFF`                     |
+| `color/bg/surface-raised`   | `#27272A`                  | `#F5EFE3`                     |
+| `color/bg/glass`            | `#121212` @ 92%            | `#FFFFFF` @ 72% (`#FFFFFFB8`) |
+| `color/bg/brand`            | `#0F3D2E`                  | `#0F3D2E`                     |
+| `color/text/primary`        | `#FFFFFF`                  | `#0B0F0D`                     |
+| `color/text/secondary`      | `#BCC6C0`                  | `#26302B`                     |
+| `color/text/tertiary`       | `#9BA89F`                  | `#5E6B64`                     |
+| `color/icon/secondary`      | `#9BA89F`                  | `#5E6B64`                     |
+| `color/action/primary-bg`   | `#FFFFFF` (`#09090B` text) | `#09090B` (white text)        |
+| `color/action/secondary-bg` | `#121212` @ 92%            | `#E8DFCF`                     |
+| `color/status/success`      | `#22C55E`                  | `#15803D`                     |
+| `color/status/error`        | `#F87171`                  | `#DC2626`                     |
+| `color/status/warning`      | `#FBBF24`                  | `#B45309`                     |
+| `color/money/received`      | `#22C55E`                  | `#15803D`                     |
+| `color/money/sent`          | `#FFFFFF`                  | `#0B0F0D`                     |
+| `color/border/subtle`       | `#FFFFFF` @ 8%             | `#0B0F0D` @ 8%                |
+| `color/border/strong`       | `#1D6B53`                  | `#D6CAB4`                     |
+| `color/nav/bg`              | `#111111`                  | `#FFFFFF`                     |
+| `color/nav/border`          | white @ 8%                 | black @ 8%                    |
+| `color/nav/active-bg`       | white @ 10%                | black @ 7%                    |
+| `color/nav/active-fg`       | `#FFFFFF`                  | `#09090B`                     |
+| `color/nav/inactive-fg`     | white @ 60%                | `#09090B` @ 50%               |
+| `color/focus/ring`          | `#22C55E`                  | `#16A34A`                     |
 
 Brand palette (exploration names, for marketing and naming only): Siempreverde `#0F3D2E` (brand), Bosque profundo `#0A2A20` (surfaces), Esmeralda `#22C55E` (action/success), Crema `#F5EFE3` (light bg / text), Arena `#E8DFCF` (secondary), Tinta `#0B0F0D` (dark bg).
 
@@ -59,7 +64,7 @@ Brand palette (exploration names, for marketing and naming only): Siempreverde `
 
 ### User accents (personalization)
 
-Accents only tint **highlights and selected states** (active tab, selected chip, avatar initials, switch on). Brand, text and status colors **never** change with the accent. Already implemented in [apps/native/lib/themes.ts](apps/native/lib/themes.ts) (`ACCENT_OPTIONS`).
+Accents only tint **highlights and selected states** (selected chip, avatar initials, switch on). Brand, text and status colors **never** change with the accent. Already implemented in [apps/native/lib/themes.ts](apps/native/lib/themes.ts) (`ACCENT_OPTIONS`).
 
 | Accent              | `accent/solid` | `accent/soft`            | on-accent fg |
 | ------------------- | -------------- | ------------------------ | ------------ |
@@ -84,6 +89,7 @@ One family: **Plus Jakarta Sans**. ExtraBold for display, SemiBold for UI, Regul
 | Body/M Strong | 600 SemiBold  | 15 / 1.45          | 0             | @jorgezazueta                 |
 | Label/M       | 600 SemiBold  | 15 / 1.2           | 0             | Enviar                        |
 | Label/S       | 600 SemiBold  | 13 / 1.2           | +2, UPPERCASE | MOVIMIENTOS                   |
+| Label/Tab     | 600 SemiBold  | 11 / 14            | +0.15         | Actividad                     |
 | Caption       | 500 Medium    | 12 / 1.3           | 0             | Hoy, 2:05 p.m.                |
 | Amount/XL     | 700 Bold      | 56 / 1.0           | -3            | $1,250.00                     |
 | Amount/M      | 600 SemiBold  | 20 / 1.2           | -0.5          | $85.50                        |
@@ -92,16 +98,22 @@ Tracking values are in px (Figma letterSpacing).
 
 ## Spacing and radius
 
-- Spacing scale (px): `4 · 8 · 12 · 16 · 20 · 24 · 32 · 48 · 64`. Screen gutter 16. Don't invent in-between values.
+- Spacing scale (px): `4 · 8 · 12 · 16 · 20 · 24 · 32 · 48 · 64`. Don't invent in-between values.
 - Radius: `sm 8` · `md 16` · `lg 24` · `xl 32` · `pill 999`.
   - Buttons, chips, tab bar, handle chip: `pill`.
   - Inputs, toasts: `md`. Cards: `lg`. Bottom sheet top corners, section containers: `xl`.
+
+## Alignment rules
+
+- **Screen gutter 16** (`layout/screen-gutter`) for headers, section titles, cards and the tab bar, so they share one left and right edge. Don't use 20 as a screen margin. If a component already has its own 16, don't add the container's.
+- **Tab bar:** screen width minus 16 per side, 66 high (`layout/tabbar-height`), 6 above the safe area (minimum 10).
+- **Clearance:** scrolling content leaves `layout/tabbar-clearance` (80) plus the safe area free, so the last item clears the tab bar.
 
 ## Components (Figma page 04)
 
 Build with tokens; names below match Figma component names so Code Connect can map them later.
 
-- **Button**: `Style = Primary | Secondary | Ghost`, `Size = L (56h) | M (44h)`, pill. Primary = `action/primary-bg` with inverse text; Secondary = `action/secondary-bg` + `border/subtle`; Ghost = no fill, `text/primary`. Label/M. One Primary per screen.
+- **Button**: `Style = Primary | Secondary | Ghost`, `Size = L (56h) | M (44h)`, pill. Primary = `action/primary-bg` with inverse text (white on dark and on any backdrop); Secondary = `action/secondary-bg` + `border/subtle`; Ghost = no fill, `text/primary`. Never cream, green or blue. Label/M. One Primary per screen. In code: `primaryAction` / `primaryActionText` in [apps/native/lib/themes.ts](apps/native/lib/themes.ts) and `--accent` in [apps/native/global.css](apps/native/global.css).
 - **TextField**: `Type = Text | Handle`, `State = Default | Focused | Error`. Label (Caption, `text/secondary`) above, leading icon (`envelope-simple` or `at`), surface fill, `border/subtle`. Focused = `focus/ring` border. Error = `status/error` border plus helper text below ("Revisa este campo.").
 - **Avatar**: `S 32 · M 44 · L 64`, circle, `surface-raised` fill, accent-colored initials.
 - **HandleChip**: pill, `@` icon + `@handle` in Body/M Strong.
@@ -109,7 +121,7 @@ Build with tokens; names below match Figma component names so Code Connect can m
 - **ActivityRow** (68h): `Direction = Received | Sent | Failed`. Avatar M, name (Body/M Strong) + time (Caption), trailing Amount/M. Received green, Sent neutral, Failed red amount and red time.
 - **Card**: `Style = Glass | Solid`, radius lg, `border/subtle`, Title/M + Body/M secondary.
 - **Toast** (48h): `Type = Success | Error | Info`, icon `check-circle | warning-circle | at`, Label/M.
-- **TabItem / TabBar**: glass pill bar; active item = `accent/soft` pill with accent icon + label; inactive = `text/secondary`. Tabs: Inicio, Actividad.
+- **TabItem / TabBar**: solid pill bar (`nav/bg`, `nav/border`, no blur or gloss), inner padding 6 x 5, three equal tabs: Inicio, Actividad, Mensajes. Active = `nav/active-bg` pill with `nav/active-fg` icon and label (no accent); inactive = `nav/inactive-fg`. Icon 20, Label/Tab.
 - **BottomSheet**: `surface` fill, top radius xl, grabber, Title/L, Body/M, full-width Primary L button.
 - **v1.1**: Switch (On/Off, 48x28), ListItem (`Trailing = Chevron | Switch | Value`, 64h), FilterChip (Selected True/False), Keypad (PIN / amount entry).
 

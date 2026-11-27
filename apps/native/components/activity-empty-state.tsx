@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   buttonIcon: { width: 20, height: 20 },
-  buttonLabel: { flexShrink: 1, fontSize: 15, lineHeight: 18, textAlign: "center" },
+  buttonLabel: { flexShrink: 1, fontSize: 15, lineHeight: 20, textAlign: "center" },
   regular: { fontFamily: "PlusJakartaSansRegular" },
   semibold: { fontFamily: "PlusJakartaSansSemiBold" },
   fallbackSemibold: { fontWeight: "600" },
