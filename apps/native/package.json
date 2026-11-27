@@ -24,6 +24,7 @@
     "@varlock/expo-integration": "1.2.2",
     "better-auth": "catalog:",
     "convex": "catalog:",
+    "convex-helpers": "0.1.135",
     "expo": "~58.0.24",
     "expo-asset": "~58.0.21",
     "expo-constants": "~58.0.16",

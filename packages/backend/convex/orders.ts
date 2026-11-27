@@ -1,15 +1,18 @@
+import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
+import { mergedStream, stream } from "convex-helpers/server/stream";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { effectiveOrderStatus, orderDeadline } from "./lib/expiry";
+import { normalizeHistoryPaginationOpts } from "./lib/historyPagination";
 import { HANDLE_PATTERN, makePublicId, normalizeHandle } from "./lib/identifiers";
 import { availableStock } from "./lib/inventory";
 import { readOrderBusiness, resolveOrderCounterpart } from "./lib/order-parties";
 import { closeUnpublishedPayment } from "./pey/mutations";
 import { findActivePayment } from "./pey/queries";
-import { orderStatusValidator } from "./schema";
+import schema, { orderChannelValidator, orderStatusValidator } from "./schema";
 
 const MIN_ORDER_CENTS = 100;
 const MAX_ORDER_CENTS = 10_000_000;
@@ -426,13 +429,7 @@ export const listBusinessOrders = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const viewer = await getViewer(ctx);
-    const business = await ctx.db.get(args.businessId);
-
-    if (!business || business.ownerId !== viewer.user._id) {
-      throw new ConvexError("Negocio no encontrado");
-    }
-
+    const businessId = await requireOwnedBusiness(ctx, args.businessId);
     const limit = Math.min(Math.max(Math.floor(args.limit ?? 20), 1), 50);
     const statusFilter = args.status;
 
@@ -441,41 +438,114 @@ export const listBusinessOrders = query({
         ? await ctx.db
             .query("orders")
             .withIndex("by_business_status_created", (q) =>
-              q.eq("businessId", business._id).eq("status", statusFilter),
+              q.eq("businessId", businessId).eq("status", statusFilter),
             )
             .order("desc")
             .take(limit * 3)
         : await ctx.db
             .query("orders")
-            .withIndex("by_business_created", (q) => q.eq("businessId", business._id))
+            .withIndex("by_business_created", (q) => q.eq("businessId", businessId))
             .order("desc")
-            .take(limit * 5);
+            .take(statusFilter ? limit * 5 : limit);
 
     const now = Date.now();
 
     return rows
-      .map((order) => {
-        const deadline = orderDeadline(order);
-
-        return {
-          orderId: order._id,
-          publicId: order.publicId,
-          status: effectiveOrderStatus(order.status, deadline, now),
-          expiresAt: deadline,
-          channel: order.channel,
-          totalCents: order.totalCents,
-          itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
-          customerName: order.customer.name ?? null,
-          customerHandle: order.customer.handle ?? null,
-          createdAt: order.createdAt,
-          paidAt: order.paidAt ?? null,
-          fulfilledAt: order.fulfilledAt ?? null,
-        };
-      })
+      .map((order) => businessOrderItem(order, now))
       .filter((order) => !statusFilter || order.status === statusFilter)
       .slice(0, limit);
   },
 });
+
+export const listBusinessOrdersPage = query({
+  args: {
+    businessId: v.id("businesses"),
+    status: v.optional(orderStatusValidator),
+    asOf: v.number(),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: paginationResultValidator(
+    v.object({
+      orderId: v.id("orders"),
+      publicId: v.string(),
+      status: orderStatusValidator,
+      expiresAt: v.number(),
+      channel: orderChannelValidator,
+      totalCents: v.number(),
+      itemCount: v.number(),
+      customerName: v.union(v.string(), v.null()),
+      customerHandle: v.union(v.string(), v.null()),
+      createdAt: v.number(),
+      paidAt: v.union(v.number(), v.null()),
+      fulfilledAt: v.union(v.number(), v.null()),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const businessId = await requireOwnedBusiness(ctx, args.businessId);
+    const orders = stream(ctx.db, schema).query("orders");
+    const { status, asOf, paginationOpts } = args;
+
+    const byStatus = (storedStatus: Doc<"orders">["status"]) =>
+      orders
+        .withIndex("by_business_status_created", (q) =>
+          q.eq("businessId", businessId).eq("status", storedStatus),
+        )
+        .order("desc");
+
+    const candidates = status
+      ? status === "expired"
+        ? mergedStream(
+            [byStatus("expired"), byStatus("draft"), byStatus("awaiting_payment")],
+            ["createdAt"],
+          )
+        : byStatus(status)
+      : orders
+          .withIndex("by_business_created", (q) => q.eq("businessId", businessId))
+          .order("desc");
+
+    const matches =
+      status === "draft" || status === "awaiting_payment" || status === "expired"
+        ? candidates.filterWith(
+            async (order) =>
+              effectiveOrderStatus(order.status, orderDeadline(order), asOf) === status,
+          )
+        : candidates;
+
+    const result = await matches.paginate(normalizeHistoryPaginationOpts(paginationOpts));
+
+    return { ...result, page: result.page.map((order) => businessOrderItem(order, asOf)) };
+  },
+});
+
+async function requireOwnedBusiness(ctx: QueryCtx, businessId: Id<"businesses">) {
+  const viewer = await getViewer(ctx);
+  const business = await ctx.db.get(businessId);
+
+  if (!business || business.ownerId !== viewer.user._id) {
+    throw new ConvexError("Negocio no encontrado");
+  }
+
+  return business._id;
+}
+
+function businessOrderItem(order: Doc<"orders">, now: number) {
+  const deadline = orderDeadline(order);
+
+  return {
+    orderId: order._id,
+    publicId: order.publicId,
+    status: effectiveOrderStatus(order.status, deadline, now),
+    expiresAt: deadline,
+    channel: order.channel,
+    totalCents: order.totalCents,
+    itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
+    customerName: order.customer.name ?? null,
+    customerHandle: order.customer.handle ?? null,
+    createdAt: order.createdAt,
+    paidAt: order.paidAt ?? null,
+    fulfilledAt: order.fulfilledAt ?? null,
+  };
+}
 
 /** Marca como entregada/completada una orden de negocio ya pagada. */
 export const fulfill = mutation({
