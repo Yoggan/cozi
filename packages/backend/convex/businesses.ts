@@ -3,9 +3,9 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-import { businessStatusValidator } from "./schema";
 import { claimHandle } from "./lib/handles";
 import { HANDLE_PATTERN, handleBase, normalizeHandle } from "./lib/identifiers";
+import { businessStatusValidator, businessTimeZoneValidator } from "./schema";
 
 async function requireUser(ctx: QueryCtx | MutationCtx): Promise<Doc<"users">> {
   const identity = await ctx.auth.getUserIdentity();
@@ -128,6 +128,7 @@ type BusinessPatch = {
   status?: "active" | "paused";
   acceptingOrders?: boolean;
   tipsEnabled?: boolean;
+  timeZone?: Doc<"businesses">["timeZone"];
   updatedAt: number;
 };
 
@@ -140,6 +141,7 @@ export const update = mutation({
     status: v.optional(businessStatusValidator),
     acceptingOrders: v.optional(v.boolean()),
     tipsEnabled: v.optional(v.boolean()),
+    timeZone: v.optional(businessTimeZoneValidator),
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
@@ -169,6 +171,10 @@ export const update = mutation({
 
     if (args.tipsEnabled !== undefined) {
       patch.tipsEnabled = args.tipsEnabled;
+    }
+
+    if (args.timeZone !== undefined) {
+      patch.timeZone = args.timeZone;
     }
 
     await ctx.db.patch(business._id, patch);

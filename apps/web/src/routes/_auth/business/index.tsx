@@ -41,6 +41,9 @@ function Business() {
         <Link to="/business/orders" className={buttonVariants({ variant: "secondary" })}>
           Pedidos
         </Link>
+        <Link to="/business/closeout" className={buttonVariants({ variant: "secondary" })}>
+          Corte diario
+        </Link>
         <Link to="/business/catalog" className={buttonVariants({ variant: "secondary" })}>
           Catálogo
         </Link>
