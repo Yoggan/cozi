@@ -93,3 +93,14 @@ Use the payment and order IDs to investigate the existing attempt before taking 
   - When `bankAccountId` is passed, CoDi funds settle into that registered bank account (must be `ACTIVE`). When omitted, funds settle into the default CoDi payout account linked to the API key.
   - `codi.qr.payment_received` and `codi.pn.payment_received` include `bankAccountId` when one was specified at creation time.
   - `GET /transaction/bank-account/:id` lists only CoDi transactions and includes `externalMetadata`.
+
+---
+
+## Inventory Reservations & Legacy In-Flight Holds
+
+- **Reservation at checkout:** When a business order becomes payable (`beginPayment`), tracked products (`stock !== undefined`) increment `products.reservedStock` atomically and record `payments.reservedItems`. Untracked products (`stock === undefined`) are omitted and remain unlimited.
+- **Consumption & release via canonical reconciliation:** All inventory transitions run inside the shared transactional `settlePayment` path (`closeInventoryReservation` stamps `payments.reservationClosedAt` so each reservation is closed at most once).
+  - Expiring CoDi QRs are reconciled by the canonical `reconciliation.ts` / `paymentLookup.ts` / `reconcilePayments` / `applyProviderStatus` pipeline with no separate per-payment polling loop.
+  - Unpublished QR/link attempts expire after 2 minutes; unpublished `codi_push` attempts with ambiguous provider errors (network/429/5xx) release after 15 minutes (`UNPUBLISHED_PUSH_PAYMENT_MS`), while definitive 4xx rejections release immediately.
+- **Late confirmation after release (`succeeded_after_release`):** If Pey confirms `succeeded` after a tracked reservation was already released and the order is still unpaid, `settlePayment` preserves the confirmed payment (`status: "succeeded"`) and records `settlementException: "succeeded_after_release"` on both `payments` and `orders`. New checkout attempts and cancellation are blocked until reviewed (or cleared if Pey later reports `refunded`).
+- **Legacy in-flight holds:** Payments created before reservations deployed have `reservedItems === undefined`. On settlement, `reconcileOrderInventoryOnSettlement` consumes any active reservations held by newer attempts on the same order first, then deducts any remaining unreserved tracked quantities (including products that enabled stock tracking mid-checkout) clamped to `reservedStock` so unrelated orders' holds are never violated.

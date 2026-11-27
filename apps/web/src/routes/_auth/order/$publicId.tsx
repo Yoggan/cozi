@@ -51,6 +51,7 @@ function OrderDetail({
   const settled = paid(status);
   const incoming = order.direction === "in";
   const business = order.business;
+  const settlementException = order.settlementException;
 
   const title = business
     ? "Detalle del pedido"
@@ -104,6 +105,15 @@ function OrderDetail({
           {order.note && <p className="text-muted-foreground">{order.note}</p>}
         </section>
       )}
+      {settlementException && (
+        <section className="panel stack" role="alert">
+          <h2 className="section-title">Pago confirmado pendiente de revisión</h2>
+          <p className="text-muted-foreground">
+            Pey confirmó un pago después de liberar el inventario reservado. Revisa las existencias
+            antes de entregar o reembolsar y no generes otro cobro.
+          </p>
+        </section>
+      )}
       <OrderPayment order={order} status={status} />
       {business && incoming && status === "paid" && (
         <Form
@@ -112,17 +122,20 @@ function OrderDetail({
           onSubmit={() => fulfill({ orderId: order.orderId })}
         />
       )}
-      {business && incoming && (payable(status) || status === "expired") && (
-        <details className="panel">
-          <summary className="cursor-pointer font-semibold">Cancelar pedido</summary>
-          <Form
-            className="mt-3"
-            submit="Confirmar cancelación"
-            variant="destructive"
-            onSubmit={() => cancel({ orderId: order.orderId })}
-          />
-        </details>
-      )}
+      {business &&
+        incoming &&
+        !settlementException &&
+        (payable(status) || status === "expired") && (
+          <details className="panel">
+            <summary className="cursor-pointer font-semibold">Cancelar pedido</summary>
+            <Form
+              className="mt-3"
+              submit="Confirmar cancelación"
+              variant="destructive"
+              onSubmit={() => cancel({ orderId: order.orderId })}
+            />
+          </details>
+        )}
       <OrderSplit
         orderId={order.orderId}
         splitId={order.billSplitId}

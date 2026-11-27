@@ -118,6 +118,7 @@ export interface CreatePaymentLinkInput {
   currency: "MXN";
   description: string;
   reference: string;
+  attemptId?: string;
   bankAccountId: string;
   expiresInMinutes?: number;
 }
@@ -162,6 +163,7 @@ export interface PeyPaymentUpdate {
 
 /** Referencias mínimas para consultar el estado real de un pago. */
 export interface PaymentProviderRefs {
+  expiresAt?: number;
   method: PaymentMethod;
   peyReference?: string;
   peyPaymentId?: string;
@@ -183,6 +185,7 @@ export interface PeyClient {
 
 export interface PaymentLookupOptions {
   expectedAmountCents?: number;
+  expiresAt?: number;
   signal?: AbortSignal;
 }
 

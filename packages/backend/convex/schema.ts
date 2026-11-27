@@ -34,6 +34,8 @@ export const paymentStatusValidator = v.union(
   v.literal("refunded"),
 );
 
+export const settlementExceptionKindValidator = v.literal("succeeded_after_release");
+
 export const bankAccountTypeValidator = v.union(v.literal("clabe"), v.literal("card"));
 
 export const bankAccountStatusValidator = v.union(
@@ -77,6 +79,8 @@ export type OrderStatus = Infer<typeof orderStatusValidator>;
 export type PaymentMethod = Infer<typeof paymentMethodValidator>;
 
 export type PaymentStatus = Infer<typeof paymentStatusValidator>;
+
+export type SettlementExceptionKind = Infer<typeof settlementExceptionKindValidator>;
 
 export type BankAccountType = Infer<typeof bankAccountTypeValidator>;
 
@@ -234,6 +238,7 @@ export default defineSchema({
     category: v.optional(v.string()),
     imageStorageId: v.optional(v.id("_storage")),
     stock: v.optional(v.number()), // undefined = sin control de inventario
+    reservedStock: v.optional(v.number()), // unidades incluidas en stock con un cobro abierto
     active: v.boolean(),
     source: v.union(v.literal("manual"), v.literal("vision")),
     createdAt: v.number(),
@@ -268,6 +273,13 @@ export default defineSchema({
     chatSessionId: v.optional(v.id("chatSessions")),
     billSplitId: v.optional(v.id("billSplits")),
     paymentId: v.optional(v.id("payments")), // intento vigente o el pagado
+    settlementException: v.optional(
+      v.object({
+        kind: settlementExceptionKindValidator,
+        paymentId: v.id("payments"),
+        detectedAt: v.number(),
+      }),
+    ),
     paidAt: v.optional(v.number()),
     fulfilledAt: v.optional(v.number()),
     cancelledAt: v.optional(v.number()),
@@ -333,6 +345,17 @@ export default defineSchema({
     deepLink: v.optional(v.string()),
     expiresAt: v.optional(v.number()),
     failureReason: v.optional(v.string()),
+    // Ausente en intentos previos a las reservas. Vacío si no hay productos con stock.
+    reservedItems: v.optional(
+      v.array(
+        v.object({
+          productId: v.id("products"),
+          quantity: v.number(),
+        }),
+      ),
+    ),
+    reservationClosedAt: v.optional(v.number()),
+    settlementException: v.optional(settlementExceptionKindValidator),
     paidAt: v.optional(v.number()),
     reconciliationAttempts: v.optional(v.number()),
     nextReconciliationAt: v.optional(v.number()),
