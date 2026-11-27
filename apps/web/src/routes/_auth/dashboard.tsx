@@ -2,7 +2,14 @@ import { api } from "@cozi/backend/convex/_generated/api";
 import { Button, buttonVariants } from "@cozi/ui/components/button";
 import { Link, Navigate, createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { ArrowDownLeft, ArrowUpRight, Building2, Copy, Share2, Store } from "lucide-react";
+import {
+  ArrowDownLeftIcon,
+  ArrowUpRightIcon,
+  BankIcon,
+  CopyIcon,
+  ShareNetworkIcon,
+  StorefrontIcon,
+} from "@phosphor-icons/react";
 
 import { RecentActivity } from "@/components/activity-list";
 import { Avatar, Empty, Loading, Page, copyText, shareText } from "@/components/cozi";
@@ -41,7 +48,7 @@ function Dashboard() {
             Nuevo pedido
           </Link>
           <Link to="/business" className={buttonVariants({ variant: "secondary" })}>
-            <Store /> Gestionar negocio
+            <StorefrontIcon /> Gestionar negocio
           </Link>
         </div>
         <section className="stack">
@@ -71,7 +78,7 @@ function Dashboard() {
               className: "h-full min-h-16 flex-col gap-1 px-2 md:min-h-11 md:flex-row",
             })}
           >
-            <ArrowUpRight /> Enviar
+            <ArrowUpRightIcon /> Enviar
           </Link>
           <Link
             to="/request"
@@ -80,7 +87,7 @@ function Dashboard() {
               className: "h-full min-h-16 flex-col gap-1 px-2 md:min-h-11 md:flex-row",
             })}
           >
-            <ArrowDownLeft /> Cobrar
+            <ArrowDownLeftIcon /> Cobrar
           </Link>
           <Link
             to="/accounts"
@@ -89,13 +96,13 @@ function Dashboard() {
               className: "h-full min-h-16 flex-col gap-1 px-2 md:min-h-11 md:flex-row",
             })}
           >
-            <Building2 /> Cuenta
+            <BankIcon /> Cuenta
           </Link>
         </nav>
       </div>
       {!profile.hasReceivingAccount && (
         <Link to="/accounts" className="panel flex items-center gap-3 hover:bg-muted">
-          <Building2 className="size-5 shrink-0" aria-hidden="true" />
+          <BankIcon className="size-5 shrink-0" aria-hidden="true" />
           <div>
             <p className="font-bold">
               {profile.hasPendingBankAccount
@@ -148,7 +155,7 @@ function HandleCard({
           className="bg-brand-foreground text-brand hover:bg-brand-foreground/90"
           onClick={() => void copyText(`@${handle}`, "@handle copiado")}
         >
-          <Copy /> Copiar
+          <CopyIcon /> Copiar
         </Button>
         <Button
           variant="ghost"
@@ -161,7 +168,7 @@ function HandleCard({
             )
           }
         >
-          <Share2 /> Compartir
+          <ShareNetworkIcon /> Compartir
         </Button>
       </div>
     </section>

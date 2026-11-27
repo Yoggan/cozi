@@ -10,18 +10,19 @@
 :root {
   color-scheme: dark;
   --background: #000000;
-  --foreground: #f5efe3;
-  --card: #0a2a20;
-  --primary: #f5efe3;
-  --primary-foreground: #0b0f0d;
-  --secondary: #0a2a20;
-  --muted: #0f3d2e;
+  --foreground: #ffffff;
+  --card: #111111;
+  --primary: #ffffff;
+  --primary-foreground: #09090b;
+  --secondary: #121212eb;
+  --muted: #27272a;
   --muted-foreground: #bcc6c0;
-  --destructive: #ff8888;
+  --destructive: #f87171;
   --success: #22c55e;
   --warning: #fbbf24;
-  --border: #f5efe31a;
-  --input: #628378;
+  --border: #ffffff14;
+  /* Form fields keep a 3:1 border (WCAG non-text contrast); border/subtle alone is too faint. */
+  --input: #71717a;
   --ring: #22c55e;
   --brand: #0f3d2e;
   --brand-foreground: #f5efe3;
@@ -37,17 +38,17 @@
   --background: #fbf8f2;
   --foreground: #0b0f0d;
   --card: #ffffff;
-  --primary: #0f3d2e;
-  --primary-foreground: #f5efe3;
+  --primary: #09090b;
+  --primary-foreground: #ffffff;
   --secondary: #e8dfcf;
   --muted: #f5efe3;
-  --muted-foreground: #536058;
-  --destructive: #b42318;
-  --success: #166d37;
-  --warning: #92400e;
-  --border: #0b0f0d1f;
+  --muted-foreground: #26302b;
+  --destructive: #b91c1c; /* red-700: 4.5:1 on its own 10% tint */
+  --success: #15803d;
+  --warning: #b45309;
+  --border: #0b0f0d14;
   --input: #827865;
-  --ring: #15803d;
+  --ring: #16a34a;
 }
 
 :root[data-accent="sky"] {

@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth, useMutation, useQuery as useConvexQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { Share2, Store } from "lucide-react";
+import { ShareNetworkIcon, StorefrontIcon } from "@phosphor-icons/react";
 
 import { Empty, Form, Loading, Page, shareText } from "@/components/cozi";
 import { CatalogList } from "@/components/order-cart";
@@ -80,7 +80,7 @@ function BusinessProfile({
     <main id="contenido" className="page-narrow">
       <div className="panel stack bg-brand text-brand-foreground">
         <span className="grid size-11 place-items-center rounded-full bg-brand-foreground text-brand">
-          <Store aria-hidden="true" className="size-5" />
+          <StorefrontIcon aria-hidden="true" className="size-5" />
         </span>
         <div>
           <p className="mb-1 text-sm">@{business.handle}</p>
@@ -102,7 +102,7 @@ function BusinessProfile({
             className="text-brand-foreground hover:bg-brand-foreground/15 hover:text-brand-foreground"
             onClick={() => void shareText(business.name, window.location.href)}
           >
-            <Share2 /> Compartir
+            <ShareNetworkIcon /> Compartir
           </Button>
         </div>
       </div>

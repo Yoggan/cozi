@@ -15,10 +15,10 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
+    "@phosphor-icons/react": "catalog:",
     "@shadcn/react": "^0.3.1",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.2",
-    "lucide-react": "catalog:",
     "next-themes": "catalog:",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
