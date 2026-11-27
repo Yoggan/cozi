@@ -3,7 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-import { businessStatusValidator } from "./schema";
+import { businessStatusValidator, businessTimeZoneValidator } from "./schema";
 import { isVerifiedReceivingAccount } from "./lib/bankAccounts";
 import { claimHandle } from "./lib/handles";
 import { HANDLE_PATTERN, handleBase, normalizeHandle } from "./lib/identifiers";
@@ -141,6 +141,7 @@ type BusinessPatch = {
   status?: "active" | "paused";
   acceptingOrders?: boolean;
   tipsEnabled?: boolean;
+  timeZone?: Doc<"businesses">["timeZone"];
   updatedAt: number;
 };
 
@@ -153,6 +154,7 @@ export const update = mutation({
     status: v.optional(businessStatusValidator),
     acceptingOrders: v.optional(v.boolean()),
     tipsEnabled: v.optional(v.boolean()),
+    timeZone: v.optional(businessTimeZoneValidator),
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
@@ -182,6 +184,10 @@ export const update = mutation({
 
     if (args.tipsEnabled !== undefined) {
       patch.tipsEnabled = args.tipsEnabled;
+    }
+
+    if (args.timeZone !== undefined) {
+      patch.timeZone = args.timeZone;
     }
 
     await ctx.db.patch(business._id, patch);
@@ -237,14 +243,19 @@ export const getByHandle = query({
       acceptingOrders: business.acceptingOrders,
       tipsEnabled: business.tipsEnabled,
       hasReceivingAccount,
-      products: products.map((product) => ({
-        _id: product._id,
-        name: product.name,
-        description: product.description ?? null,
-        priceCents: product.priceCents,
-        category: product.category ?? null,
-        stock: availableStock(product),
-      })),
+      products: await Promise.all(
+        products.map(async (product) => ({
+          _id: product._id,
+          name: product.name,
+          description: product.description ?? null,
+          priceCents: product.priceCents,
+          category: product.category ?? null,
+          imageUrl: product.imageStorageId
+            ? await ctx.storage.getUrl(product.imageStorageId)
+            : null,
+          stock: availableStock(product),
+        })),
+      ),
     };
   },
 });

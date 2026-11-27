@@ -154,6 +154,10 @@ function RootNavigator() {
         <Stack.Screen name="business/[handle]" options={{ headerShown: false }} />
         <Stack.Screen name="business-orders" options={{ headerShown: true, title: "Pedidos" }} />
         <Stack.Screen
+          name="business-closeout"
+          options={{ headerShown: true, title: "Corte diario" }}
+        />
+        <Stack.Screen
           name="business-order"
           options={{ headerShown: false, presentation: "fullScreenModal" }}
         />

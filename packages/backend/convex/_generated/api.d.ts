@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as businesses from "../businesses.js";
+import type * as closeout from "../closeout.js";
 import type * as contacts from "../contacts.js";
 import type * as crons from "../crons.js";
 import type * as healthCheck from "../healthCheck.js";
@@ -21,6 +22,7 @@ import type * as lib_identifiers from "../lib/identifiers.js";
 import type * as lib_inventory from "../lib/inventory.js";
 import type * as lib_messageModeration from "../lib/messageModeration.js";
 import type * as lib_passwordRecovery from "../lib/passwordRecovery.js";
+import type * as lib_storage from "../lib/storage.js";
 import type * as messageSupport from "../messageSupport.js";
 import type * as messages from "../messages.js";
 import type * as mobileNotifications from "../mobileNotifications.js";
@@ -49,6 +51,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   businesses: typeof businesses;
+  closeout: typeof closeout;
   contacts: typeof contacts;
   crons: typeof crons;
   healthCheck: typeof healthCheck;
@@ -60,6 +63,7 @@ declare const fullApi: ApiFromModules<{
   "lib/inventory": typeof lib_inventory;
   "lib/messageModeration": typeof lib_messageModeration;
   "lib/passwordRecovery": typeof lib_passwordRecovery;
+  "lib/storage": typeof lib_storage;
   messageSupport: typeof messageSupport;
   messages: typeof messages;
   mobileNotifications: typeof mobileNotifications;

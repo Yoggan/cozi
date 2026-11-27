@@ -161,6 +161,19 @@ export function BusinessModeHome() {
           <Ionicons name="chevron-forward" size={18} color={accent.hex} />
         </Pressable>
 
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push("/business-closeout")}
+          className="flex-row items-center gap-3 rounded-2xl p-4"
+          style={glass}
+        >
+          <Ionicons name="receipt-outline" size={20} color={accent.hex} />
+          <Text className="flex-1 text-sm font-semibold text-foreground" style={textPrimary}>
+            Corte diario
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color={accent.hex} />
+        </Pressable>
+
         <Text className="mt-4 text-center text-xs text-muted" style={textSecondary}>
           Cambia a tu cuenta personal desde Perfil → Cuentas.
         </Text>
