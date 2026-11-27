@@ -4,10 +4,13 @@ import { z } from "zod";
 
 import { components, internal } from "./_generated/api";
 import { action, env, internalMutation, mutation, query } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import {
   activeEmailReservation,
   activeHandleReservation,
-  verifiedEmailReservation,
+  findHandle,
+  setUserHandle,
+  userReservation,
 } from "./lib/handles";
 import { HANDLE_PATTERN } from "./lib/identifiers";
 
@@ -22,7 +25,7 @@ const rateLimiter = new RateLimiter(components.rateLimiter, {
   waitlistEmail: { kind: "fixed window", rate: 3, period: 60 * MINUTE },
 });
 
-type ConfirmationResult = "confirmed" | "unavailable" | "invalid";
+type ConfirmationResult = "confirmed" | "claimed" | "unavailable" | "invalid";
 
 function hex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -34,19 +37,53 @@ async function hashToken(token: string): Promise<string> {
   return hex(new Uint8Array(digest));
 }
 
+async function readConfirmation(ctx: MutationCtx, token: string) {
+  if (!tokenPattern.test(token)) {
+    return null;
+  }
+
+  const tokenHash = await hashToken(token);
+
+  return await ctx.db
+    .query("waitlist")
+    .withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash))
+    .unique();
+}
+
+function emailConfig() {
+  const apiKey = env.RESEND_API_KEY?.trim();
+  const from = env.WAITLIST_EMAIL_FROM?.trim();
+  const siteUrl = env.WAITLIST_SITE_URL?.trim() || process.env.SITE_URL;
+
+  if (!apiKey || !from || !siteUrl) {
+    return null;
+  }
+
+  try {
+    const origin = new URL(siteUrl);
+
+    if (!["http:", "https:"].includes(origin.protocol) || origin.username || origin.password) {
+      return null;
+    }
+
+    return { apiKey, from, origin };
+  } catch {
+    return null;
+  }
+}
+
+export const isSignupAvailable = query({
+  args: {},
+  handler: () => emailConfig() !== null,
+});
+
 export const createRequest = internalMutation({
   args: { email: v.string(), handle: v.string(), tokenHash: v.string() },
   handler: async (ctx, args) => {
     const perEmail = await rateLimiter.limit(ctx, "waitlistEmail", { key: args.email });
 
-    if (!perEmail.ok) {
-      return false;
-    }
-
-    const overall = await rateLimiter.limit(ctx, "waitlistEmails");
-
-    if (!overall.ok) {
-      return false;
+    if (!perEmail.ok || !(await rateLimiter.limit(ctx, "waitlistEmails")).ok) {
+      throw new ConvexError("Has alcanzado el límite de solicitudes. Intenta más tarde.");
     }
 
     await ctx.db.insert("waitlist", {
@@ -54,7 +91,7 @@ export const createRequest = internalMutation({
       confirmationExpiresAt: Date.now() + CONFIRMATION_LIFETIME,
     });
 
-    return true;
+    return null;
   },
 });
 
@@ -72,28 +109,22 @@ export const join = action({
       throw new ConvexError("Usa de 3 a 20 letras, números o guiones bajos en tu @handle.");
     }
 
-    const apiKey = env.RESEND_API_KEY?.trim();
-    const from = env.WAITLIST_EMAIL_FROM?.trim();
-    const siteUrl = env.WAITLIST_SITE_URL?.trim() || process.env.SITE_URL;
+    const config = emailConfig();
     const deliveryError = "No pudimos enviar el correo. Intenta de nuevo más tarde.";
 
-    if (!apiKey || !from || !siteUrl) {
+    if (!config) {
       throw new ConvexError(deliveryError);
     }
 
     const token = hex(crypto.getRandomValues(new Uint8Array(32)));
-    const link = new URL("/lista-de-espera/confirmar", siteUrl);
+    const link = new URL("/lista-de-espera/confirmar", config.origin);
     link.searchParams.set("token", token);
 
-    const accepted: boolean = await ctx.runMutation(internal.waitlist.createRequest, {
+    await ctx.runMutation(internal.waitlist.createRequest, {
       email,
       handle,
       tokenHash: await hashToken(token),
     });
-
-    if (!accepted) {
-      throw new ConvexError("Has alcanzado el límite de solicitudes. Intenta más tarde.");
-    }
 
     let response: Response;
 
@@ -101,17 +132,18 @@ export const join = action({
       response = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${config.apiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from,
+          from: config.from,
           to: [email],
           subject: "Confirma tu lugar en la lista de espera de Cozi",
           text: [
             `Confirma tu correo para solicitar la reserva de @${handle}:`,
             link.href,
-            "El enlace vence en 30 minutos. Si no hiciste esta solicitud, ignora este mensaje.",
+            "Confirma en los próximos 30 minutos. Después podrás usar este mismo enlace para reclamar tu @handle mientras dure la reserva.",
+            "Si no hiciste esta solicitud, ignora este mensaje.",
           ].join("\n\n"),
         }),
       });
@@ -130,39 +162,30 @@ export const join = action({
 export const confirm = mutation({
   args: { token: v.string() },
   handler: async (ctx, { token }): Promise<ConfirmationResult> => {
-    if (!tokenPattern.test(token)) {
-      return "invalid";
-    }
-
-    const tokenHash = await hashToken(token);
-
-    const request = await ctx.db
-      .query("waitlist")
-      .withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash))
-      .unique();
-
+    const request = await readConfirmation(ctx, token);
     const now = Date.now();
 
-    if (!request || request.confirmationExpiresAt <= now) {
+    if (!request) {
       return "invalid";
     }
 
     if (request.confirmedAt !== undefined) {
-      return "confirmed";
+      if (request.confirmedAt + RESERVATION_LIFETIME <= now) {
+        return "invalid";
+      }
+
+      return request.reservationExpiresAt === undefined ? "claimed" : "confirmed";
+    }
+
+    if (request.confirmationExpiresAt <= now) {
+      return "invalid";
     }
 
     const [existingHandle, handleReservation, emailReservation] = await Promise.all([
-      ctx.db
-        .query("handles")
-        .withIndex("by_handle", (q) => q.eq("handle", request.handle))
-        .unique(),
+      findHandle(ctx, request.handle),
       activeHandleReservation(ctx, request.handle, now),
       activeEmailReservation(ctx, request.email, now),
     ]);
-
-    if (handleReservation?.email === request.email) {
-      return "confirmed";
-    }
 
     if (existingHandle || handleReservation || emailReservation) {
       return "unavailable";
@@ -177,10 +200,52 @@ export const confirm = mutation({
   },
 });
 
+/** The confirmed link proves mailbox ownership only for this reservation. */
+export const claim = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, { token }): Promise<"ready" | "claimed" | "invalid"> => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity?.email) {
+      return "invalid";
+    }
+
+    const request = await readConfirmation(ctx, token);
+    const now = Date.now();
+
+    if (
+      !request ||
+      request.confirmedAt === undefined ||
+      request.reservationExpiresAt === undefined ||
+      request.reservationExpiresAt <= now ||
+      request.email !== identity.email.trim().toLowerCase() ||
+      (request.claimant && request.claimant !== identity.tokenIdentifier)
+    ) {
+      return "invalid";
+    }
+
+    await ctx.db.patch("waitlist", request._id, { claimant: identity.tokenIdentifier });
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_auth_user", (q) => q.eq("authUserId", identity.subject))
+      .unique();
+
+    if (!user) {
+      return "ready";
+    }
+
+    await setUserHandle(ctx, user._id, identity, request.handle, now);
+
+    return "claimed";
+  },
+});
+
 export const getReservedHandle = query({
   args: { now: v.number() },
   handler: async (ctx, { now }) => {
-    const reservation = await verifiedEmailReservation(ctx, now);
+    const identity = await ctx.auth.getUserIdentity();
+    const reservation = await userReservation(ctx, identity, now);
 
     return reservation?.handle ?? null;
   },

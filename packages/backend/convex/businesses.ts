@@ -5,7 +5,7 @@ import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { businessStatusValidator, businessTimeZoneValidator } from "./schema";
 import { isVerifiedReceivingAccount } from "./lib/bankAccounts";
-import { activeHandleReservation, claimHandle } from "./lib/handles";
+import { activeHandleReservation, claimHandle, findHandle } from "./lib/handles";
 import { HANDLE_PATTERN, handleBase, normalizeHandle } from "./lib/identifiers";
 import { availableStock } from "./lib/inventory";
 
@@ -92,10 +92,7 @@ export const create = mutation({
         throw new ConvexError("El @handle debe tener 3-20 letras, números o guiones bajos");
       }
 
-      const taken = await ctx.db
-        .query("handles")
-        .withIndex("by_handle", (q) => q.eq("handle", requested))
-        .unique();
+      const taken = await findHandle(ctx, requested);
 
       if (taken || (await activeHandleReservation(ctx, requested, Date.now()))) {
         throw new ConvexError("Ese @handle ya está ocupado");

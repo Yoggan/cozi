@@ -2,7 +2,7 @@ import { HANDLE_PATTERN, normalizeHandle } from "@cozi/backend/convex/lib/identi
 import { Button } from "@cozi/ui/components/button";
 import { ArrowRightIcon, AtIcon, ShieldCheckIcon, StorefrontIcon } from "@phosphor-icons/react";
 import { Navigate, createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { useConvexAuth } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { useId, useState } from "react";
 import type { FormEvent } from "react";
 
@@ -48,6 +48,7 @@ const BENEFITS = [
 
 function HomePage() {
   const { isAuthenticated } = useConvexAuth();
+  const signupAvailable = useQuery(api.waitlist.isSignupAvailable, isAuthenticated ? "skip" : {});
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
@@ -75,7 +76,13 @@ function HomePage() {
               </p>
 
               <div className="pt-2">
-                <WaitlistForm />
+                {signupAvailable === false ? (
+                  <p className="text-sm text-brand-foreground/90">
+                    La lista de espera abrirá pronto.
+                  </p>
+                ) : (
+                  <WaitlistForm disabled={signupAvailable === undefined} />
+                )}
               </div>
             </div>
 
@@ -249,3 +256,5 @@ function BusinessLookupSection() {
     </section>
   );
 }
+
+import { api } from "@cozi/backend/convex/_generated/api";

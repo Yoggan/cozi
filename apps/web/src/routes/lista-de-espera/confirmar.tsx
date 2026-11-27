@@ -1,20 +1,12 @@
 import { api } from "@cozi/backend/convex/_generated/api";
-import { Button, buttonVariants } from "@cozi/ui/components/button";
-import {
-  ArrowLeftIcon,
-  CheckCircleIcon,
-  ClockCountdownIcon,
-  EnvelopeOpenIcon,
-  WarningCircleIcon,
-} from "@phosphor-icons/react";
+import { buttonVariants } from "@cozi/ui/components/button";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useMutation } from "convex/react";
-import { useRef, useState } from "react";
+import { useConvexAuth, useMutation } from "convex/react";
+import { ConvexError } from "convex/values";
+import { useState } from "react";
 
+import { Form } from "@/components/cozi";
 import { PublicFooter } from "@/components/public-footer";
-import { errorMessage } from "@/lib/cozi";
-
-type ConfirmOutcome = "confirmed" | "unavailable" | "invalid";
 
 export const Route = createFileRoute("/lista-de-espera/confirmar")({
   validateSearch: (search) => ({
@@ -30,13 +22,39 @@ export const Route = createFileRoute("/lista-de-espera/confirmar")({
       { title: "Confirma tu lugar · Cozi" },
       {
         name: "description",
-        content:
-          "Confirma tu correo electrónico para completar tu lugar en la lista de espera de Cozi.",
+        content: "Confirma tu correo para apartar tu @handle en la lista de espera de Cozi.",
       },
     ],
   }),
   component: WaitlistConfirmPage,
 });
+
+const messages = {
+  pending: {
+    title: "Confirma tu lugar en la lista de espera",
+    body: "Confirma tu correo para apartar tu @handle por 30 días.",
+  },
+  confirmed: {
+    title: "¡Tu lugar está confirmado!",
+    body: "Apartamos tu @handle por 30 días. Para usarlo, entra con el mismo correo. Si creas una cuenta, vuelve a abrir este enlace.",
+  },
+  ready: {
+    title: "Tu @handle está listo",
+    body: "Continúa con la configuración de tu cuenta para usar el @handle que apartaste.",
+  },
+  claimed: {
+    title: "Ya puedes usar tu @handle",
+    body: "La reserva se aplicó a tu cuenta de Cozi.",
+  },
+  unavailable: {
+    title: "No pudimos apartar ese @handle",
+    body: "Ese @handle ya no está disponible o este correo ya tiene una reserva activa. Si ya apartaste un @handle, usa el enlace que confirmaste primero.",
+  },
+  invalid: {
+    title: "Este enlace venció o no es válido",
+    body: "Tienes 30 minutos para confirmar un enlace nuevo. Si tu reserva venció, puedes solicitar otra.",
+  },
+};
 
 function WaitlistConfirmPage() {
   const { token } = Route.useSearch();
@@ -55,161 +73,77 @@ function WaitlistConfirmPage() {
 }
 
 function WaitlistConfirmCard({ token }: { token?: string }) {
-  const confirmWaitlist = useMutation(api.waitlist.confirm);
-  const submitting = useRef(false);
+  const confirm = useMutation(api.waitlist.confirm);
+  const claim = useMutation(api.waitlist.claim);
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const [outcome, setOutcome] = useState<keyof typeof messages>(token ? "pending" : "invalid");
 
-  const [busy, setBusy] = useState(false);
-  const [outcome, setOutcome] = useState<ConfirmOutcome | null>(token ? null : "invalid");
-  const [error, setError] = useState("");
-
-  async function handleConfirm() {
-    if (!token || submitting.current) {
-      return;
-    }
-
-    submitting.current = true;
-    setBusy(true);
-    setError("");
-
-    try {
-      const result: ConfirmOutcome = await confirmWaitlist({ token });
-      setOutcome(result);
-    } catch (caughtError: unknown) {
-      setError(
-        errorMessage(
-          caughtError,
-          "No pudimos validar tu enlace en este momento. Intenta de nuevo.",
-        ),
-      );
-    } finally {
-      submitting.current = false;
-      setBusy(false);
-    }
-  }
-
-  if (outcome === "confirmed") {
-    return (
-      <section
-        role="status"
-        className="space-y-6 rounded-[2rem] border border-border bg-card p-6 sm:p-8"
-      >
-        <span className="grid size-12 place-items-center rounded-full bg-brand text-highlight">
-          <CheckCircleIcon aria-hidden="true" weight="fill" className="size-7" />
-        </span>
-
-        <div className="space-y-2.5">
-          <h1 className="text-[1.75rem] leading-[1.12] font-bold tracking-[-0.03em] sm:text-[2.25rem]">
-            ¡Tu lugar está confirmado!
-          </h1>
-          <p className="text-[1rem] leading-relaxed text-muted-foreground">
-            Ya estás en la lista de espera. Apartamos tu @handle por 30 días. Para usarlo, entra a
-            Cozi con este mismo correo verificado.
-          </p>
-        </div>
-
-        <Link to="/" className={buttonVariants({ size: "lg", className: "w-full sm:w-auto" })}>
-          <ArrowLeftIcon aria-hidden="true" weight="bold" className="size-4" />
-          <span>Volver al inicio</span>
-        </Link>
-      </section>
-    );
-  }
-
-  if (outcome === "unavailable") {
-    return (
-      <section
-        role="status"
-        className="space-y-6 rounded-[2rem] border border-border bg-card p-6 sm:p-8"
-      >
-        <span className="grid size-12 place-items-center rounded-full bg-muted text-warning">
-          <WarningCircleIcon aria-hidden="true" weight="fill" className="size-7" />
-        </span>
-
-        <div className="space-y-2.5">
-          <h1 className="text-[1.75rem] leading-[1.12] font-bold tracking-[-0.03em] sm:text-[2.25rem]">
-            No pudimos apartar ese @handle
-          </h1>
-          <p className="text-[1rem] leading-relaxed text-muted-foreground">
-            Ese @handle ya no está disponible o este correo ya tiene una solicitud activa en la
-            lista de espera. Puedes volver al inicio e intentar con otro @handle.
-          </p>
-        </div>
-
-        <Link to="/" className={buttonVariants({ size: "lg", className: "w-full sm:w-auto" })}>
-          <ArrowLeftIcon aria-hidden="true" weight="bold" className="size-4" />
-          <span>Volver al inicio</span>
-        </Link>
-      </section>
-    );
-  }
-
-  if (outcome === "invalid") {
-    return (
-      <section
-        role="alert"
-        className="space-y-6 rounded-[2rem] border border-border bg-card p-6 sm:p-8"
-      >
-        <span className="grid size-12 place-items-center rounded-full bg-muted text-destructive">
-          <ClockCountdownIcon aria-hidden="true" weight="bold" className="size-6" />
-        </span>
-
-        <div className="space-y-2.5">
-          <h1 className="text-[1.75rem] leading-[1.12] font-bold tracking-[-0.03em] sm:text-[2.25rem]">
-            Este enlace venció o no es válido
-          </h1>
-          <p className="text-[1rem] leading-relaxed text-muted-foreground">
-            Los enlaces de confirmación duran 30 minutos. Regresa al inicio y solicita uno nuevo con
-            tu correo electrónico.
-          </p>
-        </div>
-
-        <Link to="/" className={buttonVariants({ size: "lg", className: "w-full sm:w-auto" })}>
-          <ArrowLeftIcon aria-hidden="true" weight="bold" className="size-4" />
-          <span>Solicitar un enlace nuevo</span>
-        </Link>
-      </section>
-    );
-  }
+  const { title, body } = messages[outcome];
+  const canContinue = outcome === "ready" || outcome === "claimed";
 
   return (
     <section className="space-y-6 rounded-[2rem] border border-border bg-card p-6 sm:p-8">
-      <span className="grid size-12 place-items-center rounded-full bg-brand text-brand-foreground">
-        <EnvelopeOpenIcon aria-hidden="true" weight="bold" className="size-6" />
-      </span>
-
-      <div className="space-y-2.5">
+      <div className="space-y-2.5" role={outcome === "invalid" ? "alert" : "status"}>
         <h1 className="text-[1.75rem] leading-[1.12] font-bold tracking-[-0.03em] sm:text-[2.25rem]">
-          Confirma tu lugar en la lista de espera
+          {title}
         </h1>
-        <p className="text-[1rem] leading-relaxed text-muted-foreground">
-          Presiona el botón para validar tu correo y completar tu solicitud en Cozi.
-        </p>
+        <p className="text-[1rem] leading-relaxed text-muted-foreground">{body}</p>
       </div>
 
-      {error && (
-        <p role="alert" className="text-[0.875rem] font-medium text-destructive">
-          {error}
-        </p>
+      {token && outcome === "pending" && (
+        <Form
+          className="stack"
+          submit="Confirmar mi lugar"
+          fallback="No pudimos validar tu enlace en este momento. Intenta de nuevo."
+          onSubmit={async () => setOutcome(await confirm({ token }))}
+        />
       )}
 
-      <div className="flex flex-wrap items-center gap-4">
-        <Button
-          type="button"
-          size="lg"
-          disabled={busy}
-          onClick={handleConfirm}
-          className="w-full bg-highlight font-bold text-highlight-foreground hover:bg-highlight/90 sm:w-auto"
-        >
-          {busy ? "Confirmando…" : "Confirmar mi lugar"}
-        </Button>
+      {token && outcome === "confirmed" && isAuthenticated && (
+        <Form
+          className="stack"
+          submit="Usar mi @handle reservado"
+          fallback="No pudimos aplicar tu reserva. Intenta de nuevo."
+          onSubmit={async () => {
+            const result = await claim({ token });
 
+            if (result === "invalid") {
+              throw new ConvexError("Entra con el mismo correo con el que apartaste tu @handle.");
+            }
+
+            setOutcome(result);
+          }}
+        />
+      )}
+
+      {outcome === "confirmed" && !isAuthenticated && !isLoading && (
         <Link
-          to="/"
-          className="text-[0.875rem] font-semibold text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
+          to="/dashboard"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={buttonVariants({ size: "lg", className: "w-full sm:w-auto" })}
         >
-          Volver al inicio
+          Inicia sesión o crea tu cuenta
         </Link>
-      </div>
+      )}
+
+      {canContinue ? (
+        <Link
+          to="/dashboard"
+          className={buttonVariants({ size: "lg", className: "w-full sm:w-auto" })}
+        >
+          Continuar a Cozi
+        </Link>
+      ) : (
+        <div>
+          <Link
+            to="/"
+            className="text-sm font-semibold text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          >
+            Volver al inicio
+          </Link>
+        </div>
+      )}
     </section>
   );
 }

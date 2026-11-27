@@ -97,6 +97,7 @@ export default function Onboarding({ profile }: { profile: Profile | null }) {
           <Loading />
         ) : (
           <Field
+            key={reservedHandle ?? ""}
             name="handle"
             label="Tu @handle"
             defaultValue={profile?.handle ?? reservedHandle ?? ""}

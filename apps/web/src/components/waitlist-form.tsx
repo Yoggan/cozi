@@ -6,56 +6,32 @@ import { useAction } from "convex/react";
 import { useId, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
+import { field } from "@/components/cozi";
 import { errorMessage } from "@/lib/cozi";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export function WaitlistForm() {
+export function WaitlistForm({ disabled }: { disabled: boolean }) {
   const joinWaitlist = useAction(api.waitlist.join);
   const handleId = useId();
   const emailId = useId();
   const submitting = useRef(false);
 
-  const [handleInput, setHandleInput] = useState("");
-  const [emailInput, setEmailInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
 
-  function updateHandle(value: string) {
-    setHandleInput(value);
-
-    if (error) {
-      setError("");
-    }
-  }
-
-  function updateEmail(value: string) {
-    setEmailInput(value);
-
-    if (error) {
-      setError("");
-    }
-  }
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (submitting.current) {
+    if (disabled || submitting.current) {
       return;
     }
 
-    const normalizedHandle = normalizeHandle(handleInput);
-    const cleanEmail = emailInput.trim().toLowerCase();
+    const data = new FormData(event.currentTarget);
+    const normalizedHandle = normalizeHandle(field(data, "handle"));
+    const cleanEmail = field(data, "email").toLowerCase();
 
     if (!HANDLE_PATTERN.test(normalizedHandle)) {
       setError("Usa de 3 a 20 letras, números o guiones bajos en tu @handle.");
-
-      return;
-    }
-
-    if (!EMAIL_PATTERN.test(cleanEmail)) {
-      setError("Escribe un correo electrónico válido.");
 
       return;
     }
@@ -113,11 +89,18 @@ export function WaitlistForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      noValidate
+      onChange={() => {
+        if (error) {
+          setError("");
+        }
+      }}
       aria-busy={busy}
       className="mx-auto w-full max-w-2xl space-y-3"
     >
-      <fieldset disabled={busy} className="grid gap-3 sm:grid-cols-[1fr_1.15fr_auto] sm:items-end">
+      <fieldset
+        disabled={disabled || busy}
+        className="grid gap-3 sm:grid-cols-[1fr_1.15fr_auto] sm:items-end"
+      >
         <div className="min-w-0 text-left">
           <label
             htmlFor={handleId}
@@ -136,15 +119,12 @@ export function WaitlistForm() {
               id={handleId}
               name="handle"
               type="text"
-              value={handleInput}
-              onChange={(event) => updateHandle(event.target.value)}
               placeholder="sofia"
               maxLength={21}
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
               required
-              aria-invalid={error.includes("@handle") || undefined}
               className="w-full min-w-0 bg-transparent text-[1rem] text-brand-foreground placeholder:text-brand-foreground/55 focus:outline-none"
             />
           </div>
@@ -161,14 +141,11 @@ export function WaitlistForm() {
             id={emailId}
             name="email"
             type="email"
-            value={emailInput}
-            onChange={(event) => updateEmail(event.target.value)}
             placeholder="tu@correo.com"
             autoComplete="email"
             autoCapitalize="none"
             maxLength={254}
             required
-            aria-invalid={error.includes("correo") || undefined}
             className="h-12 w-full min-w-0 rounded-xl border border-brand-foreground/30 bg-black/30 px-3.5 text-[1rem] text-brand-foreground transition-colors placeholder:text-brand-foreground/55 focus:border-highlight focus:ring-2 focus:ring-highlight/30 focus:outline-none"
           />
         </div>

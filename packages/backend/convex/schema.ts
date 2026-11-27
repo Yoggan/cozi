@@ -164,6 +164,7 @@ export default defineSchema({
     confirmationExpiresAt: v.number(),
     confirmedAt: v.optional(v.number()),
     reservationExpiresAt: v.optional(v.number()),
+    claimant: v.optional(v.string()),
   })
     .index("by_tokenHash", ["tokenHash"])
     .index("by_handle_and_reservationExpiresAt", ["handle", "reservationExpiresAt"])

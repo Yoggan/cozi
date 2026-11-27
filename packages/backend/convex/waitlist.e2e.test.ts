@@ -67,18 +67,126 @@ it("holds a handle after email confirmation and lets only the verified owner cla
   expect(await matching.query(api.waitlist.getReservedHandle, { now })).toBeNull();
 });
 
-it("allows one confirmed reservation per handle and releases it after 30 days", async () => {
+it("lets a password account prefill its reservation after proving ownership of the link", async () => {
   vi.useFakeTimers();
   const { t, tokens } = setup();
-  const handle = "mismo_handle";
-  await t.action(api.waitlist.join, { email: "ana@example.com", handle });
-  await t.action(api.waitlist.join, { email: "beto@example.com", handle });
-  expect(
-    await Promise.all(tokens.map((token) => t.mutation(api.waitlist.confirm, { token }))),
-  ).toEqual(expect.arrayContaining(["confirmed", "unavailable"]));
+  const email = "ana@example.com";
+  const handle = "ana_cozi";
+  await t.action(api.waitlist.join, { email, handle });
 
-  vi.setSystemTime(Date.now() + 30 * 24 * 60 * 60 * 1000);
-  expect(await t.mutation(api.waitlist.confirm, { token: tokens[0] })).toBe("invalid");
+  const [token] = tokens;
+  const owner = t.withIdentity({ subject: "ana", email, emailVerified: false });
+  const other = t.withIdentity({ subject: "other", email: "other@example.com" });
+  const sameEmail = t.withIdentity({ subject: "duplicate", email, emailVerified: false });
+  expect(await owner.mutation(api.waitlist.claim, { token })).toBe("invalid");
+  expect(await t.mutation(api.waitlist.confirm, { token })).toBe("confirmed");
+
+  vi.setSystemTime(Date.now() + 31 * 60 * 1000);
+  const now = Date.now();
+  expect(await t.mutation(api.waitlist.confirm, { token })).toBe("confirmed");
+  expect(await t.mutation(api.waitlist.claim, { token })).toBe("invalid");
+  expect(await other.mutation(api.waitlist.claim, { token })).toBe("invalid");
+  expect(await owner.query(api.waitlist.getReservedHandle, { now })).toBeNull();
+
+  expect(await owner.mutation(api.waitlist.claim, { token })).toBe("ready");
+  expect(await sameEmail.mutation(api.waitlist.claim, { token })).toBe("invalid");
+  expect(await owner.query(api.waitlist.getReservedHandle, { now })).toBe(handle);
+  expect(await sameEmail.query(api.waitlist.getReservedHandle, { now })).toBeNull();
+
+  await owner.mutation(api.users.finishOnboarding, {
+    accountType: "personal",
+    displayName: "Ana Cozi",
+    handle,
+  });
+  expect(await owner.query(api.users.getMe)).toMatchObject({ handle });
+  expect(await t.mutation(api.waitlist.confirm, { token })).toBe("claimed");
+  expect(await owner.mutation(api.waitlist.claim, { token })).toBe("invalid");
+});
+
+it("changes an existing password profile's handle without replacing its registry row", async () => {
+  const { t, tokens } = setup();
+  const email = "ana@example.com";
+  const handle = "ana_cozi";
+
+  const { client, userId } = await createUser(t, {
+    subject: "ana",
+    name: "Ana",
+    email,
+    handle: "ana_inicial",
+  });
+
+  const registryId = () =>
+    t.run(async (ctx) => {
+      const row = await ctx.db
+        .query("handles")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .unique();
+
+      return row?._id;
+    });
+
+  const before = await registryId();
+  await t.action(api.waitlist.join, { email, handle });
+  const [token] = tokens;
+  expect(await t.mutation(api.waitlist.confirm, { token })).toBe("confirmed");
+  await expect(client.mutation(api.users.updateProfile, { handle })).rejects.toThrow("ocupado");
+
+  expect(await client.mutation(api.waitlist.claim, { token })).toBe("claimed");
+  expect(await client.query(api.users.getMe)).toMatchObject({ handle });
+  expect(await registryId()).toBe(before);
+});
+
+it("advertises signup only with a configured sender and a usable confirmation origin", async () => {
+  const { t } = setup();
+  expect(await t.query(api.waitlist.isSignupAvailable)).toBe(true);
+
+  vi.stubEnv("WAITLIST_SITE_URL", "file:///tmp/waitlist");
+  expect(await t.query(api.waitlist.isSignupAvailable)).toBe(false);
+
+  vi.stubEnv("WAITLIST_SITE_URL", "https://cozi.app");
+  vi.stubEnv("WAITLIST_EMAIL_FROM", "");
+  expect(await t.query(api.waitlist.isSignupAvailable)).toBe(false);
+});
+
+it("allows one confirmed reservation per handle and releases it after 30 days", async () => {
+  vi.useFakeTimers();
+  const startedAt = Date.UTC(2026, 10, 27, 12);
+  vi.setSystemTime(startedAt);
+
+  const { t, tokens } = setup();
+  const handle = "mismo_handle";
+  const emails = ["ana@example.com", "beto@example.com"];
+  await t.action(api.waitlist.join, { email: emails[0], handle });
+  await t.action(api.waitlist.join, { email: emails[1], handle });
+
+  const results = await Promise.all(
+    tokens.map((token) => t.mutation(api.waitlist.confirm, { token })),
+  );
+
+  expect(results).toEqual(expect.arrayContaining(["confirmed", "unavailable"]));
+  const winner = results.indexOf("confirmed");
+  const token = tokens[winner];
+  const owner = t.withIdentity({ subject: "winner", email: emails[winner] });
+
+  const reservation = await t.run(async (ctx) => {
+    const request = await ctx.db
+      .query("waitlist")
+      .withIndex("by_email_and_reservationExpiresAt", (q) =>
+        q.eq("email", emails[winner]).gt("reservationExpiresAt", startedAt),
+      )
+      .unique();
+
+    if (request?.reservationExpiresAt === undefined || request.confirmedAt === undefined) {
+      throw new Error("Expected a confirmed and active reservation");
+    }
+
+    return { confirmedAt: request.confirmedAt, expiresAt: request.reservationExpiresAt };
+  });
+
+  expect(reservation.expiresAt - reservation.confirmedAt).toBe(30 * 24 * 60 * 60 * 1000);
+  vi.setSystemTime(reservation.expiresAt);
+  expect(await t.mutation(api.waitlist.confirm, { token })).toBe("invalid");
+  expect(await owner.mutation(api.waitlist.claim, { token })).toBe("invalid");
 
   const user = await createUser(t, {
     subject: "buyer",

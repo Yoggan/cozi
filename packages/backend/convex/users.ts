@@ -5,7 +5,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { isBusinessEmail } from "./lib/email";
-import { activeHandleReservation, claimHandle, verifiedEmailReservation } from "./lib/handles";
+import { claimHandle, consumeReservation, setUserHandle, userReservation } from "./lib/handles";
 import { HANDLE_PATTERN, handleBase, normalizeHandle } from "./lib/identifiers";
 import { isStorageReferenced } from "./lib/storage";
 
@@ -88,7 +88,7 @@ export const ensureProfile = mutation({
     }
 
     const now = Date.now();
-    const reservation = await verifiedEmailReservation(ctx, now);
+    const reservation = await userReservation(ctx, identity, now);
 
     const handle =
       reservation?.handle ?? (await claimHandle(ctx, handleBase(identity.name, identity.email)));
@@ -113,7 +113,7 @@ export const ensureProfile = mutation({
     });
 
     if (reservation) {
-      await ctx.db.patch("waitlist", reservation._id, { reservationExpiresAt: undefined });
+      await consumeReservation(ctx, reservation);
     }
 
     return { userId, handle, created: !existing };
@@ -464,45 +464,7 @@ export const updateProfile = mutation({
         throw new ConvexError("El @handle debe tener 3-20 letras, números o guiones bajos");
       }
 
-      const current = await ctx.db
-        .query("handles")
-        .withIndex("by_user", (q) => q.eq("userId", user._id))
-        .first();
-
-      if (current?.handle !== next) {
-        const taken = await ctx.db
-          .query("handles")
-          .withIndex("by_handle", (q) => q.eq("handle", next))
-          .unique();
-
-        if (taken && taken.userId !== user._id) {
-          throw new ConvexError("Ese @handle ya está ocupado");
-        }
-
-        const reservation = await activeHandleReservation(ctx, next, patch.updatedAt);
-
-        if (reservation) {
-          if (
-            identity.emailVerified !== true ||
-            identity.email?.trim().toLowerCase() !== reservation.email
-          ) {
-            throw new ConvexError("Ese @handle ya está ocupado");
-          }
-
-          await ctx.db.patch("waitlist", reservation._id, { reservationExpiresAt: undefined });
-        }
-
-        if (current) {
-          await ctx.db.patch(current._id, { handle: next });
-        } else {
-          await ctx.db.insert("handles", {
-            handle: next,
-            ownerType: "user",
-            userId: user._id,
-            createdAt: Date.now(),
-          });
-        }
-      }
+      await setUserHandle(ctx, user._id, identity, next, patch.updatedAt);
     }
 
     await ctx.db.patch(user._id, patch);
