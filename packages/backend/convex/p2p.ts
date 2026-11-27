@@ -1,12 +1,20 @@
+import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
+import { mergedStream, stream } from "convex-helpers/server/stream";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { effectiveOrderStatus, expiryFromMinutes, orderDeadline } from "./lib/expiry";
+import {
+  normalizeHistoryPaginationOpts,
+  normalizeHistorySearch,
+  parseHistorySearchTerms,
+} from "./lib/historyPagination";
 import { HANDLE_PATTERN, makePublicId, normalizeHandle } from "./lib/identifiers";
-import { resolveOrderCounterpart } from "./lib/order-parties";
+import { readOrderBusiness, resolveOrderCounterpart } from "./lib/order-parties";
 import { findActivePayment } from "./pey/queries";
+import schema, { orderStatusValidator } from "./schema";
 
 const MIN_AMOUNT_CENTS = 1000;
 const MAX_AMOUNT_CENTS = 2_000_000;
@@ -264,30 +272,156 @@ export const listActivity = query({
     }
 
     const orders = [...unique.values()].sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
-    const now = Date.now();
 
-    // shortcut: una lectura de contraparte por fila; denormalizar si crece.
-    return await Promise.all(
-      orders.map(async (order) => {
-        const counterpart = await resolveOrderCounterpart(ctx, order, viewer.user._id);
-        const deadline = orderDeadline(order);
-
-        return {
-          publicId: order.publicId,
-          amountCents: order.totalCents,
-          note: order.note ?? order.items[0]?.name ?? "Pago Cozi",
-          status: effectiveOrderStatus(order.status, deadline, now),
-          kind: order.p2pKind ?? "send",
-          direction: order.sellerId === viewer.user._id ? ("in" as const) : ("out" as const),
-          counterpartName: counterpart.name,
-          counterpartHandle: counterpart.handle,
-          createdAt: order.createdAt,
-          expiresAt: deadline,
-        };
-      }),
-    );
+    return await activityItems(ctx, orders, viewer.user._id);
   },
 });
+
+const activityDirection = v.union(v.literal("in"), v.literal("out"));
+const activityKind = v.union(v.literal("send"), v.literal("request"));
+
+export const listActivityPage = query({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    direction: v.optional(activityDirection),
+    kind: v.optional(activityKind),
+    search: v.optional(v.string()),
+  },
+  returns: paginationResultValidator(
+    v.object({
+      publicId: v.string(),
+      amountCents: v.number(),
+      note: v.string(),
+      status: orderStatusValidator,
+      kind: activityKind,
+      direction: activityDirection,
+      counterpartName: v.string(),
+      counterpartHandle: v.union(v.string(), v.null()),
+      createdAt: v.number(),
+      expiresAt: v.number(),
+    }),
+  ),
+  handler: async (ctx, { direction, kind, search, paginationOpts }) => {
+    const { user } = await getViewer(ctx);
+    const orders = stream(ctx.db, schema).query("orders");
+    const searchTerms = parseHistorySearchTerms(search);
+    const counterpartResolver = createCounterpartResolver(ctx, user._id);
+
+    const incoming = orders
+      .withIndex("by_seller_created", (q) => q.eq("sellerId", user._id))
+      .order("desc");
+
+    const outgoing = orders
+      .withIndex("by_buyer_created", (q) => q.eq("buyerId", user._id))
+      .order("desc")
+      // A movement that lists the viewer on both sides is incoming, as in the preview.
+      .filterWith(async (order) => order.sellerId !== user._id);
+
+    const activity = mergedStream(
+      direction === "in" ? [incoming] : direction === "out" ? [outgoing] : [incoming, outgoing],
+      ["createdAt"],
+    );
+
+    const matches =
+      kind || searchTerms.length > 0
+        ? activity.filterWith(async (order) => {
+            if (kind && (order.p2pKind ?? "send") !== kind) {
+              return false;
+            }
+
+            if (searchTerms.length === 0) {
+              return true;
+            }
+
+            const counterpart = await counterpartResolver(order);
+            const note = order.note ?? order.items[0]?.name ?? "Pago Cozi";
+
+            const searchable = normalizeHistorySearch(
+              `@${counterpart.handle ?? ""} ${counterpart.name} ${note}`,
+            );
+
+            return searchTerms.every((term) => searchable.includes(term));
+          })
+        : activity;
+
+    const result = await matches.paginate(normalizeHistoryPaginationOpts(paginationOpts));
+
+    return {
+      ...result,
+      page: await activityItems(ctx, result.page, user._id, counterpartResolver),
+    };
+  },
+});
+
+type CounterpartResolver = (
+  order: Doc<"orders">,
+) => Promise<{ name: string; handle: string | null }>;
+
+function createCounterpartResolver(ctx: QueryCtx, userId: Id<"users">): CounterpartResolver {
+  const businessCache = new Map<Id<"businesses">, Awaited<ReturnType<typeof readOrderBusiness>>>();
+  const userCache = new Map<Id<"users">, { name: string; handle: string | null }>();
+
+  return async (order) => {
+    if (order.sellerId === userId) {
+      return {
+        name: order.customer.name?.trim() || "Alguien",
+        handle: order.customer.handle ?? null,
+      };
+    }
+
+    if (order.businessId) {
+      let business = businessCache.get(order.businessId);
+
+      if (business === undefined) {
+        business = await readOrderBusiness(ctx, order.businessId);
+        businessCache.set(order.businessId, business);
+      }
+
+      if (business) {
+        return { name: business.name, handle: business.handle };
+      }
+    }
+
+    let seller = userCache.get(order.sellerId);
+
+    if (!seller) {
+      seller = await resolveOrderCounterpart(ctx, order, userId, null);
+      userCache.set(order.sellerId, seller);
+    }
+
+    return seller;
+  };
+}
+
+async function activityItems(
+  ctx: QueryCtx,
+  orders: Array<Doc<"orders">>,
+  userId: Id<"users">,
+  resolveCounterpart?: CounterpartResolver,
+) {
+  const now = Date.now();
+  const getCounterpart = resolveCounterpart ?? createCounterpartResolver(ctx, userId);
+
+  return await Promise.all(
+    orders.map(async (order) => {
+      const counterpart = await getCounterpart(order);
+      const deadline = orderDeadline(order);
+
+      return {
+        publicId: order.publicId,
+        amountCents: order.totalCents,
+        note: order.note ?? order.items[0]?.name ?? "Pago Cozi",
+        status: effectiveOrderStatus(order.status, deadline, now),
+        kind: order.p2pKind ?? "send",
+        direction: order.sellerId === userId ? ("in" as const) : ("out" as const),
+        counterpartName: counterpart.name,
+        counterpartHandle: counterpart.handle,
+        createdAt: order.createdAt,
+        expiresAt: deadline,
+      };
+    }),
+  );
+}
 
 /** Detalle de un pago; solo el receptor o el pagador pueden verlo. */
 export const getOrder = query({

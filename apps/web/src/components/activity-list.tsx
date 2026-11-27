@@ -1,6 +1,9 @@
 import { api } from "@cozi/backend/convex/_generated/api";
+import { Button } from "@cozi/ui/components/button";
 import { Link } from "@tanstack/react-router";
+import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex/react";
+import { usePaginatedQuery } from "convex-helpers/react";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 
 import { Amount, Empty, Loading } from "@/components/cozi";
@@ -8,28 +11,69 @@ import { dateTime, orderLabels, paid } from "@/lib/cozi";
 
 export type Direction = "all" | "in" | "out";
 
-export default function ActivityList({
-  direction = "all",
-  limit = 50,
-}: {
-  direction?: Direction;
-  limit?: number;
-}) {
+const PAGE_SIZE = 20;
+
+export function RecentActivity({ limit }: { limit: number }) {
   const items = useQuery(api.p2p.listActivity, { limit });
 
-  if (!items) {
+  return items ? <ActivityRows items={items} /> : <Loading />;
+}
+
+export default function ActivityList({ direction }: { direction: Direction }) {
+  const { results, status, loadMore } = usePaginatedQuery(
+    api.p2p.listActivityPage,
+    direction === "all" ? {} : { direction },
+    { initialNumItems: PAGE_SIZE },
+  );
+
+  if (status === "LoadingFirstPage") {
     return <Loading />;
   }
 
-  const visible = items.filter((item) => direction === "all" || item.direction === direction);
+  return (
+    <>
+      {results.length > 0 || status === "Exhausted" ? (
+        <ActivityRows
+          items={results}
+          emptyMessage={
+            direction === "all"
+              ? "Tus envíos y cobros aparecerán aquí."
+              : "No hay movimientos con este filtro."
+          }
+        />
+      ) : (
+        <Empty>
+          No encontramos coincidencias en los movimientos revisados. Carga más para seguir buscando.
+        </Empty>
+      )}
+      {status === "CanLoadMore" || status === "LoadingMore" ? (
+        <Button
+          className="self-start"
+          variant="secondary"
+          disabled={status === "LoadingMore"}
+          onClick={() => loadMore(PAGE_SIZE)}
+        >
+          {status === "LoadingMore" ? "Cargando…" : "Cargar más movimientos"}
+        </Button>
+      ) : null}
+    </>
+  );
+}
 
-  if (visible.length === 0) {
-    return <Empty>Tus envíos y cobros aparecerán aquí.</Empty>;
+function ActivityRows({
+  items,
+  emptyMessage = "Tus envíos y cobros aparecerán aquí.",
+}: {
+  items: FunctionReturnType<typeof api.p2p.listActivity>;
+  emptyMessage?: string;
+}) {
+  if (items.length === 0) {
+    return <Empty>{emptyMessage}</Empty>;
   }
 
   return (
     <ul className="panel divide-y py-0 sm:py-0">
-      {visible.map((item) => {
+      {items.map((item) => {
         const received = item.direction === "in";
         const Icon = received ? ArrowDownLeft : ArrowUpRight;
 

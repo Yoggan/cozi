@@ -24,7 +24,7 @@ function Activity() {
         >
           <option value="all">Todos</option>
           <option value="out">Envíos</option>
-          <option value="in">Cobros</option>
+          <option value="in">Recibidos</option>
         </select>
       </label>
       <ActivityList direction={direction} />
