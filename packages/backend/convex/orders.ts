@@ -339,8 +339,9 @@ export const getByPublicId = query({
       .order("desc")
       .first();
 
-    const payment =
-      order.status === "paid" || order.status === "fulfilled"
+    const payment = order.settlementException
+      ? await ctx.db.get(order.settlementException.paymentId)
+      : order.status === "paid" || order.status === "fulfilled"
         ? latestPayment
         : await findActivePayment(ctx.db, order._id);
 
@@ -362,7 +363,10 @@ export const getByPublicId = query({
       p2pKind: order.p2pKind ?? null,
       direction: isSeller ? ("in" as const) : ("out" as const),
       status: effectiveOrderStatus(order.status, deadline, Date.now()),
-      canRenew: order.status === "draft" || order.status === "awaiting_payment",
+      canRenew:
+        !order.settlementException &&
+        (order.status === "draft" || order.status === "awaiting_payment"),
+      settlementException: order.settlementException ?? null,
       expiresAt: deadline,
       items: order.items,
       subtotalCents: order.subtotalCents,
@@ -512,6 +516,10 @@ export const cancel = mutation({
 
     if (order.status !== "draft" && order.status !== "awaiting_payment") {
       throw new ConvexError("No puedes cancelar una orden ya pagada o cerrada");
+    }
+
+    if (order.settlementException) {
+      throw new ConvexError("Este pedido tiene un pago confirmado pendiente de revisión");
     }
 
     const now = Date.now();

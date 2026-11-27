@@ -185,6 +185,7 @@ export interface PeyClient {
 
 export interface PaymentLookupOptions {
   expectedAmountCents?: number;
+  expiresAt?: number;
   signal?: AbortSignal;
 }
 

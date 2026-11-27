@@ -1,4 +1,5 @@
 import { internalMutation } from "../_generated/server";
+import { CODI_QR_EXPIRY_GRACE_MS } from "./client";
 import { getPaymentLookup } from "./paymentLookup";
 
 const MINUTE_MS = 60_000;
@@ -57,11 +58,27 @@ export const claimReconciliationBatch = internalMutation({
 
         // Commit the retry window before I/O so overlapping runs cannot claim it.
         const attempt = attempts + 1;
+        const expiresAt = payment.method === "codi_qr" ? payment.expiresAt : undefined;
+        let nextReconciliationAt = now + delayMinutes * MINUTE_MS;
+
+        if (expiresAt !== undefined && expiresAt + CODI_QR_EXPIRY_GRACE_MS > now) {
+          nextReconciliationAt = Math.min(
+            nextReconciliationAt,
+            expiresAt + CODI_QR_EXPIRY_GRACE_MS,
+          );
+        }
+
         await ctx.db.patch(payment._id, {
           reconciliationAttempts: attempt,
-          nextReconciliationAt: now + delayMinutes * MINUTE_MS,
+          nextReconciliationAt,
         });
-        batch.push({ paymentId: payment._id, lookup, attempt, amountCents: payment.amountCents });
+        batch.push({
+          paymentId: payment._id,
+          lookup,
+          attempt,
+          amountCents: payment.amountCents,
+          expiresAt,
+        });
       }
     }
 

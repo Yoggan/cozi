@@ -12,8 +12,8 @@ import {
   paymentMethodValidator,
   paymentStatusValidator,
 } from "../schema";
-import type { PaymentStatus } from "../schema";
-import { findActivePayment, UNPUBLISHED_PAYMENT_MS } from "./queries";
+import type { PaymentStatus, SettlementExceptionKind } from "../schema";
+import { findActivePayment, UNPUBLISHED_PAYMENT_MS, UNPUBLISHED_PUSH_PAYMENT_MS } from "./queries";
 
 const clearReconciliation = {
   reconciliationAttempts: undefined,
@@ -25,16 +25,18 @@ const clearReconciliation = {
  * Efecto único de un pago conciliado. Es idempotente:
  * - un pago `succeeded` no se vuelve a descontar;
  * - un `refunded` es terminal;
- * - una orden ya pagada no se degrada ni descuenta inventario otra vez.
+ * - una orden ya pagada no se degrada ni descuenta inventario otra vez;
+ * - un `succeeded` tardío tras liberar la reserva se registra como excepción
+ *   explícita (`succeeded_after_release`) en pago y orden.
  */
 async function settlePayment(
   ctx: MutationCtx,
   payment: Doc<"payments">,
   status: PaymentStatus,
   options: { paidAt?: number; failureReason?: string } = {},
-) {
+): Promise<{ settlementException?: SettlementExceptionKind }> {
   if (status === "pending") {
-    return;
+    return {};
   }
 
   if (status === "processing") {
@@ -42,19 +44,19 @@ async function settlePayment(
       await ctx.db.patch("payments", payment._id, { status, updatedAt: Date.now() });
     }
 
-    return;
+    return {};
   }
 
   if (payment.status === status) {
-    return;
+    return payment.settlementException ? { settlementException: payment.settlementException } : {};
   }
 
   if (payment.status === "refunded") {
-    return;
+    return {};
   }
 
   if (payment.status === "succeeded" && status !== "refunded") {
-    return;
+    return payment.settlementException ? { settlementException: payment.settlementException } : {};
   }
 
   const now = Date.now();
@@ -62,8 +64,25 @@ async function settlePayment(
   const heldInventory = holdsInventory(payment);
   const orderPaid = order?.status === "paid" || order?.status === "fulfilled";
 
+  const isLateSuccessAfterRelease =
+    status === "succeeded" &&
+    !orderPaid &&
+    Boolean(payment.reservedItems?.length) &&
+    !heldInventory;
+
+  const consumedByProduct = new Map<Id<"products">, number>();
+
   if (heldInventory) {
-    await closeInventoryReservation(ctx, payment, status === "succeeded" && !orderPaid);
+    const consumed = await closeInventoryReservation(
+      ctx,
+      payment,
+      status === "succeeded" && !orderPaid,
+      now,
+    );
+
+    for (const [productId, quantity] of consumed) {
+      consumedByProduct.set(productId, (consumedByProduct.get(productId) ?? 0) + quantity);
+    }
   }
 
   await ctx.db.patch(payment._id, {
@@ -71,24 +90,39 @@ async function settlePayment(
     status,
     paidAt: status === "succeeded" ? (options.paidAt ?? now) : undefined,
     failureReason: status === "failed" ? options.failureReason : undefined,
+    settlementException: isLateSuccessAfterRelease
+      ? "succeeded_after_release"
+      : status === "refunded"
+        ? undefined
+        : payment.settlementException,
     updatedAt: now,
   });
 
   if (!order) {
-    return;
+    return {};
   }
 
   if (status === "succeeded") {
-    if (payment.reservedItems?.length && !heldInventory) {
+    if (isLateSuccessAfterRelease) {
       console.error("Pey confirmó un pago después de liberar su reserva", {
         paymentId: payment._id,
+        orderId: order._id,
       });
 
-      return;
+      await ctx.db.patch(order._id, {
+        settlementException: {
+          kind: "succeeded_after_release",
+          paymentId: payment._id,
+          detectedAt: now,
+        },
+        updatedAt: now,
+      });
+
+      return { settlementException: "succeeded_after_release" };
     }
 
     if (orderPaid) {
-      return;
+      return {};
     }
 
     await ctx.db.patch(order._id, {
@@ -97,15 +131,20 @@ async function settlePayment(
       updatedAt: now,
     });
 
-    if (payment.reservedItems === undefined) {
-      await decrementLegacyInventory(ctx, order);
-    }
+    await reconcileOrderInventoryOnSettlement(ctx, order, payment._id, consumedByProduct, now);
 
     if (order.billSplitId) {
       await reconcileBillSplit(ctx, order.billSplitId, options.paidAt ?? now);
     }
 
-    return;
+    return {};
+  }
+
+  if (status === "refunded" && order.settlementException?.paymentId === payment._id) {
+    await ctx.db.patch(order._id, {
+      settlementException: undefined,
+      updatedAt: now,
+    });
   }
 
   if (status === "failed" || status === "expired" || (status === "refunded" && heldInventory)) {
@@ -120,6 +159,8 @@ async function settlePayment(
       });
     }
   }
+
+  return {};
 }
 
 async function reconcileBillSplit(ctx: MutationCtx, billSplitId: Id<"billSplits">, now: number) {
@@ -157,26 +198,65 @@ async function reconcileBillSplit(ctx: MutationCtx, billSplitId: Id<"billSplits"
   });
 }
 
-async function decrementLegacyInventory(ctx: MutationCtx, order: Doc<"orders">) {
+async function reconcileOrderInventoryOnSettlement(
+  ctx: MutationCtx,
+  order: Doc<"orders">,
+  settledPaymentId: Id<"payments">,
+  consumedByProduct: Map<Id<"products">, number>,
+  now: number,
+) {
+  if (!order.businessId) {
+    return;
+  }
+
+  // Si un intento legacy (sin reservedItems) o previo liquida la orden mientras otro
+  // intento de la misma orden sostiene reservas, las consumimos aquí para no devolverlas.
+  const orderPayments = await ctx.db
+    .query("payments")
+    .withIndex("by_order", (q) => q.eq("orderId", order._id))
+    .collect();
+
+  for (const other of orderPayments) {
+    if (other._id === settledPaymentId || !holdsInventory(other)) {
+      continue;
+    }
+
+    const consumed = await closeInventoryReservation(ctx, other, true, now);
+
+    for (const [productId, quantity] of consumed) {
+      consumedByProduct.set(productId, (consumedByProduct.get(productId) ?? 0) + quantity);
+    }
+  }
+
+  const orderedByProduct = new Map<Id<"products">, number>();
+
   for (const item of order.items) {
-    if (!item.productId) {
+    if (item.productId) {
+      orderedByProduct.set(
+        item.productId,
+        (orderedByProduct.get(item.productId) ?? 0) + item.quantity,
+      );
+    }
+  }
+
+  // Descuenta únicamente lo que no estaba reservado (intentos legacy o productos que
+  // activaron control de inventario después de iniciar el cobro), respetando otras reservas.
+  for (const [productId, orderedQty] of orderedByProduct) {
+    const remainingQty = orderedQty - (consumedByProduct.get(productId) ?? 0);
+
+    if (remainingQty <= 0) {
       continue;
     }
 
-    const product = await ctx.db.get(item.productId);
+    const product = await ctx.db.get(productId);
 
-    if (!product || product.stock === undefined) {
+    if (!product || product.stock === undefined || product.businessId !== order.businessId) {
       continue;
     }
 
-    if (product.businessId !== order.businessId) {
-      continue;
-    }
-
-    // Los cobros anteriores a las reservas solo pueden descontar existencias libres.
     await ctx.db.patch(product._id, {
-      stock: Math.max(product.reservedStock ?? 0, product.stock - item.quantity),
-      updatedAt: Date.now(),
+      stock: Math.max(product.reservedStock ?? 0, product.stock - remainingQty),
+      updatedAt: now,
     });
   }
 }
@@ -208,6 +288,12 @@ export const beginPayment = internalMutation({
 
     if (order.status !== "draft" && order.status !== "awaiting_payment") {
       throw new ConvexError("La orden no está abierta para cobro");
+    }
+
+    if (order.settlementException) {
+      throw new ConvexError(
+        "Este pedido tiene un pago confirmado pendiente de revisión. No generes otro cobro.",
+      );
     }
 
     const now = Date.now();
@@ -263,12 +349,15 @@ export const beginPayment = internalMutation({
       updatedAt: now,
     });
 
-    if (reservedItems?.length && args.method !== "codi_push") {
+    if (reservedItems?.length) {
+      const isPush = args.method === "codi_push";
+
       await ctx.scheduler.runAfter(
-        UNPUBLISHED_PAYMENT_MS,
+        isPush ? UNPUBLISHED_PUSH_PAYMENT_MS : UNPUBLISHED_PAYMENT_MS,
         internal.pey.mutations.expireUnpublished,
         {
           paymentId,
+          allowPush: isPush || undefined,
         },
       );
     }
@@ -371,8 +460,14 @@ async function writeOrderExpiry(ctx: MutationCtx, orderId: Id<"orders">, expires
   await ctx.db.patch(orderId, { expiresAt, updatedAt: Date.now() });
 }
 
-// Un QR o enlace sin publicar todavía no salió de Cozi. Un push se envía desde Pey.
-export async function closeUnpublishedPayment(ctx: MutationCtx, paymentId: Id<"payments">) {
+// Un QR o enlace sin publicar todavía no salió de Cozi. Un push sin referencia
+// solo se libera al vencer su ventana en Banxico (allowPush=true) para no dejar
+// inventario retenido indefinidamente tras un timeout o 5xx de Pey.
+export async function closeUnpublishedPayment(
+  ctx: MutationCtx,
+  paymentId: Id<"payments">,
+  allowPush = false,
+) {
   const payment = await ctx.db.get(paymentId);
 
   if (
@@ -380,15 +475,19 @@ export async function closeUnpublishedPayment(ctx: MutationCtx, paymentId: Id<"p
     payment.status === "pending" &&
     holdsInventory(payment) &&
     !payment.peyReference &&
-    payment.method !== "codi_push"
+    (allowPush || payment.method !== "codi_push")
   ) {
     await settlePayment(ctx, payment, "expired");
   }
 }
 
 export const expireUnpublished = internalMutation({
-  args: { paymentId: v.id("payments") },
-  handler: async (ctx, { paymentId }) => await closeUnpublishedPayment(ctx, paymentId),
+  args: {
+    paymentId: v.id("payments"),
+    allowPush: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { paymentId, allowPush }) =>
+    await closeUnpublishedPayment(ctx, paymentId, allowPush ?? false),
 });
 
 /** Si Pey falla antes de crear el cobro, la orden queda reutilizable. */
@@ -446,8 +545,17 @@ export const applyProviderStatus = internalMutation({
     });
 
     const updated = await ctx.db.get(payment._id);
+    const status = updated?.status ?? args.status;
 
-    return { paymentId: payment._id, status: updated?.status ?? args.status };
+    if (updated?.settlementException) {
+      return {
+        paymentId: payment._id,
+        status,
+        settlementException: updated.settlementException,
+      };
+    }
+
+    return { paymentId: payment._id, status };
   },
 });
 
@@ -784,16 +892,21 @@ export const ingestWebhookEvent = internalMutation({
       !args.type.startsWith("payment_link.") &&
       (args.status === "failed" || args.status === "expired" || args.status === "refunded");
 
+    let settlementException: SettlementExceptionKind | undefined;
+
     if (!isLinkTransactionFailure) {
-      await settlePayment(ctx, payment, args.status);
+      const settled = await settlePayment(ctx, payment, args.status);
+      settlementException = settled.settlementException;
     }
 
     await ctx.db.patch(eventDocumentId, {
       status: "processed",
-      error: undefined,
+      error: settlementException,
       processedAt: now,
     });
 
-    return { outcome: "processed" as const };
+    return {
+      outcome: settlementException ? ("settlement_exception" as const) : ("processed" as const),
+    };
   },
 });

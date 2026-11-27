@@ -7,12 +7,22 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { action, internalAction } from "../_generated/server";
 import type { ActionCtx } from "../_generated/server";
 import { expiryFromMinutes } from "../lib/expiry";
-import type { BankAccountStatus, PaymentStatus } from "../schema";
+import type { BankAccountStatus, PaymentStatus, SettlementExceptionKind } from "../schema";
 import { getPaymentStatus, isMockMode, PeyHttpError, pey } from "./client";
 import { getPaymentLookup } from "./paymentLookup";
 import type { PaymentHandle } from "./types";
 
 const RECONCILIATION_CONCURRENCY = 4;
+
+function isDefinitiveProvisioningFailure(error: unknown): boolean {
+  return (
+    error instanceof PeyHttpError &&
+    error.status >= 400 &&
+    error.status < 500 &&
+    error.status !== 408 &&
+    error.status !== 429
+  );
+}
 
 async function getAuthUserId(ctx: ActionCtx): Promise<string> {
   const identity = await ctx.auth.getUserIdentity();
@@ -112,11 +122,13 @@ export const createCodiCharge = action({
     } catch (error) {
       console.error("Error creando cobro CoDi", error);
 
-      // Si se perdió la respuesta de un push, Pey pudo haberlo enviado al banco.
+      // Si se perdió la respuesta de un push (timeout/429/5xx), Pey pudo haberlo enviado
+      // al banco; la reserva se libera al vencer su ventana en expireUnpublished.
+      // Ante un rechazo definitivo 4xx de Pey, la liberamos de inmediato.
       if (
         args.method === "qr" ||
         !started.payment.reservedItems?.length ||
-        (error instanceof PeyHttpError && error.status === 400)
+        isDefinitiveProvisioningFailure(error)
       ) {
         await ctx.runMutation(internal.pey.mutations.failPayment, {
           paymentId: started.payment._id,
@@ -205,18 +217,29 @@ export const createPaymentLink = action({
  */
 export const refreshPayment = action({
   args: { paymentId: v.id("payments") },
-  handler: async (ctx, args): Promise<{ status: PaymentStatus }> => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ status: PaymentStatus; settlementException?: SettlementExceptionKind }> => {
     const { payment } = await ctx.runQuery(internal.pey.queries.getPaymentForRefresh, {
       paymentId: args.paymentId,
       authUserId: await getAuthUserId(ctx),
     });
 
     if (payment.status === "succeeded" || payment.status === "refunded") {
+      if (payment.settlementException) {
+        return {
+          status: payment.status,
+          settlementException: payment.settlementException,
+        };
+      }
+
       return { status: payment.status };
     }
 
     const remote = await getPaymentStatus(getPaymentLookup(payment), {
       expectedAmountCents: payment.amountCents,
+      expiresAt: payment.method === "codi_qr" ? payment.expiresAt : undefined,
     }).catch((error: unknown) => {
       console.error("Error consultando pago en Pey", error);
       throw new ConvexError("No se pudo consultar el pago con Pey");
@@ -229,6 +252,13 @@ export const refreshPayment = action({
       paidAt: remote.paidAt,
       failureReason: remote.failureReason,
     });
+
+    if (result.settlementException) {
+      return {
+        status: result.status,
+        settlementException: result.settlementException,
+      };
+    }
 
     return { status: result.status };
   },
@@ -248,10 +278,11 @@ export const reconcilePayments = internalAction({
       const group = batch.slice(offset, offset + RECONCILIATION_CONCURRENCY);
 
       await Promise.all(
-        group.map(async ({ paymentId, lookup, attempt, amountCents }) => {
+        group.map(async ({ paymentId, lookup, attempt, amountCents, expiresAt }) => {
           try {
             const remote = await getPaymentStatus(lookup, {
               expectedAmountCents: amountCents,
+              expiresAt,
               signal: AbortSignal.timeout(10_000),
             });
 

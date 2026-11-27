@@ -29,6 +29,7 @@ import { normalizePaymentStatus } from "./types";
  */
 const DEFAULT_BASE_URL = "https://api.pey.mx";
 const CODI_EXPIRATION_SECONDS = 600;
+export const CODI_QR_EXPIRY_GRACE_MS = 60_000;
 
 const ROUTES = {
   bankAccount: "/bank-account",
@@ -510,13 +511,31 @@ export async function getPaymentStatus(
   lookup: PaymentLookup | null,
   options: PaymentLookupOptions,
 ): Promise<PeyPaymentUpdate> {
+  if (
+    lookup &&
+    options.expiresAt !== undefined &&
+    options.expiresAt <= Date.now() &&
+    lookup.id.startsWith("mock_")
+  ) {
+    return { status: "expired" };
+  }
+
   switch (lookup?.kind) {
     case "transaction":
       return toUpdate(await pey.getTransaction(lookup.id, options.signal));
     case "link":
       return toUpdate(await pey.getPaymentLink(lookup.id, options));
-    case "codi":
-      return toUpdate(await pey.getCodiCharge(lookup.id, options));
+    case "codi": {
+      const charge = await pey.getCodiCharge(lookup.id, options);
+
+      const expiredWithoutPayment =
+        charge.status === "pending" &&
+        options.expiresAt !== undefined &&
+        options.expiresAt + CODI_QR_EXPIRY_GRACE_MS <= Date.now();
+
+      return toUpdate(expiredWithoutPayment ? { ...charge, status: "expired" } : charge);
+    }
+
     default:
       throw new Error("El pago no tiene referencia de Pey para consultar su estado");
   }

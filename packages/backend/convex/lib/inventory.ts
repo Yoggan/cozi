@@ -47,6 +47,7 @@ export async function reserveInventory(ctx: MutationCtx, order: Doc<"orders">) {
 export function holdsInventory(payment: Doc<"payments">) {
   return (
     Boolean(payment.reservedItems?.length) &&
+    payment.reservationClosedAt === undefined &&
     (payment.status === "pending" || payment.status === "processing")
   );
 }
@@ -55,7 +56,10 @@ export async function closeInventoryReservation(
   ctx: MutationCtx,
   payment: Doc<"payments">,
   consume: boolean,
+  now = Date.now(),
 ) {
+  const consumed = new Map<Id<"products">, number>();
+
   for (const { productId, quantity } of payment.reservedItems ?? []) {
     const product = await ctx.db.get("products", productId);
 
@@ -68,9 +72,17 @@ export async function closeInventoryReservation(
 
     if (consume) {
       patch.stock = product.stock - quantity;
-      patch.updatedAt = Date.now();
+      patch.updatedAt = now;
+      consumed.set(productId, (consumed.get(productId) ?? 0) + quantity);
     }
 
     await ctx.db.patch("products", productId, patch);
   }
+
+  await ctx.db.patch("payments", payment._id, {
+    reservationClosedAt: now,
+    updatedAt: now,
+  });
+
+  return consumed;
 }

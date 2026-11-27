@@ -34,6 +34,8 @@ export const paymentStatusValidator = v.union(
   v.literal("refunded"),
 );
 
+export const settlementExceptionKindValidator = v.literal("succeeded_after_release");
+
 export const bankAccountTypeValidator = v.union(v.literal("clabe"), v.literal("card"));
 
 export const bankAccountStatusValidator = v.union(
@@ -77,6 +79,8 @@ export type OrderStatus = Infer<typeof orderStatusValidator>;
 export type PaymentMethod = Infer<typeof paymentMethodValidator>;
 
 export type PaymentStatus = Infer<typeof paymentStatusValidator>;
+
+export type SettlementExceptionKind = Infer<typeof settlementExceptionKindValidator>;
 
 export type BankAccountType = Infer<typeof bankAccountTypeValidator>;
 
@@ -269,6 +273,13 @@ export default defineSchema({
     chatSessionId: v.optional(v.id("chatSessions")),
     billSplitId: v.optional(v.id("billSplits")),
     paymentId: v.optional(v.id("payments")), // intento vigente o el pagado
+    settlementException: v.optional(
+      v.object({
+        kind: settlementExceptionKindValidator,
+        paymentId: v.id("payments"),
+        detectedAt: v.number(),
+      }),
+    ),
     paidAt: v.optional(v.number()),
     fulfilledAt: v.optional(v.number()),
     cancelledAt: v.optional(v.number()),
@@ -343,6 +354,8 @@ export default defineSchema({
         }),
       ),
     ),
+    reservationClosedAt: v.optional(v.number()),
+    settlementException: v.optional(settlementExceptionKindValidator),
     paidAt: v.optional(v.number()),
     reconciliationAttempts: v.optional(v.number()),
     nextReconciliationAt: v.optional(v.number()),

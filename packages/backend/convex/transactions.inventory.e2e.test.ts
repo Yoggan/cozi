@@ -161,7 +161,7 @@ test("cancellation releases an unpublished reservation and prevents late attachm
   expect(await availability()).toBe(0);
 });
 
-test("a cancelled published QR keeps its reservation until scheduled expiry", async () => {
+test("a cancelled published QR releases on canonical reconciliation and flags late confirmation", async () => {
   vi.useFakeTimers();
   const { t, seller, buyer, createOrder, checkout, inventory, availability } = await setup(1);
   const first = await createOrder(buyer.client);
@@ -187,7 +187,9 @@ test("a cancelled published QR keeps its reservation until scheduled expiry", as
   );
   expect(await availability()).toBe(0);
 
-  await t.finishAllScheduledFunctions(() => vi.runAllTimers());
+  // Advance past the 10-minute CoDi QR expiration + 1-minute grace window and run canonical reconciliation.
+  await vi.advanceTimersByTimeAsync(11 * 60_000 + 1000);
+  await t.action(internal.pey.actions.reconcilePayments, {});
 
   expect(fetchPey).toHaveBeenCalledWith(
     expect.stringContaining("/transaction/codi/qr/live_qr"),
@@ -196,6 +198,7 @@ test("a cancelled published QR keeps its reservation until scheduled expiry", as
 
   const expired = await t.run((ctx) => ctx.db.get("payments", qr.paymentId));
   expect(expired?.status).toBe("expired");
+  expect(expired?.reservationClosedAt).toBeTypeOf("number");
   expect(await availability()).toBe(1);
 
   vi.stubEnv("PEY_MODE", "mock");
@@ -206,11 +209,207 @@ test("a cancelled published QR keeps its reservation until scheduled expiry", as
     data: { codiQrId: expired?.peyReference, amount: 10 },
   });
 
-  expect(late.body).toEqual({ ok: true, outcome: "processed" });
+  expect(late.body).toEqual({ ok: true, outcome: "settlement_exception" });
   expect(await inventory()).toMatchObject({ stock: 1, reservedStock: 1 });
+
+  const latePayment = await t.run((ctx) => ctx.db.get("payments", qr.paymentId));
+  expect(latePayment).toMatchObject({
+    status: "succeeded",
+    settlementException: "succeeded_after_release",
+  });
+
+  const orderView = await buyer.client.query(api.orders.getByPublicId, {
+    publicId: first.publicId,
+  });
+
+  expect(orderView).toMatchObject({
+    status: "cancelled",
+    canRenew: false,
+    settlementException: {
+      kind: "succeeded_after_release",
+      paymentId: qr.paymentId,
+    },
+    payment: {
+      paymentId: qr.paymentId,
+      status: "succeeded",
+    },
+  });
+
+  await expect(
+    buyer.client.action(api.pey.actions.refreshPayment, { paymentId: qr.paymentId }),
+  ).resolves.toEqual({
+    status: "succeeded",
+    settlementException: "succeeded_after_release",
+  });
+
+  const refunded = await sendSignedPeyWebhook(t, {
+    type: "codi.qr.refunded",
+    data: { codiQrId: expired?.peyReference, amount: 10 },
+  });
+
+  expect(refunded.body).toEqual({ ok: true, outcome: "processed" });
   expect(
-    (await buyer.client.query(api.orders.getByPublicId, { publicId: first.publicId }))?.status,
-  ).toBe("cancelled");
+    (await buyer.client.query(api.orders.getByPublicId, { publicId: first.publicId }))
+      ?.settlementException,
+  ).toBeNull();
+});
+
+test("late success after release on an open order blocks new charges and cancellation", async () => {
+  vi.useFakeTimers();
+  const { t, seller, buyer, createOrder, checkout } = await setup(1);
+  const order = await createOrder(buyer.client);
+
+  vi.stubEnv("PEY_MODE", "live");
+  vi.stubEnv("PEY_API_KEY", "test_key");
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (_url: string, options?: RequestInit) =>
+      options?.method === "POST" ? Response.json({ id: "open_late_qr" }) : Response.json([]),
+    ),
+  );
+
+  const qr = await buyer.client.action(api.pey.actions.createCodiCharge, {
+    orderId: order.orderId,
+    method: "qr",
+  });
+
+  await vi.advanceTimersByTimeAsync(11 * 60_000 + 1000);
+  await t.action(internal.pey.actions.reconcilePayments, {});
+
+  const late = await sendSignedPeyWebhook(t, {
+    type: "codi.qr.payment_received",
+    data: { codiQrId: "open_late_qr", amount: 10 },
+  });
+
+  expect(late.body).toEqual({ ok: true, outcome: "settlement_exception" });
+
+  await expect(checkout(seller.client, order.orderId)).rejects.toThrow("pendiente de revisión");
+  await expect(
+    seller.client.mutation(api.orders.cancel, { orderId: order.orderId }),
+  ).rejects.toThrow("pendiente de revisión");
+  expect(
+    await seller.client.query(api.orders.getByPublicId, { publicId: order.publicId }),
+  ).toMatchObject({
+    canRenew: false,
+    settlementException: { kind: "succeeded_after_release", paymentId: qr.paymentId },
+  });
+});
+
+test("push provisioning releases immediately on definitive 4xx and after timeout window on 503", async () => {
+  vi.useFakeTimers();
+  const { t, buyer, createOrder, availability } = await setup(1);
+  const first = await createOrder(buyer.client);
+  const second = await createOrder(buyer.client);
+
+  vi.stubEnv("PEY_MODE", "live");
+  vi.stubEnv("PEY_API_KEY", "test_key");
+
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response("invalid phone", { status: 422 })),
+  );
+
+  await expect(
+    buyer.client.action(api.pey.actions.createCodiCharge, {
+      orderId: first.orderId,
+      method: "push",
+      payerPhone: "5512345678",
+    }),
+  ).rejects.toThrow("No se pudo generar el cobro CoDi");
+
+  expect(await availability()).toBe(1);
+
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response("service unavailable", { status: 503 })),
+  );
+
+  await expect(
+    buyer.client.action(api.pey.actions.createCodiCharge, {
+      orderId: second.orderId,
+      method: "push",
+      payerPhone: "5512345678",
+    }),
+  ).rejects.toThrow("No se pudo generar el cobro CoDi");
+
+  // Reservation stays held during the CoDi push window so we do not oversell if Pey sent it.
+  expect(await availability()).toBe(0);
+
+  // Once the 15-minute unpublished push window elapses, scheduled expiry releases the hold.
+  await t.finishAllScheduledFunctions(() => vi.runAllTimers());
+  expect(await availability()).toBe(1);
+});
+
+test("enabling stock tracking mid-checkout still deducts sold units on settlement", async () => {
+  const { seller, buyer, productId, createOrder, checkout, inventory } = await setup();
+  const order = await createOrder(buyer.client, [2]);
+  const link = await checkout(seller.client, order.orderId);
+
+  // Merchant enables stock tracking while the payment link is open.
+  await seller.client.mutation(api.products.update, { productId, stock: 5 });
+
+  await expect(
+    buyer.client.action(api.pey.actions.refreshPayment, { paymentId: link.paymentId }),
+  ).resolves.toEqual({ status: "succeeded" });
+
+  expect(await inventory()).toMatchObject({ stock: 3 });
+  expect((await inventory())?.reservedStock).toBeUndefined();
+});
+
+test("legacy attempt settling while a replacement holds stock consumes the same-order reservation", async () => {
+  vi.useFakeTimers();
+  const { t, buyer, createOrder, inventory, availability } = await setup(1);
+  const order = await createOrder(buyer.client, [1]);
+
+  // Simulate a pre-deploy legacy QR attempt (no reservedItems) that expired locally.
+  const now = Date.now();
+
+  const legacyPaymentId = await t.run((ctx) =>
+    ctx.db.insert("payments", {
+      orderId: order.orderId,
+      businessId: undefined,
+      attemptId: "legacy_attempt",
+      method: "codi_qr",
+      status: "pending",
+      amountCents: order.totalCents,
+      currency: "MXN",
+      peyReference: "legacy_qr_ref",
+      peyCodiId: "legacy_qr_ref",
+      expiresAt: now - 60_000,
+      createdAt: now - 11 * 60_000,
+      updatedAt: now - 11 * 60_000,
+    }),
+  );
+
+  // Replacement QR reserves the last unit on the same order.
+  const replacement = await buyer.client.action(api.pey.actions.createCodiCharge, {
+    orderId: order.orderId,
+    method: "qr",
+  });
+
+  expect(await inventory()).toMatchObject({ stock: 1, reservedStock: 1 });
+
+  // Delayed webhook confirms the legacy attempt.
+  const settled = await sendSignedPeyWebhook(t, {
+    type: "codi.qr.payment_received",
+    data: { codiQrId: "legacy_qr_ref", amount: 10 },
+  });
+
+  expect(settled.body).toEqual({ ok: true, outcome: "processed" });
+  expect(await inventory()).toMatchObject({ stock: 0 });
+  expect((await inventory())?.reservedStock).toBeUndefined();
+
+  // Expiring the replacement must not return the already-sold unit to stock.
+  await t.mutation(internal.pey.mutations.applyProviderStatus, {
+    paymentId: replacement.paymentId,
+    status: "expired",
+  });
+  expect(await inventory()).toMatchObject({ stock: 0 });
+  expect(await availability()).toBe(0);
+  expect((await t.run((ctx) => ctx.db.get("payments", legacyPaymentId)))?.status).toBe("succeeded");
+  expect((await t.run((ctx) => ctx.db.get("payments", replacement.paymentId)))?.status).toBe(
+    "expired",
+  );
 });
 
 test("a live payment link can settle after Cozi expiry and cancellation", async () => {

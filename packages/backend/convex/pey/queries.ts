@@ -7,6 +7,7 @@ import type { DatabaseReader, QueryCtx } from "../_generated/server";
 import { isVerifiedReceivingAccount } from "../lib/bankAccounts";
 
 export const UNPUBLISHED_PAYMENT_MS = 2 * 60 * 1000;
+export const UNPUBLISHED_PUSH_PAYMENT_MS = 15 * 60 * 1000;
 
 export const listReconciliationIssues = internalQuery({
   args: { paginationOpts: paginationOptsValidator },
@@ -139,6 +140,12 @@ export const getOrderForCharge = internalQuery({
 
     if (order.status === "cancelled" || order.status === "expired") {
       throw new ConvexError("La orden está cerrada");
+    }
+
+    if (order.settlementException) {
+      throw new ConvexError(
+        "Este pedido tiene un pago confirmado pendiente de revisión. No generes otro cobro.",
+      );
     }
 
     const business = order.businessId ? await ctx.db.get(order.businessId) : null;
