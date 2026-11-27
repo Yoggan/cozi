@@ -1,11 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { api } from "@cozi/backend/convex/_generated/api";
 import type { Id } from "@cozi/backend/convex/_generated/dataModel";
+import {
+  PRODUCT_PHOTO_ACCEPT,
+  uploadImage,
+  validateProductPhoto,
+} from "@cozi/backend/image-upload";
 import { Button } from "@cozi/ui/components/button";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { ConvexError } from "convex/values";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Amount, Empty, Field, Form, Loading, Page, field } from "@/components/cozi";
@@ -15,6 +20,8 @@ import { useProfile } from "@/lib/profile";
 export const Route = createFileRoute("/_auth/business/catalog")({ component: Catalog });
 
 type Product = FunctionReturnType<typeof api.products.listByBusiness>[number];
+
+const PENDING_UPLOAD_SAFETY_MS = 60 * 1000;
 
 function Catalog() {
   const { business } = useProfile();
@@ -76,9 +83,54 @@ function ProductEditor({
 }) {
   const create = useMutation(api.products.create);
   const update = useMutation(api.products.update);
+  const generatePhotoUploadUrl = useMutation(api.products.generatePhotoUploadUrl);
+  const stagePhotoUpload = useMutation(api.products.stagePhotoUpload);
+  const discardPendingPhoto = useMutation(api.products.discardPendingPhoto);
   const [version, setVersion] = useState(0);
   const [stockDraft, setStockDraft] = useState<{ value: string; expected: number | null }>();
+  const photoInput = useRef<HTMLInputElement>(null);
+
+  const pendingUploadRef = useRef<{
+    file: File;
+    storageId: Id<"_storage">;
+    expiresAt: number;
+  } | null>(null);
+
+  const [photoDraft, setPhotoDraft] = useState<File | null>();
   const currentStock = product?.stock ?? null;
+
+  function discardPendingUpload() {
+    const pending = pendingUploadRef.current;
+    pendingUploadRef.current = null;
+
+    if (pending) {
+      void discardPendingPhoto({ businessId, storageId: pending.storageId }).catch(() => {});
+    }
+  }
+
+  useEffect(
+    () => () => {
+      const pending = pendingUploadRef.current;
+      pendingUploadRef.current = null;
+
+      if (pending) {
+        void discardPendingPhoto({ businessId, storageId: pending.storageId }).catch(() => {});
+      }
+    },
+    [businessId, discardPendingPhoto],
+  );
+
+  function resetPhotoDraft(value?: null, keepUploaded = false) {
+    if (!keepUploaded) {
+      discardPendingUpload();
+    }
+
+    if (photoInput.current) {
+      photoInput.current.value = "";
+    }
+
+    setPhotoDraft(value);
+  }
 
   return (
     <Form
@@ -87,37 +139,98 @@ function ProductEditor({
       submit={product ? "Guardar cambios" : "Agregar producto"}
       variant={product ? "secondary" : "default"}
       onSubmit={async (data) => {
+        const name = field(data, "name");
+
+        if (!name.trim()) {
+          throw new ConvexError("Escribe el nombre del producto.");
+        }
+
         const priceCents = centsFromInput(field(data, "price"));
 
-        if (priceCents === null || priceCents <= 0) {
-          throw new ConvexError("Escribe un precio válido.");
+        if (priceCents === null || priceCents < 100) {
+          throw new ConvexError("Escribe un precio válido (mínimo $1 MXN).");
         }
 
         const stockText = field(data, "stock");
         const stock = stockText ? Number(stockText) : null;
 
+        if (stock !== null && (!Number.isInteger(stock) || stock < 0)) {
+          throw new ConvexError("El inventario debe ser un entero mayor o igual a 0.");
+        }
+
         const fields = {
-          name: field(data, "name"),
+          name,
           description: field(data, "description"),
           category: field(data, "category"),
           priceCents,
           active: data.has("active"),
         };
 
-        if (product) {
-          const stockChange =
-            stockDraft && stock !== stockDraft.expected
-              ? { stock, expectedStock: stockDraft.expected }
-              : {};
+        let imageStorageId: Id<"_storage"> | null | undefined =
+          photoDraft === null ? null : undefined;
 
-          await update({ ...fields, productId: product._id, ...stockChange });
-          setStockDraft(undefined);
-        } else {
-          await create({ ...fields, businessId, stock: stock ?? undefined });
-          setStockDraft(undefined);
-          setVersion((value) => value + 1);
+        if (photoDraft) {
+          validateProductPhoto(photoDraft.size, photoDraft.type);
+
+          const reusablePending =
+            pendingUploadRef.current?.file === photoDraft &&
+            pendingUploadRef.current.expiresAt - PENDING_UPLOAD_SAFETY_MS > Date.now()
+              ? pendingUploadRef.current
+              : null;
+
+          if (reusablePending) {
+            imageStorageId = reusablePending.storageId;
+          } else {
+            discardPendingUpload();
+
+            const uploadedId = await uploadImage(photoDraft, photoDraft.type, () =>
+              generatePhotoUploadUrl({ businessId }),
+            );
+
+            const staged = await stagePhotoUpload({ businessId, storageId: uploadedId });
+
+            if (staged.status === "rejected") {
+              throw new ConvexError(staged.message);
+            }
+
+            pendingUploadRef.current = {
+              file: photoDraft,
+              storageId: staged.storageId,
+              expiresAt: staged.expiresAt,
+            };
+            imageStorageId = staged.storageId;
+          }
         }
 
+        try {
+          if (product) {
+            const stockChange =
+              stockDraft && stock !== stockDraft.expected
+                ? { stock, expectedStock: stockDraft.expected }
+                : {};
+
+            await update({ ...fields, productId: product._id, imageStorageId, ...stockChange });
+            setStockDraft(undefined);
+          } else {
+            await create({
+              ...fields,
+              businessId,
+              imageStorageId: imageStorageId ?? undefined,
+              stock: stock ?? undefined,
+            });
+            setStockDraft(undefined);
+            setVersion((value) => value + 1);
+          }
+        } catch (error) {
+          if (error instanceof ConvexError && error.data === "No encontramos la foto") {
+            pendingUploadRef.current = null;
+          }
+
+          throw error;
+        }
+
+        pendingUploadRef.current = null;
+        resetPhotoDraft(undefined, true);
         toast.success(product ? "Producto actualizado" : "Producto agregado");
       }}
     >
@@ -141,6 +254,44 @@ function ProductEditor({
         defaultValue={product?.category ?? ""}
         maxLength={40}
       />
+      <div className="space-y-2">
+        {product?.imageUrl && photoDraft === undefined && (
+          <img src={product.imageUrl} alt="" className="size-20 rounded-lg object-cover" />
+        )}
+        <Field
+          ref={photoInput}
+          type="file"
+          accept={PRODUCT_PHOTO_ACCEPT}
+          label={product?.imageUrl ? "Reemplazar foto" : "Foto (opcional)"}
+          hint="JPG, PNG o WebP de hasta 5 MB."
+          onChange={(event) => {
+            const nextFile = event.target.files?.[0];
+
+            if (pendingUploadRef.current && pendingUploadRef.current.file !== nextFile) {
+              discardPendingUpload();
+            }
+
+            setPhotoDraft(nextFile);
+          }}
+        />
+        {photoDraft === null && (
+          <p role="status" className="text-sm text-muted-foreground">
+            La foto se quitará al guardar.
+          </p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          {product?.imageUrl && photoDraft !== null && (
+            <Button type="button" variant="outline" size="sm" onClick={() => resetPhotoDraft(null)}>
+              Quitar foto
+            </Button>
+          )}
+          {photoDraft !== undefined && (
+            <Button type="button" variant="ghost" size="sm" onClick={() => resetPhotoDraft()}>
+              Deshacer cambio de foto
+            </Button>
+          )}
+        </div>
+      </div>
       <Field
         name="price"
         label="Precio en MXN"
