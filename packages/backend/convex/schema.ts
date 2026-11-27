@@ -34,6 +34,8 @@ export const paymentStatusValidator = v.union(
   v.literal("refunded"),
 );
 
+export const settlementExceptionKindValidator = v.literal("succeeded_after_release");
+
 export const bankAccountTypeValidator = v.union(v.literal("clabe"), v.literal("card"));
 
 export const bankAccountStatusValidator = v.union(
@@ -77,6 +79,8 @@ export type OrderStatus = Infer<typeof orderStatusValidator>;
 export type PaymentMethod = Infer<typeof paymentMethodValidator>;
 
 export type PaymentStatus = Infer<typeof paymentStatusValidator>;
+
+export type SettlementExceptionKind = Infer<typeof settlementExceptionKindValidator>;
 
 export type BankAccountType = Infer<typeof bankAccountTypeValidator>;
 
@@ -234,6 +238,7 @@ export default defineSchema({
     category: v.optional(v.string()),
     imageStorageId: v.optional(v.id("_storage")),
     stock: v.optional(v.number()), // undefined = sin control de inventario
+    reservedStock: v.optional(v.number()), // unidades incluidas en stock con un cobro abierto
     active: v.boolean(),
     source: v.union(v.literal("manual"), v.literal("vision")),
     createdAt: v.number(),
@@ -268,6 +273,13 @@ export default defineSchema({
     chatSessionId: v.optional(v.id("chatSessions")),
     billSplitId: v.optional(v.id("billSplits")),
     paymentId: v.optional(v.id("payments")), // intento vigente o el pagado
+    settlementException: v.optional(
+      v.object({
+        kind: settlementExceptionKindValidator,
+        paymentId: v.id("payments"),
+        detectedAt: v.number(),
+      }),
+    ),
     paidAt: v.optional(v.number()),
     fulfilledAt: v.optional(v.number()),
     cancelledAt: v.optional(v.number()),
@@ -333,7 +345,27 @@ export default defineSchema({
     deepLink: v.optional(v.string()),
     expiresAt: v.optional(v.number()),
     failureReason: v.optional(v.string()),
+    // Ausente en intentos previos a las reservas. Vacío si no hay productos con stock.
+    reservedItems: v.optional(
+      v.array(
+        v.object({
+          productId: v.id("products"),
+          quantity: v.number(),
+        }),
+      ),
+    ),
+    reservationClosedAt: v.optional(v.number()),
+    settlementException: v.optional(settlementExceptionKindValidator),
     paidAt: v.optional(v.number()),
+    reconciliationAttempts: v.optional(v.number()),
+    nextReconciliationAt: v.optional(v.number()),
+    reconciliationIssue: v.optional(
+      v.union(
+        v.literal("missing_reference"),
+        v.literal("mock_reference"),
+        v.literal("retry_limit"),
+      ),
+    ),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -345,6 +377,13 @@ export default defineSchema({
     .index("by_pey_codi_id", ["peyCodiId"])
     .index("by_pey_transaction_id", ["peyTransactionId"])
     .index("by_status", ["status"])
+    .index("by_status_reconciliationIssue_nextReconciliationAt_createdAt", [
+      "status",
+      "reconciliationIssue",
+      "nextReconciliationAt",
+      "createdAt",
+    ])
+    .index("by_reconciliationIssue", ["reconciliationIssue"])
     .index("by_business_created", ["businessId", "createdAt"]),
 
   /**
@@ -434,7 +473,31 @@ export default defineSchema({
     senderId: v.id("users"),
     text: v.string(),
     createdAt: v.number(),
-  }).index("by_thread_created", ["threadId", "createdAt"]),
+  })
+    .index("by_thread_created", ["threadId", "createdAt"])
+    .index("by_threadId_and_senderId", ["threadId", "senderId"]),
+
+  messageBlocks: defineTable({
+    blockerId: v.id("users"),
+    blockedId: v.id("users"),
+  }).index("by_blockerId_and_blockedId", ["blockerId", "blockedId"]),
+
+  messageReports: defineTable({
+    threadId: v.id("messageThreads"),
+    reporterId: v.id("users"),
+    reportedId: v.id("users"),
+    sourceMessageId: v.optional(v.id("messages")),
+    evidenceIds: v.array(v.id("messages")),
+    status: v.union(v.literal("pending"), v.literal("reviewed")),
+    reviewedBy: v.optional(v.string()),
+    reviewedAt: v.optional(v.number()),
+  })
+    .index("by_threadId_and_reporterId", ["threadId", "reporterId"])
+    .index("by_status", ["status"]),
+
+  messageSupportReviewers: defineTable({
+    tokenIdentifier: v.string(),
+  }).index("by_tokenIdentifier", ["tokenIdentifier"]),
 
   /**
    * Bitácora e idempotencia de webhooks de Pey. Evita doble descuento de

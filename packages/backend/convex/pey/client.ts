@@ -1,8 +1,9 @@
 import type { BankAccountStatus } from "../schema";
+import type { PaymentLookup } from "./paymentLookup";
 import type {
   CreateCodiChargeInput,
   CreatePaymentLinkInput,
-  PaymentProviderRefs,
+  PaymentLookupOptions,
   PeyBankAccountRaw,
   PeyBankAccountResult,
   PeyClient,
@@ -10,6 +11,7 @@ import type {
   PeyCodiChargeResult,
   PeyPaymentLinkRaw,
   PeyPaymentLinkResult,
+  PeyPaymentDetails,
   PeyPaymentUpdate,
   PeyTransactionRaw,
   PeyTransactionResult,
@@ -27,6 +29,7 @@ import { normalizePaymentStatus } from "./types";
  */
 const DEFAULT_BASE_URL = "https://api.pey.mx";
 const CODI_EXPIRATION_SECONDS = 600;
+export const CODI_QR_EXPIRY_GRACE_MS = 60_000;
 
 const ROUTES = {
   bankAccount: "/bank-account",
@@ -56,7 +59,7 @@ const CLABE_BANKS = new Map([
   ["722", "Mercado Pago"],
 ]);
 
-function isMockMode(): boolean {
+export function isMockMode(): boolean {
   const mode = process.env.PEY_MODE?.trim().toLowerCase();
 
   if (mode === "mock") {
@@ -141,6 +144,15 @@ function numericRef(reference: string): string {
   return digits.length > 0 ? digits : String(Date.now()).slice(-7);
 }
 
+export class PeyHttpError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 async function peyFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const baseUrl = getBaseUrl();
 
@@ -156,7 +168,10 @@ async function peyFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     // La respuesta puede contener datos del titular: no la persistimos.
     const detail = await response.text();
-    throw new Error(`Pey ${response.status} ${path}: ${detail.slice(0, 300)}`);
+    throw new PeyHttpError(
+      response.status,
+      `Pey ${response.status} ${path}: ${detail.slice(0, 300)}`,
+    );
   }
 
   // SAFETY: el cliente confía en el contrato de Pey; los campos se validan al mapear.
@@ -206,19 +221,31 @@ function mapBankAccountStatus(raw: string | undefined): BankAccountStatus {
   }
 }
 
-function summarizeCodiTransactions(
-  id: string,
-  transactions: Array<PeyTransactionRaw>,
-): PeyCodiChargeResult {
-  const paid = transactions.find(
-    (tx) => tx.datePaid || normalizePaymentStatus(tx.status) === "succeeded",
-  );
+function findPaidTransaction(transactions: Array<PeyTransactionRaw>, expectedAmountCents?: number) {
+  let fallback: (PeyPaymentUpdate & { transactionId?: string }) | undefined;
 
-  return {
-    id,
-    status: paid ? "succeeded" : "pending",
-    transactionId: optionalString(paid?.transactionId ?? paid?.id),
-  };
+  for (const transaction of transactions) {
+    const update = mapPaymentUpdate(transaction);
+
+    if (update.status !== "succeeded") {
+      continue;
+    }
+
+    const paid = {
+      ...update,
+      transactionId: optionalString(transaction.transactionId ?? transaction.id),
+    };
+
+    if (expectedAmountCents !== undefined && paid.amountCents === expectedAmountCents) {
+      return paid;
+    }
+
+    if (!fallback || (fallback.amountCents === undefined && paid.amountCents !== undefined)) {
+      fallback = paid;
+    }
+  }
+
+  return fallback;
 }
 
 function pngDataUrl(image: string): string {
@@ -233,8 +260,8 @@ function mapCodiCharge(raw: PeyCodiChargeRaw): PeyCodiChargeResult {
     (typeof raw.expiration === "number" ? Date.now() + raw.expiration * 1000 : undefined);
 
   return {
+    ...mapPaymentUpdate(raw),
     id,
-    status: normalizePaymentStatus(raw.status) ?? "pending",
     qrImageUrl: raw.qrImage
       ? pngDataUrl(raw.qrImage)
       : optionalString(raw.qr_image_url ?? raw.qr ?? raw.qrCode),
@@ -244,17 +271,29 @@ function mapCodiCharge(raw: PeyCodiChargeRaw): PeyCodiChargeResult {
   };
 }
 
-function mapPaymentLink(raw: PeyPaymentLinkRaw): PeyPaymentLinkResult {
+function mapPaymentLink(
+  raw: PeyPaymentLinkRaw,
+  expectedAmountCents?: number,
+): PeyPaymentLinkResult {
+  const status = normalizePaymentStatus(raw.status) ?? "pending";
+  const details = status === "succeeded" ? mapPaymentUpdate(raw) : undefined;
+
+  const paid = details
+    ? findPaidTransaction(raw.transactions ?? [], expectedAmountCents)
+    : undefined;
+
   return {
     id: requireString(raw.id, "id"),
-    status: normalizePaymentStatus(raw.status) ?? "pending",
+    status,
+    amountCents: paid?.amountCents ?? details?.amountCents,
+    paidAt: paid?.paidAt ?? details?.paidAt,
     url: requireString(raw.url ?? raw.short_url, "url"),
     expiresAt: toEpochMs(raw.expiresAt ?? raw.expires_at),
     transactionId: optionalString(raw.transactionId ?? raw.transaction_id),
   };
 }
 
-function mapTransaction(raw: PeyTransactionRaw): PeyTransactionResult {
+function mapPaymentUpdate(raw: PeyPaymentDetails): PeyPaymentUpdate {
   const amountCents =
     typeof raw.amount_cents === "number"
       ? raw.amount_cents
@@ -265,7 +304,6 @@ function mapTransaction(raw: PeyTransactionRaw): PeyTransactionResult {
   const paidAt = toEpochMs(raw.datePaid ?? raw.paidAt ?? raw.paid_at);
 
   return {
-    id: requireString(raw.transactionId ?? raw.id, "id"),
     status: normalizePaymentStatus(raw.status) ?? (paidAt ? "succeeded" : "pending"),
     amountCents,
     paidAt,
@@ -406,7 +444,7 @@ export const pey: PeyClient = {
         successUrl: orderUrl,
         backUrl: orderUrl,
         hasTip: false,
-        clientReferenceId: input.reference,
+        clientReferenceId: input.attemptId ?? input.reference,
         metadata: {
           orderId: input.reference,
           bankAccountId: input.bankAccountId,
@@ -417,27 +455,29 @@ export const pey: PeyClient = {
     return mapPaymentLink(raw);
   },
 
-  async getCodiCharge(id: string): Promise<PeyCodiChargeResult> {
+  async getCodiCharge(id: string, options?: PaymentLookupOptions): Promise<PeyCodiChargeResult> {
     if (isMockMode() || id.startsWith("mock_")) {
       return { id, status: "succeeded" };
     }
 
     const raw = await peyFetch<PeyCodiChargeRaw | Array<PeyTransactionRaw>>(
       `${ROUTES.transactionsByCodiQr}/${encodeURIComponent(id)}`,
+      { signal: options?.signal },
     );
 
-    if (Array.isArray(raw)) {
-      return summarizeCodiTransactions(id, raw);
+    if (!Array.isArray(raw) && !raw.transactions) {
+      return mapCodiCharge(raw);
     }
 
-    if (raw.transactions) {
-      return summarizeCodiTransactions(id, raw.transactions);
-    }
+    const paid = findPaidTransaction(
+      Array.isArray(raw) ? raw : (raw.transactions ?? []),
+      options?.expectedAmountCents,
+    );
 
-    return mapCodiCharge(raw);
+    return paid ? { id, ...paid } : { id, status: "pending" };
   },
 
-  async getPaymentLink(id: string): Promise<PeyPaymentLinkResult> {
+  async getPaymentLink(id: string, options?: PaymentLookupOptions): Promise<PeyPaymentLinkResult> {
     if (isMockMode() || id.startsWith("mock_")) {
       return {
         id,
@@ -448,67 +488,60 @@ export const pey: PeyClient = {
 
     const raw = await peyFetch<PeyPaymentLinkRaw>(
       `${ROUTES.paymentLink}/${encodeURIComponent(id)}`,
+      { signal: options?.signal },
     );
 
-    return mapPaymentLink(raw);
+    return mapPaymentLink(raw, options?.expectedAmountCents);
   },
 
-  async getTransaction(id: string): Promise<PeyTransactionResult> {
+  async getTransaction(id: string, signal?: AbortSignal): Promise<PeyTransactionResult> {
     if (isMockMode() || id.startsWith("mock_")) {
       return { id, status: "succeeded", paidAt: Date.now() };
     }
 
-    const raw = await peyFetch<PeyTransactionRaw>(`/transaction/${encodeURIComponent(id)}`);
+    const raw = await peyFetch<PeyTransactionRaw>(`/transaction/${encodeURIComponent(id)}`, {
+      signal,
+    });
 
-    return mapTransaction(raw);
+    return { id: requireString(raw.transactionId ?? raw.id, "id"), ...mapPaymentUpdate(raw) };
   },
 };
 
-/**
- * Consulta el estatus real en Pey. El webhook es la fuente primaria; esto
- * existe para reconciliación y para el caso en que una entrega se pierda.
- */
-export async function getPaymentStatus(refs: PaymentProviderRefs): Promise<PeyPaymentUpdate> {
-  if (refs.peyTransactionId) {
-    const transaction = await pey.getTransaction(refs.peyTransactionId);
-
-    return toUpdate(transaction);
+export async function getPaymentStatus(
+  lookup: PaymentLookup | null,
+  options: PaymentLookupOptions,
+): Promise<PeyPaymentUpdate> {
+  if (
+    lookup &&
+    options.expiresAt !== undefined &&
+    options.expiresAt <= Date.now() &&
+    lookup.id.startsWith("mock_")
+  ) {
+    return { status: "expired" };
   }
 
-  if (refs.method === "payment_link" && refs.peyPaymentLinkId) {
-    const link = await pey.getPaymentLink(refs.peyPaymentLinkId);
+  switch (lookup?.kind) {
+    case "transaction":
+      return toUpdate(await pey.getTransaction(lookup.id, options.signal));
+    case "link":
+      return toUpdate(await pey.getPaymentLink(lookup.id, options));
+    case "codi": {
+      const charge = await pey.getCodiCharge(lookup.id, options);
 
-    return { status: link.status };
-  }
+      const expiredWithoutPayment =
+        charge.status === "pending" &&
+        options.expiresAt !== undefined &&
+        options.expiresAt + CODI_QR_EXPIRY_GRACE_MS <= Date.now();
 
-  if (refs.peyCodiId) {
-    const charge = await pey.getCodiCharge(refs.peyCodiId);
-
-    return { status: charge.status };
-  }
-
-  if (refs.peyPaymentId) {
-    const transaction = await pey.getTransaction(refs.peyPaymentId);
-
-    return toUpdate(transaction);
-  }
-
-  if (refs.peyReference) {
-    if (refs.method === "payment_link") {
-      const link = await pey.getPaymentLink(refs.peyReference);
-
-      return { status: link.status };
+      return toUpdate(expiredWithoutPayment ? { ...charge, status: "expired" } : charge);
     }
 
-    const transaction = await pey.getTransaction(refs.peyReference);
-
-    return toUpdate(transaction);
+    default:
+      throw new Error("El pago no tiene referencia de Pey para consultar su estado");
   }
-
-  throw new Error("El pago no tiene referencia de Pey para consultar su estado");
 }
 
-function toUpdate(transaction: PeyTransactionResult): PeyPaymentUpdate {
+function toUpdate(transaction: PeyPaymentUpdate): PeyPaymentUpdate {
   return {
     status: transaction.status,
     amountCents: transaction.amountCents,

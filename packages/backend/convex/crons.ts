@@ -10,4 +10,10 @@ crons.interval(
   internal.mobileNotifications.pruneExpired,
 );
 
+crons.interval(
+  "reconcile aging Pey payments",
+  { minutes: 5 },
+  internal.pey.actions.reconcilePayments,
+);
+
 export default crons;

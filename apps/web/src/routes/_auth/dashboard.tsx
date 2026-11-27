@@ -7,6 +7,7 @@ import { ArrowDownLeft, ArrowUpRight, Building2, Copy, Share2, Store } from "luc
 import ActivityList from "@/components/activity-list";
 import { Avatar, Empty, Loading, Page, copyText, shareText } from "@/components/cozi";
 import { BusinessOrderList } from "@/components/business-order-list";
+import { FirstPaymentChecklist } from "@/components/first-payment-checklist";
 import { useProfile } from "@/lib/profile";
 
 type DashboardSearch = { negocio?: string };
@@ -34,6 +35,7 @@ function Dashboard() {
         {business.handle && (
           <HandleCard handle={business.handle} label="Tu negocio en Cozi" business />
         )}
+        <FirstPaymentChecklist business={business} />
         <div className="flex flex-wrap gap-3">
           <Link to="/business/new-order" className={buttonVariants()}>
             Nuevo pedido

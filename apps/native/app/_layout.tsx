@@ -2,7 +2,7 @@ import "@/global.css";
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { useConvexAuth } from "convex/react";
 import { ConvexReactClient } from "convex/react";
-import { Stack } from "expo-router";
+import { Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { HeroUINativeProvider, useThemeColor } from "heroui-native";
 import { useEffect, useRef, useState } from "react";
@@ -66,6 +66,7 @@ function RootNavigator() {
   const { isLoading, isAuthenticated } = useConvexAuth();
   const { signOut } = useMobileNotifications();
   const signOutRef = useRef(signOut);
+  const pathname = usePathname();
   const [hasCheckedEphemeralSession, setHasCheckedEphemeralSession] = useState(false);
   const background = useThemeColor("background");
   const foreground = useThemeColor("foreground");
@@ -166,14 +167,17 @@ function RootNavigator() {
           options={{ headerShown: true, title: "Conversación" }}
         />
       </Stack.Protected>
+      <Stack.Screen name="forgot-password" />
     </Stack>
   );
+
+  const isRecoveryScreen = pathname === "/forgot-password";
 
   return (
     <ProfileProvider>
       <StatusBar style={isLight ? "dark" : "light"} />
       <AppLockProvider>
-        {isAuthenticated ? (
+        {isAuthenticated && !isRecoveryScreen ? (
           <AccountsProvider>
             <AppLockGate>
               <AccountOnboardingGate>

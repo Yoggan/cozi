@@ -1,11 +1,13 @@
 import { ConvexError, v } from "convex/values";
 
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { businessStatusValidator } from "./schema";
+import { isVerifiedReceivingAccount } from "./lib/bankAccounts";
 import { claimHandle } from "./lib/handles";
 import { HANDLE_PATTERN, handleBase, normalizeHandle } from "./lib/identifiers";
+import { availableStock } from "./lib/inventory";
 
 async function requireUser(ctx: QueryCtx | MutationCtx): Promise<Doc<"users">> {
   const identity = await ctx.auth.getUserIdentity();
@@ -24,6 +26,17 @@ async function requireUser(ctx: QueryCtx | MutationCtx): Promise<Doc<"users">> {
   }
 
   return user;
+}
+
+async function requireOwnedBusiness(ctx: QueryCtx, businessId: Id<"businesses">) {
+  const user = await requireUser(ctx);
+  const business = await ctx.db.get(businessId);
+
+  if (!business || business.ownerId !== user._id) {
+    throw new ConvexError("Negocio no encontrado");
+  }
+
+  return business;
 }
 
 function readName(value: string): string {
@@ -213,9 +226,7 @@ export const getByHandle = query({
         .take(100),
     ]);
 
-    const hasReceivingAccount = bankAccounts.some(
-      (account) => account.status === "verified" && Boolean(account.peyBankAccountId),
-    );
+    const hasReceivingAccount = bankAccounts.some(isVerifiedReceivingAccount);
 
     return {
       _id: business._id,
@@ -232,8 +243,55 @@ export const getByHandle = query({
         description: product.description ?? null,
         priceCents: product.priceCents,
         category: product.category ?? null,
-        stock: product.stock ?? null,
+        stock: availableStock(product),
       })),
+    };
+  },
+});
+
+type ReceivingAccount =
+  | { status: "verified" | "rejected" | "missing" }
+  | { status: "pending"; accountId: Id<"bankAccounts"> };
+
+function receivingAccountState(accounts: Array<Doc<"bankAccounts">>): ReceivingAccount {
+  if (accounts.some(isVerifiedReceivingAccount)) {
+    return { status: "verified" };
+  }
+
+  const pending = accounts.find(
+    (account) => account.status === "pending" && account.peyBankAccountId,
+  );
+
+  if (pending) {
+    return { status: "pending", accountId: pending._id };
+  }
+
+  return {
+    status: accounts.some((account) => account.status === "rejected") ? "rejected" : "missing",
+  };
+}
+
+export const firstPaymentReadiness = query({
+  args: { businessId: v.id("businesses") },
+  handler: async (ctx, { businessId }) => {
+    const business = await requireOwnedBusiness(ctx, businessId);
+
+    const [product, accounts] = await Promise.all([
+      ctx.db
+        .query("products")
+        .withIndex("by_business_active", (q) => q.eq("businessId", businessId).eq("active", true))
+        .first(),
+      ctx.db
+        .query("bankAccounts")
+        .withIndex("by_business", (q) => q.eq("businessId", businessId))
+        .order("desc")
+        .collect(),
+    ]);
+
+    return {
+      hasPublishedProduct: product !== null,
+      receivingAccount: receivingAccountState(accounts),
+      ordersEnabled: business.status === "active" && business.acceptingOrders,
     };
   },
 });
@@ -241,17 +299,12 @@ export const getByHandle = query({
 /** Cuentas bancarias del negocio, solo la máscara. */
 export const listBankAccounts = query({
   args: { businessId: v.id("businesses") },
-  handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
-    const business = await ctx.db.get(args.businessId);
-
-    if (!business || business.ownerId !== user._id) {
-      throw new ConvexError("Negocio no encontrado");
-    }
+  handler: async (ctx, { businessId }) => {
+    await requireOwnedBusiness(ctx, businessId);
 
     const accounts = await ctx.db
       .query("bankAccounts")
-      .withIndex("by_business", (q) => q.eq("businessId", business._id))
+      .withIndex("by_business", (q) => q.eq("businessId", businessId))
       .collect();
 
     return accounts
