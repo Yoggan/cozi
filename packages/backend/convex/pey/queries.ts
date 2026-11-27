@@ -4,6 +4,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalQuery } from "../_generated/server";
 import type { DatabaseReader, QueryCtx } from "../_generated/server";
+import { isVerifiedReceivingAccount } from "../lib/bankAccounts";
 
 export const listReconciliationIssues = internalQuery({
   args: { paginationOpts: paginationOptsValidator },
@@ -76,7 +77,7 @@ async function getReceivingBankAccount(
   if (business?.defaultBankAccountId) {
     const preferred = await ctx.db.get(business.defaultBankAccountId);
 
-    if (preferred?.status === "verified" && preferred.peyBankAccountId) {
+    if (isVerifiedReceivingAccount(preferred)) {
       return preferred;
     }
   }
@@ -93,9 +94,7 @@ async function getReceivingBankAccount(
 
   const usable = accounts.filter(
     (account) =>
-      account.status === "verified" &&
-      Boolean(account.peyBankAccountId) &&
-      (business ? true : account.businessId === undefined),
+      isVerifiedReceivingAccount(account) && (business ? true : account.businessId === undefined),
   );
 
   return usable.find((account) => account.isDefault) ?? usable[0] ?? null;
