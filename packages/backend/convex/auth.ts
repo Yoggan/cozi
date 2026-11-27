@@ -5,10 +5,11 @@ import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth/minimal";
 import { multiSession } from "better-auth/plugins";
 
-import { components } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import { query } from "./_generated/server";
 import authConfig from "./auth.config";
+import { PASSWORD_RESET_PATH } from "./lib/passwordRecovery";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -77,6 +78,20 @@ function createAuth(ctx: GenericCtx<DataModel>) {
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,
+      resetPasswordTokenExpiresIn: 30 * 60,
+      revokeSessionsOnPasswordReset: true,
+      async sendResetPassword({ user, url }) {
+        if (!("scheduler" in ctx)) {
+          throw new Error("Password reset email requires a scheduler");
+        }
+
+        const link = new URL(new URL(url).pathname, siteUrl);
+        link.searchParams.set("callbackURL", new URL(PASSWORD_RESET_PATH, siteUrl).href);
+        await ctx.scheduler.runAfter(0, internal.passwordResetEmail.deliver, {
+          email: user.email,
+          link: link.href,
+        });
+      },
     },
     socialProviders:
       process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET

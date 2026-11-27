@@ -1,4 +1,5 @@
 import { Button } from "@cozi/ui/components/button";
+import { Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -94,6 +95,9 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
         }}
       >
         <AuthFields />
+        <Link to="/forgot-password" className="text-sm font-semibold underline underline-offset-4">
+          Olvidé mi contraseña
+        </Link>
       </Form>
       <GoogleSignIn />
       <button
