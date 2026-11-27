@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AccountsAvatar } from "@/components/accounts-avatar";
 import { Container } from "@/components/container";
+import { FirstPaymentChecklist } from "@/components/first-payment-checklist";
 import { useAppTheme } from "@/contexts/app-theme-context";
 import { useProfile } from "@/contexts/profile-context";
 import { formatMxn } from "@/lib/money";
@@ -145,6 +146,8 @@ export function BusinessModeHome() {
             </View>
           )}
         </View>
+
+        {profile.business ? <FirstPaymentChecklist business={profile.business} /> : null}
 
         <Pressable
           onPress={() => router.push("/business-order")}

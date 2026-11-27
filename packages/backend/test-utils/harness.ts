@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+import rateLimiterTest from "@convex-dev/rate-limiter/test";
 import { convexTest } from "convex-test";
 import type { TestConvex } from "convex-test";
 
@@ -29,7 +30,10 @@ export function configureTestEnv() {
 export function createTestBackend(): BackendTest {
   configureTestEnv();
 
-  return convexTest(schema, convexModules);
+  const t = convexTest(schema, convexModules);
+  rateLimiterTest.register(t);
+
+  return t;
 }
 
 /** Firma un payload usando Standard Webhooks (`v1,<base64>`), idéntico a Pey. */

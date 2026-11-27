@@ -38,11 +38,11 @@ export default function OrderPayment({ order, status }: { order: Order; status: 
   const payment = paymentExpired ? null : order.payment;
   const open = payable(status);
 
-  const canRenew = orderExpired && order.direction === "in";
+  const canRenew = orderExpired && order.direction === "in" && order.canRenew;
 
   const checkoutUrl = payment?.checkoutUrl;
 
-  if (!open && !canRenew) {
+  if (order.settlementException || (!open && !canRenew)) {
     return null;
   }
 

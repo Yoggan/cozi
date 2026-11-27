@@ -73,9 +73,34 @@ Configured in Convex (`pnpm --filter @cozi/backend exec convex env set <KEY> <VA
 
 ---
 
+## Background Payment Reconciliation
+
+The Convex cron checks pending and processing payments at least five minutes old. Every five minutes it can claim up to 20 attempts, with five first checks and five due retries reserved for each status. It issues up to four lookups at once with a 10-second timeout per request. It uses the same provider lookup as manual refresh and applies the shared settlement rules, including the reported transaction amount and payment time when available. Payment links are checked using the link's own status. The cron is disabled when the Pey client is in mock mode.
+
+An attempt gets up to six lookups, with retry delays of 5 minutes, 15 minutes, 1 hour, 4 hours, and 12 hours. Five minutes after the last lookup, a still-open attempt becomes a support issue. The cron never creates a charge or expires a payment based on age alone.
+
+In the Convex dashboard, run the internal query `pey/queries:listReconciliationIssues` with `{"paginationOpts":{"cursor":null,"numItems":50}}`. Use the returned `continueCursor` to see more. The list includes payment and order IDs, method, local status, attempt count, and the reason for review.
+
+- `missing_reference` means there was no stored Pey reference usable by the status lookup.
+- `mock_reference` means the stored reference came from a development mock.
+- `retry_limit` means the payment remained open after the lookup budget was used, whether Pey returned a nonterminal status or a lookup failed.
+
+Use the payment and order IDs to investigate the existing attempt before taking action. A terminal provider update clears the issue, including when a signed webhook arrives late. Attaching provider references also clears the issue and makes the attempt eligible for reconciliation again.
+
 ## Changelog Highlights
 
 - **Bank Accounts API**: Added `POST /bank-account`, `GET /bank-account/:id`, the `bank.account.updated` webhook, and optional `bankAccountId` on `POST /codi/qr` and `POST /codi/pn`.
   - When `bankAccountId` is passed, CoDi funds settle into that registered bank account (must be `ACTIVE`). When omitted, funds settle into the default CoDi payout account linked to the API key.
   - `codi.qr.payment_received` and `codi.pn.payment_received` include `bankAccountId` when one was specified at creation time.
   - `GET /transaction/bank-account/:id` lists only CoDi transactions and includes `externalMetadata`.
+
+---
+
+## Inventory Reservations & Legacy In-Flight Holds
+
+- **Reservation at checkout:** When a business order becomes payable (`beginPayment`), tracked products (`stock !== undefined`) increment `products.reservedStock` atomically and record `payments.reservedItems`. Untracked products (`stock === undefined`) are omitted and remain unlimited.
+- **Consumption & release via canonical reconciliation:** All inventory transitions run inside the shared transactional `settlePayment` path (`closeInventoryReservation` stamps `payments.reservationClosedAt` so each reservation is closed at most once).
+  - Expiring CoDi QRs are reconciled by the canonical `reconciliation.ts` / `paymentLookup.ts` / `reconcilePayments` / `applyProviderStatus` pipeline with no separate per-payment polling loop.
+  - Unpublished QR/link attempts expire after 2 minutes; unpublished `codi_push` attempts with ambiguous provider errors (network/429/5xx) release after 15 minutes (`UNPUBLISHED_PUSH_PAYMENT_MS`), while definitive 4xx rejections release immediately.
+- **Late confirmation after release (`succeeded_after_release`):** If Pey confirms `succeeded` after a tracked reservation was already released and the order is still unpaid, `settlePayment` preserves the confirmed payment (`status: "succeeded"`) and records `settlementException: "succeeded_after_release"` on both `payments` and `orders`. New checkout attempts and cancellation are blocked until reviewed (or cleared if Pey later reports `refunded`).
+- **Legacy in-flight holds:** Payments created before reservations deployed have `reservedItems === undefined`. On settlement, `reconcileOrderInventoryOnSettlement` consumes any active reservations held by newer attempts on the same order first, then deducts any remaining unreserved tracked quantities (including products that enabled stock tracking mid-checkout) clamped to `reservedStock` so unrelated orders' holds are never violated.

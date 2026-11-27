@@ -26,7 +26,7 @@ export interface PeyBankAccountRaw extends PeyRawResponse {
   dateCreated?: number;
 }
 
-export interface PeyCodiChargeRaw extends PeyRawResponse {
+export interface PeyCodiChargeRaw extends PeyPaymentDetails {
   codiQrId?: string;
   qr?: string;
   qrCode?: string;
@@ -42,7 +42,7 @@ export interface PeyCodiChargeRaw extends PeyRawResponse {
   transactions?: Array<PeyTransactionRaw>;
 }
 
-export interface PeyPaymentLinkRaw extends PeyRawResponse {
+export interface PeyPaymentLinkRaw extends PeyPaymentDetails {
   id: string;
   url?: string;
   short_url?: string;
@@ -50,16 +50,20 @@ export interface PeyPaymentLinkRaw extends PeyRawResponse {
   expires_at?: string | number;
   transactionId?: string;
   transaction_id?: string;
+  transactions?: Array<PeyTransactionRaw>;
 }
 
-export interface PeyTransactionRaw extends PeyRawResponse {
+export interface PeyTransactionRaw extends PeyPaymentDetails {
   transactionId?: string;
   codiQrId?: string;
   reference?: string;
   numRef?: string;
+  currency?: string;
+}
+
+export interface PeyPaymentDetails extends PeyRawResponse {
   amount?: number;
   amount_cents?: number;
-  currency?: string;
   datePaid?: string | number;
   paidAt?: string | number;
   paid_at?: string | number;
@@ -114,6 +118,7 @@ export interface CreatePaymentLinkInput {
   currency: "MXN";
   description: string;
   reference: string;
+  attemptId?: string;
   bankAccountId: string;
   expiresInMinutes?: number;
 }
@@ -130,29 +135,23 @@ export interface PeyBankAccountResult {
   institution?: string;
 }
 
-export interface PeyCodiChargeResult {
+export interface PeyCodiChargeResult extends PeyPaymentUpdate {
   id: string;
-  status: PaymentStatus;
   qrImageUrl?: string;
   deepLink?: string;
   expiresAt?: number;
   transactionId?: string;
 }
 
-export interface PeyPaymentLinkResult {
+export interface PeyPaymentLinkResult extends PeyPaymentUpdate {
   id: string;
-  status: PaymentStatus;
   url: string;
   expiresAt?: number;
   transactionId?: string;
 }
 
-export interface PeyTransactionResult {
+export interface PeyTransactionResult extends PeyPaymentUpdate {
   id: string;
-  status: PaymentStatus;
-  amountCents?: number;
-  paidAt?: number;
-  failureReason?: string;
 }
 
 export interface PeyPaymentUpdate {
@@ -164,6 +163,7 @@ export interface PeyPaymentUpdate {
 
 /** Referencias mínimas para consultar el estado real de un pago. */
 export interface PaymentProviderRefs {
+  expiresAt?: number;
   method: PaymentMethod;
   peyReference?: string;
   peyPaymentId?: string;
@@ -178,9 +178,15 @@ export interface PeyClient {
   getBankAccount(id: string): Promise<PeyBankAccountResult>;
   createCodiCharge(input: CreateCodiChargeInput): Promise<PeyCodiChargeResult>;
   createPaymentLink(input: CreatePaymentLinkInput): Promise<PeyPaymentLinkResult>;
-  getCodiCharge(id: string): Promise<PeyCodiChargeResult>;
-  getPaymentLink(id: string): Promise<PeyPaymentLinkResult>;
-  getTransaction(id: string): Promise<PeyTransactionResult>;
+  getCodiCharge(id: string, options?: PaymentLookupOptions): Promise<PeyCodiChargeResult>;
+  getPaymentLink(id: string, options?: PaymentLookupOptions): Promise<PeyPaymentLinkResult>;
+  getTransaction(id: string, signal?: AbortSignal): Promise<PeyTransactionResult>;
+}
+
+export interface PaymentLookupOptions {
+  expectedAmountCents?: number;
+  expiresAt?: number;
+  signal?: AbortSignal;
 }
 
 /** Lo que devuelven las acciones de Convex a Expo y Next.js. */

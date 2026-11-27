@@ -82,6 +82,7 @@ export function Empty({ children }: { children: ReactNode }) {
 
 export function Form<Result>({
   children,
+  id,
   submit,
   submitDisabled = false,
   onSubmit,
@@ -90,6 +91,7 @@ export function Form<Result>({
   variant,
 }: {
   children?: ReactNode;
+  id?: string;
   submit: string;
   submitDisabled?: boolean;
   onSubmit: (data: FormData) => Promise<Result>;
@@ -124,7 +126,7 @@ export function Form<Result>({
   }
 
   return (
-    <form onSubmit={handleSubmit} className={className} aria-busy={busy}>
+    <form id={id} onSubmit={handleSubmit} className={className} aria-busy={busy}>
       <fieldset disabled={busy} className="stack min-w-0">
         {children}
         {error && (

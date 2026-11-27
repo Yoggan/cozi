@@ -14,10 +14,10 @@ catalog:
   sonner: ^2.0.8
   tailwindcss: ^4.3.5
   convex: ^1.49.0
-  better-auth: 1.7.22
-  "@convex-dev/better-auth": ^0.13.0
+  better-auth: 1.7.28
+  "@convex-dev/better-auth": ^0.13.1
   "@tanstack/react-form": ^1.33.5
   "@types/react-dom": ^19.3.0
-  "@better-auth/expo": 1.7.22
+  "@better-auth/expo": 1.7.28
 minimumReleaseAgeExclude:
   - "@cloudflare/oxlint-config@0.1.0"

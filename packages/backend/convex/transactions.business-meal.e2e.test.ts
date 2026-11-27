@@ -338,7 +338,7 @@ describe("E2E: User paying a meal business", () => {
       businessId: cafe.businessId,
     });
 
-    expect(products[0]?.stock).toBe(4);
+    expect(products[0]?.stock).toBe(3);
   });
 
   test("enforces business order guardrails: paused business, missing bank account, stock limits, tips disabled, unauthorized access, and cancellation", async () => {
